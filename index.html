@@ -1,0 +1,707 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Personaje D&D</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Character Header -->
+        <div class="char-header">
+            <div class="char-header-layout">
+                <div class="char-portrait-section">
+                    <div class="char-portrait" id="charPortrait">
+                        <div class="portrait-placeholder">
+                            <span>📷</span>
+                            <p>Click para<br>añadir imagen</p>
+                        </div>
+                        <img id="portraitImg" style="display: none;" alt="Portrait">
+                    </div>
+                    <input type="file" id="portraitInput" accept="image/*" style="display: none;">
+                    <button onclick="document.getElementById('portraitInput').click()" class="btn-small" style="margin-top: 8px;">📷 Cambiar</button>
+                    <button onclick="removePortrait()" class="btn-small btn-delete" style="margin-top: 4px;">✕ Quitar</button>
+                </div>
+                
+                <div class="char-info-section">
+                    <input type="text" id="charName" value="NOMBRE DEL PERSONAJE" class="char-name-input" placeholder="Nombre del personaje">
+                    <div class="char-info-grid">
+                        <div class="info-item">
+                            <label>Raza:</label>
+                            <input type="text" id="charRace" placeholder="Humano">
+                        </div>
+                        <div class="info-item">
+                            <label>Clases:</label>
+                            <input type="text" id="charClasses" placeholder="Clérigo 3 / Bárbaro 4">
+                        </div>
+                        <div class="info-item">
+                            <label>Nivel Total:</label>
+                            <input type="number" id="charLevel" value="1">
+                        </div>
+                        <div class="info-item">
+                            <label>Alineamiento:</label>
+                            <select id="charAlignment">
+                                <option>LG</option><option>NG</option><option>CG</option>
+                                <option>LN</option><option selected>N</option><option>CN</option>
+                                <option>LE</option><option>NE</option><option>CE</option>
+                            </select>
+                        </div>
+                        <div class="info-item">
+                            <label>Deidad:</label>
+                            <input type="text" id="charDeity" placeholder="Ninguna">
+                        </div>
+                        <div class="info-item">
+                            <label>Altura:</label>
+                            <input type="text" id="charHeight" placeholder="5'10''">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- HP & Defenses -->
+        <div class="hp-defense-bar">
+            <div class="hp-section">
+                <label class="section-label">💚 Puntos de Vida</label>
+                <div class="hp-controls">
+                    <div class="hp-field">
+                        <span>Max</span>
+                        <input type="number" id="maxHP" value="100">
+                    </div>
+                    <div class="hp-field">
+                        <span>Daño</span>
+                        <input type="number" id="damage" value="0">
+                    </div>
+                    <div class="hp-field">
+                        <span>No Letal</span>
+                        <input type="number" id="nonLethal" value="0">
+                    </div>
+                    <div class="hp-field">
+                        <span>Temp</span>
+                        <input type="number" id="tempHP" value="0">
+                    </div>
+                </div>
+                <div class="hp-bar">
+                    <div class="hp-fill" id="hpBar">100 / 100</div>
+                </div>
+            </div>
+            
+            <div class="defenses-section">
+                <label class="section-label">🛡️ Defensas</label>
+                <div class="defense-stats">
+                    <div class="def-stat">
+                        <span>AC</span>
+                        <input type="number" id="acTotal" value="10">
+                    </div>
+                    <div class="def-stat">
+                        <span>Touch</span>
+                        <input type="number" id="touchAC" value="10" readonly>
+                    </div>
+                    <div class="def-stat">
+                        <span>Flat</span>
+                        <input type="number" id="flatAC" value="10" readonly>
+                    </div>
+                    <div class="def-stat">
+                        <span>Flat Touch</span>
+                        <input type="number" id="flatTouchAC" value="10" readonly>
+                    </div>
+                    <div class="def-stat">
+                        <span>DR</span>
+                        <input type="text" id="dr" placeholder="5/magic">
+                    </div>
+                    <div class="def-stat">
+                        <span>SR</span>
+                        <input type="number" id="sr" value="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Stats Grid -->
+        <div class="main-grid">
+            <!-- Column 1: Stats -->
+            <div class="section stats-section">
+                <h2>📊 Atributos</h2>
+                <div id="statsContainer"></div>
+            </div>
+
+
+
+            <!-- Column 2: Saves & Combat -->
+            <div class="section-column">
+                <div class="section saves-section">
+                    <h2>🛡️ Salvaciones</h2>
+                    <div class="save-row">
+                        <label>Fort:</label>
+                        <select id="fortStat">
+                            <option value="con">CON</option>
+                            <option value="str">STR</option>
+                            <option value="dex">DEX</option>
+                            <option value="int">INT</option>
+                            <option value="wis">WIS</option>
+                            <option value="cha">CHA</option>
+                        </select>
+                        <input type="number" id="fortBase" value="0" placeholder="Base">
+                        <input type="number" id="fortTotal" value="0" class="total-value">
+                    </div>
+                    
+                    <div class="save-row">
+                        <label>Ref:</label>
+                        <select id="refStat">
+                            <option value="dex">DEX</option>
+                            <option value="str">STR</option>
+                            <option value="con">CON</option>
+                            <option value="int">INT</option>
+                            <option value="wis">WIS</option>
+                            <option value="cha">CHA</option>
+                        </select>
+                        <input type="number" id="refBase" value="0" placeholder="Base">
+                        <input type="number" id="refTotal" value="0" class="total-value">
+                    </div>
+                    
+                    <div class="save-row">
+                        <label>Will:</label>
+                        <select id="willStat">
+                            <option value="wis">WIS</option>
+                            <option value="str">STR</option>
+                            <option value="dex">DEX</option>
+                            <option value="con">CON</option>
+                            <option value="int">INT</option>
+                            <option value="cha">CHA</option>
+                        </select>
+                        <input type="number" id="willBase" value="0" placeholder="Base">
+                        <input type="number" id="willTotal" value="0" class="total-value">
+                    </div>
+                </div>
+
+                <div class="section combat-section">
+                    <h2>⚔️ Combate</h2>
+                    <div class="combat-grid">
+                        <div class="combat-stat">
+                            <span>BAB</span>
+                            <input type="number" id="bab" value="0">
+                        </div>
+                        <div class="combat-stat">
+                            <span>CMB</span>
+                            <input type="number" id="cmb" value="0" readonly>
+                        </div>
+                        <div class="combat-stat">
+                            <span>CMD</span>
+                            <input type="number" id="cmd" value="10" readonly>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 3: Initiative & Speed -->
+            <div class="section init-section">
+                <h2>⚡ Iniciativa & Velocidad</h2>
+                <div class="init-content">
+                    <div class="init-row">
+                        <label>Iniciativa:</label>
+                        <select id="initStat">
+                            <option value="dex">DEX</option>
+                            <option value="int">INT</option>
+                            <option value="wis">WIS</option>
+                            <option value="cha">CHA</option>
+                        </select>
+                        <input type="number" id="initBonus" value="0" placeholder="Bonus">
+                        <input type="number" id="initTotal" value="0" class="total-value" readonly>
+                    </div>
+                    <div class="speed-row">
+                        <label>Velocidad:</label>
+                        <input type="number" id="speed" value="30">
+                        <span class="unit">ft</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attacks Section -->
+        <div class="section wide">
+            <h2>⚔️ Ataques</h2>
+            <div class="attack-header">
+                <span>Arma</span>
+                <span>Bonus Ataque</span>
+                <span>Daño</span>
+                <span>Crítico</span>
+                <span>Tipo</span>
+                <span>Notas</span>
+                <span></span>
+            </div>
+            <div id="attacksList"></div>
+            <div class="btn-group">
+                <button onclick="addAttack('melee')" class="btn-small">➕ Ataque Melee</button>
+                <button onclick="addAttack('ranged')" class="btn-small">➕ Ataque Rango</button>
+            </div>
+        </div>
+
+        <!-- Skills Section -->
+        <div class="section wide">
+            <h2>🎓 Skills</h2>
+            <div class="skill-header">
+                <span>CS</span>
+                <span>Skill</span>
+                <span>Atributo</span>
+                <span>Rangos</span>
+                <span>Misc</span>
+                <span>Total</span>
+            </div>
+            <div id="skillsList" class="skills-container"></div>
+            <button onclick="addCustomSkill()" class="btn-small">➕ Añadir Skill</button>
+        </div>
+
+        <!-- Languages -->
+        <div class="section">
+            <h2>🗣️ Idiomas</h2>
+            <div id="languagesList" class="languages-list"></div>
+            <input type="text" id="newLanguage" placeholder="Nuevo idioma...">
+            <button onclick="addLanguage()" class="btn-small">➕ Añadir</button>
+        </div>
+
+        <!-- Equipment Slots -->
+        <div class="section wide">
+            <h2>🎭 Equipo</h2>
+            <div id="equipmentSlots"></div>
+            <button onclick="addSlot()" class="btn-small">➕ Añadir Slot</button>
+        </div>
+
+        <!-- Inventory -->
+        <div class="section wide">
+            <h2>📦 Inventario</h2>
+            <div class="inv-header">
+                <span>Item</span>
+                <span>Cant</span>
+                <span>Cargas</span>
+                <span>CL</span>
+                <span>DC</span>
+                <span>Nota</span>
+                <span></span>
+            </div>
+            <div id="inventoryList"></div>
+            <div class="inv-add">
+                <input type="text" id="newItem" placeholder="Item">
+                <input type="number" id="newQty" value="1">
+                <input type="number" id="newCharges" value="0">
+                <input type="number" id="newCL" value="0">
+                <input type="number" id="newDC" value="0">
+                <input type="text" id="newNote" placeholder="Nota">
+                <button onclick="addItem()">➕</button>
+            </div>
+        </div>
+
+        <!-- Class Abilities -->
+        <div class="section wide">
+            <h2>🎭 Habilidades de Clase</h2>
+            <div id="abilitiesList"></div>
+            <input type="text" id="newAbility" placeholder="Nueva habilidad">
+            <textarea id="newAbilityDesc" placeholder="Descripción"></textarea>
+            <button onclick="addAbility()">➕ Añadir</button>
+        </div>
+
+        <!-- Feats -->
+        <div class="section wide">
+            <h2>⭐ Feats</h2>
+            <div id="featsList" class="feats-list"></div>
+            <input type="text" id="newFeat" placeholder="Nuevo feat">
+            <button onclick="addFeat()">➕ Añadir</button>
+        </div>
+
+        <!-- Breakdown Section -->
+        <div class="section wide breakdown-section">
+            <h2 onclick="toggleBreakdown()">📋 Desglose de Bonificadores <span id="breakdownToggle">▼</span></h2>
+            <div id="breakdownContainer">
+                
+                <!-- AC Breakdown -->
+                <div class="breakdown-category">
+                    <div class="breakdown-header">
+                        <h3>Armor Class (AC)</h3>
+                        <div class="breakdown-header-actions">
+                            <button onclick="clearSection('ac')" class="btn-clear-section">🗑️ Limpiar</button>
+                            <button onclick="addBonus('ac')" class="btn-add-bonus">➕ Añadir Bonus</button>
+                        </div>
+                    </div>
+                    <div class="breakdown-list-header">
+                        <span style="flex: 2;">Fuente del Bonus</span>
+                        <span style="width: 80px;">Cantidad</span>
+                        <span style="width: 120px;">Tipo</span>
+                        <span style="width: 40px;"></span>
+                    </div>
+                    <div id="acBonusList"></div>
+                </div>
+
+                <!-- Saves Breakdown -->
+                <div class="breakdown-category">
+                    <div class="breakdown-header">
+                        <h3>Saving Throws (ST)</h3>
+                        <button onclick="clearSection('saves')" class="btn-clear-section">🗑️ Limpiar Todas</button>
+                    </div>
+                    
+                    <div class="breakdown-subsection">
+                        <div class="breakdown-subheader">
+                            <h4>General (Aplica a todos)</h4>
+                            <button onclick="addBonus('saveGeneral')" class="btn-add-bonus-small">➕ Añadir</button>
+                        </div>
+                        <div class="breakdown-list-header">
+                            <span style="flex: 2;">Fuente del Bonus</span>
+                            <span style="width: 80px;">Cantidad</span>
+                            <span style="width: 120px;">Tipo</span>
+                            <span style="width: 100px;">Aplica a</span>
+                            <span style="width: 40px;"></span>
+                        </div>
+                        <div id="saveGeneralList"></div>
+                    </div>
+
+                    <div class="breakdown-subsection">
+                        <div class="breakdown-subheader">
+                            <h4>Fortitude</h4>
+                            <button onclick="addBonus('fort')" class="btn-add-bonus-small">➕ Añadir</button>
+                        </div>
+                        <div class="breakdown-list-header">
+                            <span style="flex: 2;">Fuente del Bonus</span>
+                            <span style="width: 80px;">Cantidad</span>
+                            <span style="width: 40px;"></span>
+                        </div>
+                        <div id="fortBonusList"></div>
+                    </div>
+
+                    <div class="breakdown-subsection">
+                        <div class="breakdown-subheader">
+                            <h4>Reflex</h4>
+                            <button onclick="addBonus('ref')" class="btn-add-bonus-small">➕ Añadir</button>
+                        </div>
+                        <div class="breakdown-list-header">
+                            <span style="flex: 2;">Fuente del Bonus</span>
+                            <span style="width: 80px;">Cantidad</span>
+                            <span style="width: 40px;"></span>
+                        </div>
+                        <div id="refBonusList"></div>
+                    </div>
+
+                    <div class="breakdown-subsection">
+                        <div class="breakdown-subheader">
+                            <h4>Will</h4>
+                            <button onclick="addBonus('will')" class="btn-add-bonus-small">➕ Añadir</button>
+                        </div>
+                        <div class="breakdown-list-header">
+                            <span style="flex: 2;">Fuente del Bonus</span>
+                            <span style="width: 80px;">Cantidad</span>
+                            <span style="width: 40px;"></span>
+                        </div>
+                        <div id="willBonusList"></div>
+                    </div>
+                </div>
+
+                <!-- Attack Breakdown -->
+                <div class="breakdown-category">
+                    <div class="breakdown-header">
+                        <h3>Ataque</h3>
+                        <div class="breakdown-header-actions">
+                            <button onclick="clearSection('attack')" class="btn-clear-section">🗑️ Limpiar</button>
+                            <button onclick="addBonus('attack')" class="btn-add-bonus">➕ Añadir Bonus</button>
+                        </div>
+                    </div>
+                    <div class="breakdown-list-header">
+                        <span style="flex: 2;">Fuente del Bonus</span>
+                        <span style="width: 80px;">Cantidad</span>
+                        <span style="width: 120px;">Tipo</span>
+                        <span style="width: 40px;"></span>
+                    </div>
+                    <div id="attackBonusList"></div>
+                </div>
+
+                <!-- Custom Breakdowns -->
+                <div id="customBreakdowns"></div>
+
+                <!-- Add Custom Section Button -->
+                <div style="text-align: center; margin-top: 20px; padding: 20px; border-top: 2px solid rgba(78,205,196,0.3);">
+                    <button onclick="addCustomBreakdown()" style="padding: 10px 20px;">➕ Añadir Sección Personalizada</button>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Events Section -->
+        <div class="section wide">
+            <h2 onclick="toggleEvents()">📜 Eventos de Sesión <span id="eventToggle">▼</span></h2>
+            <div id="eventsContainer">
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="text" id="eventInput" placeholder="Agregar evento..." style="flex: 1;">
+                    <button onclick="addEvent()">➕</button>
+                </div>
+                <div id="eventLog" class="event-log"></div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="btn-group">
+            <button onclick="saveChar()">💾 Guardar</button>
+            <button onclick="loadChar()">📂 Cargar</button>
+            <button onclick="exportEvents()">📄 Exportar Eventos</button>
+            <button onclick="loadEvents()" class="danger">📥 Cargar Eventos</button>
+            <button onclick="clearAll()" class="btn-clear-all">🗑️ Limpiar Todo el Personaje</button>
+        </div>
+    </div>
+
+    <script src="character.js"></script>
+	<script>
+	// ============= CÓDIGO PARA SERVIDOR REPLIT =============
+
+	const USE_SERVER = true;
+	const SERVER_URL = '';
+
+	// Obtener player ID
+	function getPlayerId() {
+		const urlParams = new URLSearchParams(window.location.search);
+		const playerId = urlParams.get('player');
+		
+		if (!playerId && USE_SERVER) {
+			const newPlayerId = prompt('🎲 Ingresa tu nombre de jugador (sin espacios):');
+			if (newPlayerId && /^[a-zA-Z0-9_-]+$/.test(newPlayerId)) {
+				window.location.search = `?player=${newPlayerId}`;
+			}
+			return null;
+		}
+		
+		return playerId || 'local';
+	}
+
+	// Indicador visual del jugador
+	function updatePlayerUI() {
+		const playerId = getPlayerId();
+		if (!playerId || !USE_SERVER) return;
+		
+		let indicator = document.getElementById('playerIndicator');
+		if (!indicator) {
+			indicator = document.createElement('div');
+			indicator.id = 'playerIndicator';
+			indicator.style.cssText = `
+				position: fixed;
+				top: 10px;
+				right: 10px;
+				background: linear-gradient(135deg, #4ecdc4, #45b8b0);
+				color: #1a1a1a;
+				padding: 8px 16px;
+				border-radius: 20px;
+				font-weight: bold;
+				font-size: 12px;
+				box-shadow: 0 4px 12px rgba(78,205,196,0.4);
+				z-index: 10000;
+			`;
+			document.body.appendChild(indicator);
+		}
+		
+		indicator.innerHTML = `👤 ${playerId}`;
+	}
+
+	// Guardar en servidor
+	async function saveToServer() {
+		if (!USE_SERVER) return;
+		const playerId = getPlayerId();
+		if (!playerId) return;
+		
+		try {
+			const response = await fetch(`${SERVER_URL}/api/save?player=${playerId}`, {
+				method: 'POST',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify(state)
+			});
+			
+			if (response.ok) {
+				console.log('✓ Guardado en servidor');
+			}
+		} catch (err) {
+			console.error('Error guardando:', err);
+			localStorage.setItem('dnd_char', JSON.stringify(state));
+		}
+	}
+
+	// Cargar desde servidor
+	async function loadFromServer() {
+		if (!USE_SERVER) {
+			load();
+			return;
+		}
+		
+		const playerId = getPlayerId();
+		if (!playerId) return;
+		
+		try {
+			const response = await fetch(`${SERVER_URL}/api/load?player=${playerId}`);
+			
+			if (response.ok) {
+				const data = await response.json();
+				state = {...state, ...data};
+				render();
+				console.log('✓ Personaje cargado');
+			} else if (response.status === 404) {
+				console.log('! Personaje nuevo');
+				render();
+			}
+		} catch (err) {
+			console.error('Error cargando:', err);
+			load();
+		}
+	}
+
+	// Guardar evento en tiempo real
+	async function saveEventToServer(eventText, timestamp) {
+		if (!USE_SERVER) return;
+		const playerId = getPlayerId();
+		if (!playerId) return;
+		
+		try {
+			await fetch(`${SERVER_URL}/api/event?player=${playerId}`, {
+				method: 'POST',
+				headers: {'Content-Type': 'application/json'},
+				body: JSON.stringify({
+					text: eventText,
+					timestamp: timestamp,
+					charName: state.name,
+					charClasses: state.classes
+				})
+			});
+		} catch (err) {
+			console.error('Error guardando evento:', err);
+		}
+	}
+
+	// Modificar addEvent original
+	const originalAddEvent = window.addEvent;
+	window.addEvent = function() {
+		const inp = document.getElementById('eventInput');
+		const txt = inp.value.trim();
+		if (!txt) return;
+		
+		const now = new Date();
+		const t = now.toLocaleString('es-ES', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+		
+		state.events.push({t: t, txt: txt, id: Date.now()});
+		inp.value = '';
+		renderEvents();
+		save();
+		
+		// Guardar en servidor inmediatamente
+		saveEventToServer(txt, t);
+	};
+
+	// Modificar save original
+	const originalSave = window.save;
+	window.save = function() {
+		originalSave();
+		if (USE_SERVER) {
+			saveToServer();
+		}
+	};
+
+	// Exportar JSON
+	function exportCharacterJSON() {
+		const playerId = getPlayerId();
+		if (USE_SERVER && playerId) {
+			window.location.href = `/api/export?player=${playerId}`;
+		} else {
+			const dataStr = JSON.stringify(state, null, 2);
+			const blob = new Blob([dataStr], {type: 'application/json'});
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `${state.name}_${Date.now()}.json`;
+			a.click();
+		}
+	}
+
+	// Importar JSON
+	function importCharacterJSON() {
+		const input = document.createElement('input');
+		input.type = 'file';
+		input.accept = '.json';
+		
+		input.onchange = async (e) => {
+			const file = e.target.files[0];
+			if (!file) return;
+			
+			const reader = new FileReader();
+			reader.onload = async (event) => {
+				try {
+					const importedData = JSON.parse(event.target.result);
+					
+					if (!confirm('¿Importar este personaje? Reemplazará el actual.')) {
+						return;
+					}
+					
+					if (USE_SERVER) {
+						const playerId = getPlayerId();
+						if (playerId) {
+							const response = await fetch(`${SERVER_URL}/api/import?player=${playerId}`, {
+								method: 'POST',
+								headers: {'Content-Type': 'application/json'},
+								body: JSON.stringify(importedData)
+							});
+							
+							if (response.ok) {
+								state = {...state, ...importedData};
+								render();
+								save();
+								alert('✓ Personaje importado');
+								return;
+							}
+						}
+					}
+					
+					state = {...state, ...importedData};
+					render();
+					save();
+					alert('✓ Personaje importado');
+					
+				} catch (err) {
+					alert('Error: Archivo JSON inválido');
+				}
+			};
+			reader.readAsText(file);
+		};
+		
+		input.click();
+	}
+
+	// Agregar botones
+	function addServerButtons() {
+		const btnGroup = document.querySelector('.btn-group');
+		if (!btnGroup) return;
+		
+		// Buscar si ya existen
+		if (document.getElementById('btnExportJSON')) return;
+		
+		const btnExportJSON = document.createElement('button');
+		btnExportJSON.id = 'btnExportJSON';
+		btnExportJSON.textContent = '📦 Exportar JSON';
+		btnExportJSON.onclick = exportCharacterJSON;
+		
+		const btnImportJSON = document.createElement('button');
+		btnImportJSON.id = 'btnImportJSON';
+		btnImportJSON.textContent = '📥 Importar JSON';
+		btnImportJSON.onclick = importCharacterJSON;
+		
+		btnGroup.insertBefore(btnImportJSON, btnGroup.children[2]);
+		btnGroup.insertBefore(btnExportJSON, btnGroup.children[2]);
+	}
+
+	// Inicializar
+	window.addEventListener('DOMContentLoaded', () => {
+		updatePlayerUI();
+		addServerButtons();
+		
+		if (USE_SERVER) {
+			loadFromServer();
+			setInterval(() => saveToServer(), 30000); // Auto-save cada 30s
+		}
+	});
+
+	console.log('🎲 Sistema multiusuario activado');
+	console.log('📍 Player:', getPlayerId());
+	</script>
+
+</body>
+</html>
+</body>
+</html>
