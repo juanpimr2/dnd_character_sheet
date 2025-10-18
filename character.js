@@ -860,41 +860,136 @@ function save() {
     localStorage.setItem('dnd_char', JSON.stringify(state));
 }
 
+// REEMPLAZA la función load() en character.js con esta versión mejorada:
+
 function load() {
-    const s = localStorage.getItem('dnd_char');
-    if (s) {
-        const loaded = JSON.parse(s);
-        state = {...state, ...loaded};
-        
-        document.getElementById('charName').value = state.name;
-        document.getElementById('charRace').value = state.race;
-        document.getElementById('charClasses').value = state.classes;
-        document.getElementById('charLevel').value =state.level;
-        document.getElementById('charAlignment').value = state.alignment;
-        document.getElementById('charDeity').value = state.deity;
-        document.getElementById('charHeight').value = state.height;
-        
-        document.getElementById('maxHP').value = state.maxHP;
-        document.getElementById('damage').value = state.damage;
-        document.getElementById('nonLethal').value = state.nonLethal;
-        document.getElementById('tempHP').value = state.tempHP;
-        document.getElementById('acTotal').value = state.ac;
-        document.getElementById('dr').value = state.dr;
-        document.getElementById('sr').value = state.sr;
-        document.getElementById('bab').value = state.bab;
-        document.getElementById('fortBase').value = state.saves.fort.base;
-        document.getElementById('refBase').value = state.saves.ref.base;
-        document.getElementById('willBase').value = state.saves.will.base;
-        document.getElementById('fortStat').value = state.saves.fort.stat;
-        document.getElementById('refStat').value = state.saves.ref.stat;
-        document.getElementById('willStat').value = state.saves.will.stat;
-        document.getElementById('fortTotal').value = state.saves.fort.total;
-        document.getElementById('refTotal').value = state.saves.ref.total;
-        document.getElementById('willTotal').value = state.saves.will.total;
-        document.getElementById('initBonus').value = state.init.bonus;
-        document.getElementById('initStat').value = state.init.stat;
-        document.getElementById('speed').value = state.speed;
+    console.log('🔄 Ejecutando load() desde character.js');
+    
+    // Intentar obtener player ID
+    const urlParams = new URLSearchParams(window.location.search);
+    const playerId = urlParams.get('player') || localStorage.getItem('current_player_id') || 'local';
+    
+    console.log('📍 Player ID detectado:', playerId);
+    
+    // Intentar cargar desde múltiples fuentes en orden de prioridad
+    let loaded = false;
+    
+    // 1. Intento: localStorage específico del jugador
+    const playerSpecific = localStorage.getItem(`dnd_char_${playerId}`);
+    if (playerSpecific) {
+        try {
+            const loadedState = JSON.parse(playerSpecific);
+            state = {...state, ...loadedState};
+            console.log('✅ Cargado desde localStorage específico:', playerId);
+            loaded = true;
+        } catch (err) {
+            console.error('Error parseando localStorage específico:', err);
+        }
     }
+    
+    // 2. Intento: localStorage general
+    if (!loaded) {
+        const generalData = localStorage.getItem('dnd_char');
+        if (generalData) {
+            try {
+                const loadedState = JSON.parse(generalData);
+                state = {...state, ...loadedState};
+                console.log('✅ Cargado desde localStorage general');
+                loaded = true;
+            } catch (err) {
+                console.error('Error parseando localStorage general:', err);
+            }
+        }
+    }
+    
+    // 3. Intento: Backup con timestamp
+    if (!loaded) {
+        const backup = localStorage.getItem(`dnd_char_backup_${playerId}`);
+        if (backup) {
+            try {
+                const backupData = JSON.parse(backup);
+                state = {...state, ...backupData.state};
+                console.log('✅ Cargado desde backup:', new Date(backupData.timestamp).toLocaleString());
+                loaded = true;
+            } catch (err) {
+                console.error('Error parseando backup:', err);
+            }
+        }
+    }
+    
+    if (loaded) {
+        // Actualizar todos los campos del DOM
+        document.getElementById('charName').value = state.name || 'NOMBRE DEL PERSONAJE';
+        document.getElementById('charRace').value = state.race || '';
+        document.getElementById('charClasses').value = state.classes || '';
+        document.getElementById('charLevel').value = state.level || 1;
+        document.getElementById('charAlignment').value = state.alignment || 'N';
+        document.getElementById('charDeity').value = state.deity || '';
+        document.getElementById('charHeight').value = state.height || '';
+        
+        document.getElementById('maxHP').value = state.maxHP || 100;
+        document.getElementById('damage').value = state.damage || 0;
+        document.getElementById('nonLethal').value = state.nonLethal || 0;
+        document.getElementById('tempHP').value = state.tempHP || 0;
+        document.getElementById('acTotal').value = state.ac || 10;
+        document.getElementById('dr').value = state.dr || '';
+        document.getElementById('sr').value = state.sr || 0;
+        document.getElementById('bab').value = state.bab || 0;
+        document.getElementById('fortBase').value = state.saves.fort.base || 0;
+        document.getElementById('refBase').value = state.saves.ref.base || 0;
+        document.getElementById('willBase').value = state.saves.will.base || 0;
+        document.getElementById('fortStat').value = state.saves.fort.stat || 'con';
+        document.getElementById('refStat').value = state.saves.ref.stat || 'dex';
+        document.getElementById('willStat').value = state.saves.will.stat || 'wis';
+        document.getElementById('fortTotal').value = state.saves.fort.total || 0;
+        document.getElementById('refTotal').value = state.saves.ref.total || 0;
+        document.getElementById('willTotal').value = state.saves.will.total || 0;
+        document.getElementById('initBonus').value = state.init.bonus || 0;
+        document.getElementById('initStat').value = state.init.stat || 'dex';
+        document.getElementById('speed').value = state.speed || 30;
+        
+        console.log('✅ Datos cargados en DOM - Personaje:', state.name);
+    } else {
+        console.log('ℹ️ No hay datos guardados - Personaje nuevo');
+    }
+}
+
+// REEMPLAZA también la función save() para asegurar triple guardado:
+
+function save() {
+    // Capturar todos los valores actuales del DOM
+    state.name = document.getElementById('charName').value || "";
+    state.race = document.getElementById('charRace').value || "";
+    state.classes = document.getElementById('charClasses').value || "";
+    state.level = +document.getElementById('charLevel').value || 1;
+    state.alignment = document.getElementById('charAlignment').value || "N";
+    state.deity = document.getElementById('charDeity').value || "";
+    state.height = document.getElementById('charHeight').value || "";
+    
+    state.maxHP = +document.getElementById('maxHP').value || 100;
+    state.damage = +document.getElementById('damage').value || 0;
+    state.nonLethal = +document.getElementById('nonLethal').value || 0;
+    state.tempHP = +document.getElementById('tempHP').value || 0;
+    state.ac = +document.getElementById('acTotal').value || 10;
+    state.dr = document.getElementById('dr').value || "";
+    state.sr = +document.getElementById('sr').value || 0;
+    state.bab = +document.getElementById('bab').value || 0;
+    state.speed = +document.getElementById('speed').value || 30;
+    
+    // Obtener player ID para guardado específico
+    const urlParams = new URLSearchParams(window.location.search);
+    const playerId = urlParams.get('player') || localStorage.getItem('current_player_id') || 'local';
+    
+    // Triple guardado para máxima seguridad
+    localStorage.setItem('dnd_char', JSON.stringify(state));
+    localStorage.setItem(`dnd_char_${playerId}`, JSON.stringify(state));
+    localStorage.setItem(`dnd_char_backup_${playerId}`, JSON.stringify({
+        state: state,
+        timestamp: Date.now(),
+        player: playerId
+    }));
+    
+    console.log('💾 Guardado en localStorage (triple backup)');
 }
 
 function saveChar() {
