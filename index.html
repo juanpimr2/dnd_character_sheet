@@ -446,260 +446,527 @@
 
     <script src="character.js"></script>
 	<script>
-	// ============= CÓDIGO PARA SERVIDOR REPLIT =============
+    // ============= CÓDIGO MEJORADO PARA index.html =============
+    // Reemplaza todo el <script> al final de index.html con este código:
 
-	const USE_SERVER = true;
-	const SERVER_URL = '';
+    const USE_SERVER = true;
+    const SERVER_URL = '';
 
-	// Obtener player ID
-	function getPlayerId() {
-		const urlParams = new URLSearchParams(window.location.search);
-		const playerId = urlParams.get('player');
-		
-		if (!playerId && USE_SERVER) {
-			const newPlayerId = prompt('🎲 Ingresa tu nombre de jugador (sin espacios):');
-			if (newPlayerId && /^[a-zA-Z0-9_-]+$/.test(newPlayerId)) {
-				window.location.search = `?player=${newPlayerId}`;
-			}
-			return null;
-		}
-		
-		return playerId || 'local';
-	}
+    // ========== MODAL PROFESIONAL PARA NOMBRE DE JUGADOR ==========
+    function showPlayerModal() {
+        const existingModal = document.getElementById('playerModal');
+        if (existingModal) return;
+        
+        const modal = document.createElement('div');
+        modal.id = 'playerModal';
+        modal.innerHTML = `
+            <style>
+                #playerModal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background: rgba(0, 0, 0, 0.85);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 99999;
+                    backdrop-filter: blur(8px);
+                }
+                .player-modal-content {
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    padding: 40px;
+                    border-radius: 16px;
+                    border: 2px solid rgba(78, 205, 196, 0.5);
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8);
+                    max-width: 450px;
+                    width: 90%;
+                    text-align: center;
+                    animation: modalSlideIn 0.3s ease-out;
+                }
+                @keyframes modalSlideIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-20px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .player-modal-content h2 {
+                    color: #4ecdc4;
+                    margin-bottom: 10px;
+                    font-size: 28px;
+                }
+                .player-modal-content p {
+                    color: #b0b0b0;
+                    margin-bottom: 25px;
+                    font-size: 14px;
+                }
+                .player-modal-input {
+                    width: 100%;
+                    padding: 14px;
+                    font-size: 16px;
+                    border: 2px solid rgba(78, 205, 196, 0.4);
+                    background: rgba(20, 20, 30, 0.8);
+                    color: #fff;
+                    border-radius: 8px;
+                    margin-bottom: 20px;
+                    transition: all 0.3s;
+                    box-sizing: border-box;
+                }
+                .player-modal-input:focus {
+                    outline: none;
+                    border-color: #4ecdc4;
+                    box-shadow: 0 0 12px rgba(78, 205, 196, 0.4);
+                }
+                .player-modal-error {
+                    color: #ff6b6b;
+                    font-size: 13px;
+                    margin-top: -15px;
+                    margin-bottom: 15px;
+                    display: none;
+                }
+                .player-modal-btn {
+                    width: 100%;
+                    padding: 14px;
+                    background: linear-gradient(135deg, #4ecdc4, #45b8b0);
+                    color: #1a1a1a;
+                    border: none;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    transition: all 0.3s;
+                }
+                .player-modal-btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 16px rgba(78, 205, 196, 0.5);
+                }
+                .player-modal-btn:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                    transform: none;
+                }
+            </style>
+            <div class="player-modal-content">
+                <h2>🎲 Bienvenido</h2>
+                <p>Ingresa tu nombre de jugador para continuar</p>
+                <input 
+                    type="text" 
+                    id="playerNameInput" 
+                    class="player-modal-input" 
+                    placeholder="Ejemplo: Gandalf, Aragorn, etc."
+                    maxlength="20"
+                    autocomplete="off"
+                >
+                <div id="playerModalError" class="player-modal-error">
+                    ⚠️ Usa solo letras, números, guiones y guiones bajos
+                </div>
+                <button id="playerModalBtn" class="player-modal-btn">
+                    Entrar 🚀
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const input = document.getElementById('playerNameInput');
+        const btn = document.getElementById('playerModalBtn');
+        const error = document.getElementById('playerModalError');
+        
+        // Validación en tiempo real
+        input.addEventListener('input', () => {
+            const value = input.value.trim();
+            const isValid = /^[a-zA-Z0-9_-]+$/.test(value) && value.length >= 3;
+            
+            if (value.length > 0 && !isValid) {
+                error.style.display = 'block';
+                btn.disabled = true;
+            } else {
+                error.style.display = 'none';
+                btn.disabled = value.length < 3;
+            }
+        });
+        
+        // Submit con Enter
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !btn.disabled) {
+                submitPlayerName();
+            }
+        });
+        
+        btn.addEventListener('click', submitPlayerName);
+        
+        function submitPlayerName() {
+            const playerName = input.value.trim();
+            if (playerName && /^[a-zA-Z0-9_-]+$/.test(playerName) && playerName.length >= 3) {
+                modal.style.animation = 'modalSlideOut 0.3s ease-in';
+                setTimeout(() => {
+                    modal.remove();
+                    window.location.search = `?player=${playerName}`;
+                }, 300);
+            }
+        }
+        
+        // Focus automático
+        setTimeout(() => input.focus(), 100);
+    }
 
-	// Indicador visual del jugador
-	function updatePlayerUI() {
-		const playerId = getPlayerId();
-		if (!playerId || !USE_SERVER) return;
-		
-		let indicator = document.getElementById('playerIndicator');
-		if (!indicator) {
-			indicator = document.createElement('div');
-			indicator.id = 'playerIndicator';
-			indicator.style.cssText = `
-				position: fixed;
-				top: 10px;
-				right: 10px;
-				background: linear-gradient(135deg, #4ecdc4, #45b8b0);
-				color: #1a1a1a;
-				padding: 8px 16px;
-				border-radius: 20px;
-				font-weight: bold;
-				font-size: 12px;
-				box-shadow: 0 4px 12px rgba(78,205,196,0.4);
-				z-index: 10000;
-			`;
-			document.body.appendChild(indicator);
-		}
-		
-		indicator.innerHTML = `👤 ${playerId}`;
-	}
+    // Obtener player ID
+    function getPlayerId() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerId = urlParams.get('player');
+        
+        if (!playerId && USE_SERVER) {
+            showPlayerModal();
+            return null;
+        }
+        
+        return playerId || 'local';
+    }
 
-	// Guardar en servidor
-	async function saveToServer() {
-		if (!USE_SERVER) return;
-		const playerId = getPlayerId();
-		if (!playerId) return;
-		
-		try {
-			const response = await fetch(`${SERVER_URL}/api/save?player=${playerId}`, {
-				method: 'POST',
-				headers: {'Content-Type': 'application/json'},
-				body: JSON.stringify(state)
-			});
-			
-			if (response.ok) {
-				console.log('✓ Guardado en servidor');
-			}
-		} catch (err) {
-			console.error('Error guardando:', err);
-			localStorage.setItem('dnd_char', JSON.stringify(state));
-		}
-	}
+    // ========== INDICADOR VISUAL MEJORADO ==========
+    function updatePlayerUI() {
+        const playerId = getPlayerId();
+        if (!playerId || !USE_SERVER) return;
+        
+        let indicator = document.getElementById('playerIndicator');
+        if (!indicator) {
+            indicator = document.createElement('div');
+            indicator.id = 'playerIndicator';
+            indicator.style.cssText = `
+                position: fixed;
+                top: 15px;
+                right: 15px;
+                background: linear-gradient(135deg, #4ecdc4, #45b8b0);
+                color: #1a1a1a;
+                padding: 10px 18px;
+                border-radius: 25px;
+                font-weight: bold;
+                font-size: 13px;
+                box-shadow: 0 4px 12px rgba(78,205,196,0.4);
+                z-index: 10000;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: all 0.3s;
+                cursor: pointer;
+            `;
+            indicator.innerHTML = `
+                <span>👤</span>
+                <span id="playerName">${playerId}</span>
+                <span id="saveStatus" style="font-size: 10px; opacity: 0.7;">💾</span>
+            `;
+            document.body.appendChild(indicator);
+            
+            // Tooltip al hover
+            indicator.title = 'Click para cambiar de jugador';
+            indicator.addEventListener('click', () => {
+                if (confirm('¿Cambiar de jugador? (Guarda primero si tienes cambios)')) {
+                    window.location.search = '';
+                }
+            });
+        }
+    }
 
-	// Cargar desde servidor
-	async function loadFromServer() {
-		if (!USE_SERVER) {
-			load();
-			return;
-		}
-		
-		const playerId = getPlayerId();
-		if (!playerId) return;
-		
-		try {
-			const response = await fetch(`${SERVER_URL}/api/load?player=${playerId}`);
-			
-			if (response.ok) {
-				const data = await response.json();
-				state = {...state, ...data};
-				render();
-				console.log('✓ Personaje cargado');
-			} else if (response.status === 404) {
-				console.log('! Personaje nuevo');
-				render();
-			}
-		} catch (err) {
-			console.error('Error cargando:', err);
-			load();
-		}
-	}
+    // ========== STATUS DE GUARDADO EN TIEMPO REAL ==========
+    function updateSaveStatus(status) {
+        const saveStatus = document.getElementById('saveStatus');
+        if (!saveStatus) return;
+        
+        const statusMap = {
+            'saving': '💾',
+            'saved': '✅',
+            'error': '⚠️'
+        };
+        
+        saveStatus.textContent = statusMap[status] || '💾';
+        
+        if (status === 'saved') {
+            setTimeout(() => {
+                saveStatus.textContent = '💾';
+            }, 2000);
+        }
+    }
 
-	// Guardar evento en tiempo real
-	async function saveEventToServer(eventText, timestamp) {
-		if (!USE_SERVER) return;
-		const playerId = getPlayerId();
-		if (!playerId) return;
-		
-		try {
-			await fetch(`${SERVER_URL}/api/event?player=${playerId}`, {
-				method: 'POST',
-				headers: {'Content-Type': 'application/json'},
-				body: JSON.stringify({
-					text: eventText,
-					timestamp: timestamp,
-					charName: state.name,
-					charClasses: state.classes
-				})
-			});
-		} catch (err) {
-			console.error('Error guardando evento:', err);
-		}
-	}
+    // ========== GUARDAR EN SERVIDOR CON PERSISTENCIA TOTAL ==========
+    let saveTimeout = null;
+    let isSaving = false;
 
-	// Modificar addEvent original
-	const originalAddEvent = window.addEvent;
-	window.addEvent = function() {
-		const inp = document.getElementById('eventInput');
-		const txt = inp.value.trim();
-		if (!txt) return;
-		
-		const now = new Date();
-		const t = now.toLocaleString('es-ES', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
-		
-		state.events.push({t: t, txt: txt, id: Date.now()});
-		inp.value = '';
-		renderEvents();
-		save();
-		
-		// Guardar en servidor inmediatamente
-		saveEventToServer(txt, t);
-	};
+    async function saveToServer() {
+        if (!USE_SERVER) return;
+        const playerId = getPlayerId();
+        if (!playerId || isSaving) return;
+        
+        // Debounce para evitar múltiples guardados simultáneos
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+            isSaving = true;
+            updateSaveStatus('saving');
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/save?player=${playerId}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(state)
+                });
+                
+                if (response.ok) {
+                    console.log('✅ Guardado en servidor:', new Date().toLocaleTimeString());
+                    updateSaveStatus('saved');
+                    
+                    // IMPORTANTE: También guardar en localStorage como backup
+                    localStorage.setItem('dnd_char', JSON.stringify(state));
+                    localStorage.setItem(`dnd_char_backup_${playerId}`, JSON.stringify({
+                        state: state,
+                        timestamp: Date.now()
+                    }));
+                } else {
+                    throw new Error('Server response not OK');
+                }
+            } catch (err) {
+                console.error('⚠️ Error guardando en servidor, usando localStorage:', err);
+                updateSaveStatus('error');
+                
+                // Fallback a localStorage si el servidor falla
+                localStorage.setItem('dnd_char', JSON.stringify(state));
+                localStorage.setItem(`dnd_char_backup_${playerId}`, JSON.stringify({
+                    state: state,
+                    timestamp: Date.now()
+                }));
+            } finally {
+                isSaving = false;
+            }
+        }, 500); // Esperar 500ms antes de guardar
+    }
 
-	// Modificar save original
-	const originalSave = window.save;
-	window.save = function() {
-		originalSave();
-		if (USE_SERVER) {
-			saveToServer();
-		}
-	};
+    // ========== CARGAR CON SISTEMA DE RECUPERACIÓN ==========
+    async function loadFromServer() {
+        if (!USE_SERVER) {
+            load();
+            return;
+        }
+        
+        const playerId = getPlayerId();
+        if (!playerId) return;
+        
+        try {
+            const response = await fetch(`${SERVER_URL}/api/load?player=${playerId}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                state = {...state, ...data};
+                render();
+                console.log('✅ Personaje cargado desde servidor');
+                
+                // Guardar en localStorage como backup
+                localStorage.setItem('dnd_char', JSON.stringify(state));
+            } else if (response.status === 404) {
+                // Intentar cargar desde backup local
+                const localBackup = localStorage.getItem(`dnd_char_backup_${playerId}`);
+                if (localBackup) {
+                    const backup = JSON.parse(localBackup);
+                    if (confirm('⚠️ No hay datos en servidor. ¿Restaurar desde backup local?')) {
+                        state = {...state, ...backup.state};
+                        render();
+                        saveToServer(); // Subir el backup al servidor
+                        console.log('✅ Restaurado desde backup local');
+                    }
+                } else {
+                    console.log('ℹ️ Personaje nuevo - comenzando desde cero');
+                    render();
+                }
+            }
+        } catch (err) {
+            console.error('⚠️ Error cargando desde servidor:', err);
+            
+            // Intentar cargar desde localStorage
+            const localData = localStorage.getItem('dnd_char');
+            const localBackup = localStorage.getItem(`dnd_char_backup_${playerId}`);
+            
+            if (localBackup) {
+                const backup = JSON.parse(localBackup);
+                state = {...state, ...backup.state};
+                console.log('✅ Cargado desde backup local (servidor offline)');
+            } else if (localData) {
+                state = {...state, ...JSON.parse(localData)};
+                console.log('✅ Cargado desde localStorage');
+            }
+            
+            render();
+        }
+    }
 
-	// Exportar JSON
-	function exportCharacterJSON() {
-		const playerId = getPlayerId();
-		if (USE_SERVER && playerId) {
-			window.location.href = `/api/export?player=${playerId}`;
-		} else {
-			const dataStr = JSON.stringify(state, null, 2);
-			const blob = new Blob([dataStr], {type: 'application/json'});
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = `${state.name}_${Date.now()}.json`;
-			a.click();
-		}
-	}
+    // ========== EVENTOS CON PERSISTENCIA GARANTIZADA ==========
+    async function saveEventToServer(eventText, timestamp) {
+        if (!USE_SERVER) return;
+        const playerId = getPlayerId();
+        if (!playerId) return;
+        
+        try {
+            await fetch(`${SERVER_URL}/api/event?player=${playerId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    text: eventText,
+                    timestamp: timestamp,
+                    charName: state.name,
+                    charClasses: state.classes
+                })
+            });
+            console.log('✅ Evento guardado en servidor');
+        } catch (err) {
+            console.error('⚠️ Error guardando evento:', err);
+        }
+    }
 
-	// Importar JSON
-	function importCharacterJSON() {
-		const input = document.createElement('input');
-		input.type = 'file';
-		input.accept = '.json';
-		
-		input.onchange = async (e) => {
-			const file = e.target.files[0];
-			if (!file) return;
-			
-			const reader = new FileReader();
-			reader.onload = async (event) => {
-				try {
-					const importedData = JSON.parse(event.target.result);
-					
-					if (!confirm('¿Importar este personaje? Reemplazará el actual.')) {
-						return;
-					}
-					
-					if (USE_SERVER) {
-						const playerId = getPlayerId();
-						if (playerId) {
-							const response = await fetch(`${SERVER_URL}/api/import?player=${playerId}`, {
-								method: 'POST',
-								headers: {'Content-Type': 'application/json'},
-								body: JSON.stringify(importedData)
-							});
-							
-							if (response.ok) {
-								state = {...state, ...importedData};
-								render();
-								save();
-								alert('✓ Personaje importado');
-								return;
-							}
-						}
-					}
-					
-					state = {...state, ...importedData};
-					render();
-					save();
-					alert('✓ Personaje importado');
-					
-				} catch (err) {
-					alert('Error: Archivo JSON inválido');
-				}
-			};
-			reader.readAsText(file);
-		};
-		
-		input.click();
-	}
+    // Modificar addEvent para guardar inmediatamente
+    const originalAddEvent = window.addEvent;
+    window.addEvent = function() {
+        const inp = document.getElementById('eventInput');
+        const txt = inp.value.trim();
+        if (!txt) return;
+        
+        const now = new Date();
+        const t = now.toLocaleString('es-ES', {hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'});
+        
+        state.events.push({t: t, txt: txt, id: Date.now()});
+        inp.value = '';
+        renderEvents();
+        
+        // GUARDAR INMEDIATAMENTE (eventos y estado completo)
+        save();
+        saveToServer();
+        saveEventToServer(txt, t);
+        autoSaveEvents();
+    };
 
-	// Agregar botones
-	function addServerButtons() {
-		const btnGroup = document.querySelector('.btn-group');
-		if (!btnGroup) return;
-		
-		// Buscar si ya existen
-		if (document.getElementById('btnExportJSON')) return;
-		
-		const btnExportJSON = document.createElement('button');
-		btnExportJSON.id = 'btnExportJSON';
-		btnExportJSON.textContent = '📦 Exportar JSON';
-		btnExportJSON.onclick = exportCharacterJSON;
-		
-		const btnImportJSON = document.createElement('button');
-		btnImportJSON.id = 'btnImportJSON';
-		btnImportJSON.textContent = '📥 Importar JSON';
-		btnImportJSON.onclick = importCharacterJSON;
-		
-		btnGroup.insertBefore(btnImportJSON, btnGroup.children[2]);
-		btnGroup.insertBefore(btnExportJSON, btnGroup.children[2]);
-	}
+    // Modificar save para usar el nuevo sistema
+    const originalSave = window.save;
+    window.save = function() {
+        originalSave();
+        if (USE_SERVER) {
+            saveToServer();
+        }
+    };
 
-	// Inicializar
-	window.addEventListener('DOMContentLoaded', () => {
-		updatePlayerUI();
-		addServerButtons();
-		
-		if (USE_SERVER) {
-			loadFromServer();
-			setInterval(() => saveToServer(), 30000); // Auto-save cada 30s
-		}
-	});
+    // ========== AUTOGUARDADO AGRESIVO ==========
+    function startAutoSave() {
+        // Guardar cada 10 segundos (más agresivo)
+        setInterval(() => {
+            if (USE_SERVER) {
+                saveToServer();
+            }
+        }, 10000);
+        
+        // Guardar antes de cerrar/recargar página
+        window.addEventListener('beforeunload', (e) => {
+            save();
+            // Nota: saveToServer es async, pero save() guarda en localStorage inmediatamente
+        });
+        
+        // Guardar cuando la página pierde foco
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                save();
+                if (USE_SERVER) {
+                    saveToServer();
+                }
+            }
+        });
+    }
 
-	console.log('🎲 Sistema multiusuario activado');
-	console.log('📍 Player:', getPlayerId());
-	</script>
+    // Exportar/Importar JSON
+    function exportCharacterJSON() {
+        const playerId = getPlayerId();
+        if (USE_SERVER && playerId) {
+            window.location.href = `${SERVER_URL}/api/export?player=${playerId}`;
+        } else {
+            const dataStr = JSON.stringify(state, null, 2);
+            const blob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${state.name}_${Date.now()}.json`;
+            a.click();
+        }
+    }
+
+    function importCharacterJSON() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                try {
+                    const importedData = JSON.parse(event.target.result);
+                    
+                    if (!confirm('¿Importar este personaje? Reemplazará el actual.')) {
+                        return;
+                    }
+                    
+                    state = {...state, ...importedData};
+                    render();
+                    save();
+                    
+                    if (USE_SERVER) {
+                        await saveToServer();
+                    }
+                    
+                    alert('✅ Personaje importado exitosamente');
+                    
+                } catch (err) {
+                    alert('❌ Error: Archivo JSON inválido');
+                }
+            };
+            reader.readAsText(file);
+        };
+        
+        input.click();
+    }
+
+    // Agregar botones mejorados
+    function addServerButtons() {
+        const btnGroup = document.querySelector('.btn-group');
+        if (!btnGroup || document.getElementById('btnExportJSON')) return;
+        
+        const btnExportJSON = document.createElement('button');
+        btnExportJSON.id = 'btnExportJSON';
+        btnExportJSON.textContent = '📦 Exportar JSON';
+        btnExportJSON.onclick = exportCharacterJSON;
+        
+        const btnImportJSON = document.createElement('button');
+        btnImportJSON.id = 'btnImportJSON';
+        btnImportJSON.textContent = '📥 Importar JSON';
+        btnImportJSON.onclick = importCharacterJSON;
+        
+        btnGroup.insertBefore(btnImportJSON, btnGroup.children[2]);
+        btnGroup.insertBefore(btnExportJSON, btnGroup.children[2]);
+    }
+
+    // ========== INICIALIZACIÓN ==========
+    window.addEventListener('DOMContentLoaded', () => {
+        updatePlayerUI();
+        addServerButtons();
+        startAutoSave();
+        
+        if (USE_SERVER) {
+            loadFromServer();
+        }
+    });
+
+    console.log('🎲 Sistema mejorado activado');
+    console.log('💾 Persistencia: Servidor + localStorage + Auto-guardado');
+    console.log('📍 Player:', getPlayerId());
+        </script>
 
 </body>
 </html>
