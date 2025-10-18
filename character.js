@@ -9,6 +9,7 @@ let state = {
     height: '',
     portrait: null,
     stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+    acBaseStat: 'dex', // NUEVO: permite elegir qué atributo usa para AC
     maxHP: 100,
     damage: 0,
     nonLethal: 0,
@@ -62,7 +63,7 @@ const BONUS_TYPES = {
     'racial': { stacks: false, category: 'attack' },
     'trait': { stacks: false, category: 'attack' },
     
-    // Universal - NO aplica a Touch ni Flat por defecto (debe especificarse su tipo)
+    // Universal
     'untyped': { stacks: true, appliesToTouch: false, appliesToFlat: true, category: 'all' }
 };
 
@@ -83,12 +84,8 @@ const defaultSlots = ['Head','Headband','Eyes','Shoulders','Neck','Chest','Body'
 const mod = s => Math.floor((s - 10) / 2);
 const fmt = m => (m >= 0 ? '+' : '') + m;
 
-// Función para calcular bonificadores aplicables según reglas de D&D 3.5/Pathfinder
 function calculateApplicableBonuses(bonusList) {
-    // Filtrar solo bonos activos
     const activeBonuses = bonusList.filter(b => !b.activable || b.active);
-    
-    // Agrupar por tipo
     const byType = {};
     activeBonuses.forEach(b => {
         const type = b.t || 'untyped';
@@ -96,25 +93,19 @@ function calculateApplicableBonuses(bonusList) {
         byType[type].push(b);
     });
     
-    // Aplicar reglas de stacking
     let total = 0;
     for (const [type, bonuses] of Object.entries(byType)) {
         const typeInfo = BONUS_TYPES[type] || BONUS_TYPES['untyped'];
-        
         if (typeInfo.stacks) {
-            // Los bonos de este tipo se suman todos
             total += bonuses.reduce((sum, b) => sum + (+b.v || 0), 0);
         } else {
-            // Solo tomar el mayor
             const maxBonus = Math.max(...bonuses.map(b => +b.v || 0));
             total += maxBonus;
         }
     }
-    
     return total;
 }
 
-// Función para obtener bonos que aplican a Touch AC
 function getApplicableBonusesToTouch(bonusList) {
     return bonusList.filter(b => {
         if (b.activable && !b.active) return false;
@@ -123,7 +114,6 @@ function getApplicableBonusesToTouch(bonusList) {
     });
 }
 
-// Función para obtener bonos que aplican a Flat-Footed AC
 function getApplicableBonusesToFlat(bonusList) {
     return bonusList.filter(b => {
         if (b.activable && !b.active) return false;
@@ -144,7 +134,6 @@ function init() {
         });
     }
     
-    // Setup portrait input
     const portraitInput = document.getElementById('portraitInput');
     const charPortrait = document.getElementById('charPortrait');
     
@@ -247,27 +236,24 @@ function updateHP() {
 }
 
 function updateDefenses() {
-    const dex = mod(state.stats.dex);
+    // MODIFICACIÓN CLAVE: usar acBaseStat en lugar de siempre dex
+    const baseStat = state.acBaseStat || 'dex';
+    const baseModifier = mod(state.stats[baseStat]);
     
     state.dr = document.getElementById('dr').value;
     state.sr = +document.getElementById('sr').value;
     
-    // Calcular AC usando el nuevo sistema
     const acBonus = calculateApplicableBonuses(state.bonuses.ac);
-    const totalAC = 10 + dex + acBonus;
+    const totalAC = 10 + baseModifier + acBonus;
     
-    // Touch AC: 10 + Dex + bonos que aplican a touch
     const touchBonuses = getApplicableBonusesToTouch(state.bonuses.ac);
     const touchBonus = calculateApplicableBonuses(touchBonuses);
-    const touch = 10 + dex + touchBonus;
+    const touch = 10 + baseModifier + touchBonus;
     
-    // Flat-Footed AC: 10 + bonos que aplican a flat (sin Dex, sin Dodge)
     const flatBonuses = getApplicableBonusesToFlat(state.bonuses.ac);
     const flatBonus = calculateApplicableBonuses(flatBonuses);
     const flat = 10 + flatBonus;
     
-    // Flat-Footed Touch AC: 10 + bonos que aplican a AMBOS touch Y flat (sin Dex, sin Dodge)
-    // Solo bonos que tienen AMBAS propiedades en true
     const flatTouchBonuses = state.bonuses.ac.filter(b => {
         if (b.activable && !b.active) return false;
         const typeInfo = BONUS_TYPES[b.t] || BONUS_TYPES['untyped'];
@@ -296,10 +282,8 @@ function updateSaves() {
         
         let total = base + mod(state.stats[stat]);
         
-        // Aplicar bonos específicos de esta salvación
         total += calculateApplicableBonuses(state.bonuses[s]);
         
-        // Aplicar bonos generales que apliquen a esta salvación
         if (state.bonuses.saveGeneral) {
             const applicableGeneral = state.bonuses.saveGeneral.filter(b => {
                 if (b.activable && !b.active) return false;
@@ -543,13 +527,13 @@ function addFeat() {
 }
 
 function renderBreakdowns() {
-    // AC Breakdown con dropdown de tipos
     const acList = document.getElementById('acBonusList');
     const acTypes = Object.keys(BONUS_TYPES).filter(t => BONUS_TYPES[t].category === 'ac' || BONUS_TYPES[t].category === 'all');
     
     const acTotal = calculateApplicableBonuses(state.bonuses.ac);
-    const dex = mod(state.stats.dex);
-    const finalAC = 10 + dex + acTotal;
+    const baseStat = state.acBaseStat || 'dex';
+    const baseMod = mod(state.stats[baseStat]);
+    const finalAC = 10 + baseMod + acTotal;
     
     acList.innerHTML = state.bonuses.ac.map((b, i) => `
         <div class="bonus-item-enhanced">
@@ -572,16 +556,14 @@ function renderBreakdowns() {
         </div>
     `).join('') + `
         <div class="bonus-total">
-            <span class="bonus-total-label">Total AC Bonus</span>
+            <span class="bonus-total-label">Total AC Bonus (Base: ${baseStat.toUpperCase()} ${fmt(baseMod)})</span>
             <span class="bonus-total-value">${fmt(acTotal)} (AC Final: ${finalAC})</span>
         </div>
     `;
 
-    // Save General con dropdowns
     const saveGenList = document.getElementById('saveGeneralList');
     if (!state.bonuses.saveGeneral) state.bonuses.saveGeneral = [];
     const saveTypes = Object.keys(BONUS_TYPES).filter(t => BONUS_TYPES[t].category === 'save' || BONUS_TYPES[t].category === 'all');
-    
     const saveGenTotal = calculateApplicableBonuses(state.bonuses.saveGeneral);
     
     saveGenList.innerHTML = state.bonuses.saveGeneral.map((b, i) => `
@@ -611,7 +593,6 @@ function renderBreakdowns() {
         </div>
     `;
 
-    // Fort, Ref, Will - versión simplificada
     ['fort','ref','will'].forEach(type => {
         const c = document.getElementById(type+'BonusList');
         const total = calculateApplicableBonuses(state.bonuses[type]);
@@ -631,10 +612,8 @@ function renderBreakdowns() {
         `;
     });
 
-    // Attack Breakdown con dropdowns
     const atkList = document.getElementById('attackBonusList');
     const attackTypes = Object.keys(BONUS_TYPES).filter(t => BONUS_TYPES[t].category === 'attack' || BONUS_TYPES[t].category === 'all');
-    
     const attackTotal = calculateApplicableBonuses(state.bonuses.attack);
     
     atkList.innerHTML = state.bonuses.attack.map((b, i) => `
@@ -654,7 +633,7 @@ function renderBreakdowns() {
                     ${b.active ? '✓' : '○'}
                 </label>
             ` : '<span></span>'}
-            <button class="btn-delete" onclick="state.bonuses.attack[${i}].active=this.checked;save()">✕</button>
+            <button class="btn-delete" onclick="state.bonuses.attack.splice(${i},1);renderBreakdowns();save()">✕</button>
         </div>
     `).join('') + `
         <div class="bonus-total">
@@ -846,6 +825,7 @@ function save() {
     state.alignment = document.getElementById('charAlignment').value || "N";
     state.deity = document.getElementById('charDeity').value || "";
     state.height = document.getElementById('charHeight').value || "";
+    state.acBaseStat = document.getElementById('acBaseStat').value || 'dex'; // NUEVO: guardar el atributo seleccionado
     
     state.maxHP = +document.getElementById('maxHP').value || 100;
     state.damage = +document.getElementById('damage').value || 0;
@@ -860,136 +840,46 @@ function save() {
     localStorage.setItem('dnd_char', JSON.stringify(state));
 }
 
-// REEMPLAZA la función load() en character.js con esta versión mejorada:
-
 function load() {
-    console.log('🔄 Ejecutando load() desde character.js');
-    
-    // Intentar obtener player ID
-    const urlParams = new URLSearchParams(window.location.search);
-    const playerId = urlParams.get('player') || localStorage.getItem('current_player_id') || 'local';
-    
-    console.log('📍 Player ID detectado:', playerId);
-    
-    // Intentar cargar desde múltiples fuentes en orden de prioridad
-    let loaded = false;
-    
-    // 1. Intento: localStorage específico del jugador
-    const playerSpecific = localStorage.getItem(`dnd_char_${playerId}`);
+    const playerSpecific = localStorage.getItem('dnd_char');
     if (playerSpecific) {
         try {
             const loadedState = JSON.parse(playerSpecific);
             state = {...state, ...loadedState};
-            console.log('✅ Cargado desde localStorage específico:', playerId);
-            loaded = true;
         } catch (err) {
-            console.error('Error parseando localStorage específico:', err);
+            console.error('Error parseando localStorage:', err);
         }
     }
     
-    // 2. Intento: localStorage general
-    if (!loaded) {
-        const generalData = localStorage.getItem('dnd_char');
-        if (generalData) {
-            try {
-                const loadedState = JSON.parse(generalData);
-                state = {...state, ...loadedState};
-                console.log('✅ Cargado desde localStorage general');
-                loaded = true;
-            } catch (err) {
-                console.error('Error parseando localStorage general:', err);
-            }
-        }
-    }
+    document.getElementById('charName').value = state.name || 'NOMBRE DEL PERSONAJE';
+    document.getElementById('charRace').value = state.race || '';
+    document.getElementById('charClasses').value = state.classes || '';
+    document.getElementById('charLevel').value = state.level || 1;
+    document.getElementById('charAlignment').value = state.alignment || 'N';
+    document.getElementById('charDeity').value = state.deity || '';
+    document.getElementById('charHeight').value = state.height || '';
+    document.getElementById('acBaseStat').value = state.acBaseStat || 'dex'; // NUEVO: cargar el atributo guardado
     
-    // 3. Intento: Backup con timestamp
-    if (!loaded) {
-        const backup = localStorage.getItem(`dnd_char_backup_${playerId}`);
-        if (backup) {
-            try {
-                const backupData = JSON.parse(backup);
-                state = {...state, ...backupData.state};
-                console.log('✅ Cargado desde backup:', new Date(backupData.timestamp).toLocaleString());
-                loaded = true;
-            } catch (err) {
-                console.error('Error parseando backup:', err);
-            }
-        }
-    }
-    
-    if (loaded) {
-        // Actualizar todos los campos del DOM
-        document.getElementById('charName').value = state.name || 'NOMBRE DEL PERSONAJE';
-        document.getElementById('charRace').value = state.race || '';
-        document.getElementById('charClasses').value = state.classes || '';
-        document.getElementById('charLevel').value = state.level || 1;
-        document.getElementById('charAlignment').value = state.alignment || 'N';
-        document.getElementById('charDeity').value = state.deity || '';
-        document.getElementById('charHeight').value = state.height || '';
-        
-        document.getElementById('maxHP').value = state.maxHP || 100;
-        document.getElementById('damage').value = state.damage || 0;
-        document.getElementById('nonLethal').value = state.nonLethal || 0;
-        document.getElementById('tempHP').value = state.tempHP || 0;
-        document.getElementById('acTotal').value = state.ac || 10;
-        document.getElementById('dr').value = state.dr || '';
-        document.getElementById('sr').value = state.sr || 0;
-        document.getElementById('bab').value = state.bab || 0;
-        document.getElementById('fortBase').value = state.saves.fort.base || 0;
-        document.getElementById('refBase').value = state.saves.ref.base || 0;
-        document.getElementById('willBase').value = state.saves.will.base || 0;
-        document.getElementById('fortStat').value = state.saves.fort.stat || 'con';
-        document.getElementById('refStat').value = state.saves.ref.stat || 'dex';
-        document.getElementById('willStat').value = state.saves.will.stat || 'wis';
-        document.getElementById('fortTotal').value = state.saves.fort.total || 0;
-        document.getElementById('refTotal').value = state.saves.ref.total || 0;
-        document.getElementById('willTotal').value = state.saves.will.total || 0;
-        document.getElementById('initBonus').value = state.init.bonus || 0;
-        document.getElementById('initStat').value = state.init.stat || 'dex';
-        document.getElementById('speed').value = state.speed || 30;
-        
-        console.log('✅ Datos cargados en DOM - Personaje:', state.name);
-    } else {
-        console.log('ℹ️ No hay datos guardados - Personaje nuevo');
-    }
-}
-
-// REEMPLAZA también la función save() para asegurar triple guardado:
-
-function save() {
-    // Capturar todos los valores actuales del DOM
-    state.name = document.getElementById('charName').value || "";
-    state.race = document.getElementById('charRace').value || "";
-    state.classes = document.getElementById('charClasses').value || "";
-    state.level = +document.getElementById('charLevel').value || 1;
-    state.alignment = document.getElementById('charAlignment').value || "N";
-    state.deity = document.getElementById('charDeity').value || "";
-    state.height = document.getElementById('charHeight').value || "";
-    
-    state.maxHP = +document.getElementById('maxHP').value || 100;
-    state.damage = +document.getElementById('damage').value || 0;
-    state.nonLethal = +document.getElementById('nonLethal').value || 0;
-    state.tempHP = +document.getElementById('tempHP').value || 0;
-    state.ac = +document.getElementById('acTotal').value || 10;
-    state.dr = document.getElementById('dr').value || "";
-    state.sr = +document.getElementById('sr').value || 0;
-    state.bab = +document.getElementById('bab').value || 0;
-    state.speed = +document.getElementById('speed').value || 30;
-    
-    // Obtener player ID para guardado específico
-    const urlParams = new URLSearchParams(window.location.search);
-    const playerId = urlParams.get('player') || localStorage.getItem('current_player_id') || 'local';
-    
-    // Triple guardado para máxima seguridad
-    localStorage.setItem('dnd_char', JSON.stringify(state));
-    localStorage.setItem(`dnd_char_${playerId}`, JSON.stringify(state));
-    localStorage.setItem(`dnd_char_backup_${playerId}`, JSON.stringify({
-        state: state,
-        timestamp: Date.now(),
-        player: playerId
-    }));
-    
-    console.log('💾 Guardado en localStorage (triple backup)');
+    document.getElementById('maxHP').value = state.maxHP || 100;
+    document.getElementById('damage').value = state.damage || 0;
+    document.getElementById('nonLethal').value = state.nonLethal || 0;
+    document.getElementById('tempHP').value = state.tempHP || 0;
+    document.getElementById('acTotal').value = state.ac || 10;
+    document.getElementById('dr').value = state.dr || '';
+    document.getElementById('sr').value = state.sr || 0;
+    document.getElementById('bab').value = state.bab || 0;
+    document.getElementById('fortBase').value = state.saves.fort.base || 0;
+    document.getElementById('refBase').value = state.saves.ref.base || 0;
+    document.getElementById('willBase').value = state.saves.will.base || 0;
+    document.getElementById('fortStat').value = state.saves.fort.stat || 'con';
+    document.getElementById('refStat').value = state.saves.ref.stat || 'dex';
+    document.getElementById('willStat').value = state.saves.will.stat || 'wis';
+    document.getElementById('fortTotal').value = state.saves.fort.total || 0;
+    document.getElementById('refTotal').value = state.saves.ref.total || 0;
+    document.getElementById('willTotal').value = state.saves.will.total || 0;
+    document.getElementById('initBonus').value = state.init.bonus || 0;
+    document.getElementById('initStat').value = state.init.stat || 'dex';
+    document.getElementById('speed').value = state.speed || 30;
 }
 
 function saveChar() {
@@ -1043,6 +933,11 @@ document.addEventListener('DOMContentLoaded', () => {
         state.ac = +document.getElementById('acTotal').value;
         save();
     });
+    document.getElementById('acBaseStat').addEventListener('change', () => {
+        state.acBaseStat = document.getElementById('acBaseStat').value;
+        updateDefenses();
+        save();
+    });
     document.getElementById('dr').addEventListener('input', () => { 
         state.dr = document.getElementById('dr').value; 
         save(); 
@@ -1063,8 +958,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     ['fortTotal','refTotal','willTotal'].forEach(id => {
         document.getElementById(id).addEventListener('change', function() {
-            const save = id.replace('Total','');
-            state.saves[save].total = +this.value;
+            const saveName = id.replace('Total','');
+            state.saves[saveName].total = +this.value;
             save();
         });
     });
@@ -1109,7 +1004,6 @@ document.addEventListener('keydown', e => {
     }
 });
 
-// Función para limpiar una sección específica
 function clearSection(section) {
     const confirmMsg = {
         'ac': '¿Limpiar todos los bonificadores de AC?',
@@ -1139,7 +1033,6 @@ function clearSection(section) {
     alert('✓ Sección limpiada exitosamente');
 }
 
-// Función para limpiar todo el personaje
 function clearAll() {
     const confirm1 = confirm('⚠️ ADVERTENCIA: Esto borrará TODO el personaje (stats, bonos, skills, inventory, etc.).\n\n¿Estás seguro?');
     if (!confirm1) return;
@@ -1147,11 +1040,9 @@ function clearAll() {
     const confirm2 = confirm('⚠️ ÚLTIMA CONFIRMACIÓN: Esta acción NO se puede deshacer.\n\n¿Realmente deseas borrar todo el personaje?');
     if (!confirm2) return;
     
-    // Limpiar localStorage
     localStorage.removeItem('dnd_char');
     localStorage.removeItem('dnd_events_auto');
     
-    // Resetear el state a valores por defecto
     state = {
         name: 'NOMBRE DEL PERSONAJE',
         race: '',
@@ -1162,6 +1053,7 @@ function clearAll() {
         height: '',
         portrait: null,
         stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+        acBaseStat: 'dex',
         maxHP: 100,
         damage: 0,
         nonLethal: 0,
@@ -1189,7 +1081,6 @@ function clearAll() {
         events: []
     };
     
-    // Re-inicializar
     defaultSlots.forEach(s => {
         state.equipment[s] = '';
     });
@@ -1199,7 +1090,6 @@ function clearAll() {
         return {n, s, r: 0, m: 0, cs: false};
     });
     
-    // Re-renderizar todo
     render();
     save();
     

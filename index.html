@@ -91,6 +91,17 @@
                 <label class="section-label">🛡️ Defensas</label>
                 <div class="defense-stats">
                     <div class="def-stat">
+                        <span>AC Base Stat</span>
+                        <select id="acBaseStat" onchange="state.acBaseStat=this.value;updateDefenses();save()">
+                            <option value="dex">DEX</option>
+                            <option value="wis">WIS</option>
+                            <option value="int">INT</option>
+                            <option value="cha">CHA</option>
+                            <option value="str">STR</option>
+                            <option value="con">CON</option>
+                        </select>
+                    </div>
+                    <div class="def-stat">
                         <span>AC</span>
                         <input type="number" id="acTotal" value="10">
                     </div>
@@ -972,3 +983,4 @@
 </html>
 </body>
 </html>
+
