@@ -60,13 +60,15 @@ const server = http.createServer((req, res) => {
     // API: Guardar personaje
     if (pathname === '/api/save' && req.method === 'POST') {
         const playerId = query.player;
+        const characterId = query.character || 'default';
         let body = '';
         req.on('data', chunk => body += chunk.toString());
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                fs.writeFileSync(path.join(DATA_DIR, `${playerId}.json`), JSON.stringify(data, null, 2));
-                console.log(`✓ Guardado: ${playerId}`);
+                const filename = `${playerId}_${characterId}.json`;
+                fs.writeFileSync(path.join(DATA_DIR, filename), JSON.stringify(data, null, 2));
+                console.log(`✓ Guardado: ${playerId}/${characterId}`);
                 res.writeHead(200, {'Content-Type': 'application/json'});
                 res.end(JSON.stringify({success: true}));
             } catch (err) {
@@ -80,7 +82,8 @@ const server = http.createServer((req, res) => {
     // API: Cargar personaje
     if (pathname === '/api/load' && req.method === 'GET') {
         const playerId = query.player;
-        const filename = path.join(DATA_DIR, `${playerId}.json`);
+        const characterId = query.character || 'default';
+        const filename = path.join(DATA_DIR, `${playerId}_${characterId}.json`);
         
         if (fs.existsSync(filename)) {
             const data = fs.readFileSync(filename, 'utf8');
@@ -96,12 +99,13 @@ const server = http.createServer((req, res) => {
     // API: Guardar evento
     if (pathname === '/api/event' && req.method === 'POST') {
         const playerId = query.player;
+        const characterId = query.character || 'default';
         let body = '';
         req.on('data', chunk => body += chunk.toString());
         req.on('end', () => {
             try {
                 const eventData = JSON.parse(body);
-                const filename = path.join(EVENTS_DIR, `${playerId}_events.txt`);
+                const filename = path.join(EVENTS_DIR, `${playerId}_${characterId}_events.txt`);
                 const eventText = `[${eventData.timestamp}] ${eventData.text}\n`;
                 
                 if (!fs.existsSync(filename)) {
@@ -123,13 +127,14 @@ const server = http.createServer((req, res) => {
     // API: Exportar
     if (pathname === '/api/export' && req.method === 'GET') {
         const playerId = query.player;
-        const filename = path.join(DATA_DIR, `${playerId}.json`);
+        const characterId = query.character || 'default';
+        const filename = path.join(DATA_DIR, `${playerId}_${characterId}.json`);
         
         if (fs.existsSync(filename)) {
             const data = fs.readFileSync(filename, 'utf8');
             res.writeHead(200, {
                 'Content-Type': 'application/json',
-                'Content-Disposition': `attachment; filename="${playerId}_${Date.now()}.json"`
+                'Content-Disposition': `attachment; filename="${playerId}_${characterId}_${Date.now()}.json"`
             });
             res.end(data);
         } else {
@@ -142,12 +147,14 @@ const server = http.createServer((req, res) => {
     // API: Importar
     if (pathname === '/api/import' && req.method === 'POST') {
         const playerId = query.player;
+        const characterId = query.character || 'default';
         let body = '';
         req.on('data', chunk => body += chunk.toString());
         req.on('end', () => {
             try {
                 const data = JSON.parse(body);
-                fs.writeFileSync(path.join(DATA_DIR, `${playerId}.json`), JSON.stringify(data, null, 2));
+                const filename = `${playerId}_${characterId}.json`;
+                fs.writeFileSync(path.join(DATA_DIR, filename), JSON.stringify(data, null, 2));
                 res.writeHead(200, {'Content-Type': 'application/json'});
                 res.end(JSON.stringify({success: true}));
             } catch (err) {
@@ -155,6 +162,47 @@ const server = http.createServer((req, res) => {
                 res.end(JSON.stringify({error: 'Invalid JSON'}));
             }
         });
+        return;
+    }
+    
+    // API: Listar personajes de un jugador
+    if (pathname === '/api/characters' && req.method === 'GET') {
+        const playerId = query.player;
+        
+        if (!playerId) {
+            res.writeHead(400, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({error: 'Missing player ID'}));
+            return;
+        }
+        
+        try {
+            const files = fs.readdirSync(DATA_DIR);
+            const playerFiles = files.filter(f => 
+                f.startsWith(`${playerId}_`) && f.endsWith('.json')
+            );
+            
+            const characters = playerFiles.map(f => {
+                const filePath = path.join(DATA_DIR, f);
+                try {
+                    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                    const charId = f.replace(`${playerId}_`, '').replace('.json', '');
+                    return {
+                        id: charId,
+                        name: data.name || 'Sin nombre',
+                        classes: data.classes || '',
+                        level: data.level || 1
+                    };
+                } catch {
+                    return null;
+                }
+            }).filter(c => c !== null);
+            
+            res.writeHead(200, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify(characters));
+        } catch (err) {
+            res.writeHead(500, {'Content-Type': 'application/json'});
+            res.end(JSON.stringify({error: err.message}));
+        }
         return;
     }
     
