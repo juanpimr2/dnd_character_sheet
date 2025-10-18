@@ -1,0 +1,15 @@
+{
+  "name": "dnd-character-manager",
+  "version": "1.0.0",
+  "description": "D&D Character Sheet Manager",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["dnd", "character-sheet", "rpg"],
+  "author": "",
+  "license": "MIT"
+}
