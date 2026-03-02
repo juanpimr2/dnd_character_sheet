@@ -399,7 +399,7 @@ if (process.env.NODE_ENV === 'production') {
   app.use(express.static(FRONTEND_DIST))
   // SPA fallback: cualquier ruta no-API sirve index.html
   // (Vue Router maneja el routing del lado del cliente)
-  app.get('*', (_req, res) => {
+  app.get('/{*path}', (_req, res) => {
     res.sendFile(path.join(FRONTEND_DIST, 'index.html'))
   })
 } else {
