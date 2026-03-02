@@ -3,6 +3,7 @@ import { onMounted, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore }      from '@/stores/auth'
 import { useCharacterStore } from '@/stores/characters'
+import { ScrollText, BookOpen, Swords, Backpack, Star, BookMarked } from 'lucide-vue-next'
 
 import AppHeader          from '@/components/AppHeader.vue'
 import PanelIdentity      from '@/components/panels/PanelIdentity.vue'
@@ -16,7 +17,7 @@ import PanelInventory     from '@/components/panels/PanelInventory.vue'
 import PanelAbilities     from '@/components/panels/PanelAbilities.vue'
 import PanelFeats         from '@/components/panels/PanelFeats.vue'
 import PanelLanguages     from '@/components/panels/PanelLanguages.vue'
-import PanelEvents        from '@/components/panels/PanelEvents.vue'
+import PanelSessions      from '@/components/panels/PanelSessions.vue'
 
 const route      = useRoute()
 const router     = useRouter()
@@ -27,15 +28,16 @@ const characterId = computed(() => route.params.id as string)
 const playerId    = computed(() => authStore.user?.id ?? '')
 const char        = computed(() => charStore.activeCharacter)
 
-type Tab = 'ficha' | 'habilidades' | 'combate' | 'equipo' | 'historia'
+type Tab = 'ficha' | 'habilidades' | 'combate' | 'equipo' | 'feats' | 'sesiones'
 const activeTab = ref<Tab>('ficha')
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'ficha',       label: 'Ficha' },
-  { id: 'habilidades', label: 'Habilidades' },
-  { id: 'combate',     label: 'Combate' },
-  { id: 'equipo',      label: 'Equipo' },
-  { id: 'historia',    label: 'Historia' },
+const TABS: { id: Tab; label: string; icon: any }[] = [
+  { id: 'ficha',       label: 'Ficha',    icon: ScrollText  },
+  { id: 'habilidades', label: 'Skills',   icon: BookOpen    },
+  { id: 'combate',     label: 'Combate',  icon: Swords      },
+  { id: 'equipo',      label: 'Equipo',   icon: Backpack    },
+  { id: 'feats',       label: 'Feats',    icon: Star        },
+  { id: 'sesiones',    label: 'Sesiones', icon: BookMarked  },
 ]
 
 onMounted(async () => {
@@ -107,6 +109,7 @@ onMounted(async () => {
             :class="{ active: activeTab === tab.id }"
             @click="activeTab = tab.id"
           >
+            <component :is="tab.icon" :size="14" class="tab-icon" aria-hidden="true" />
             {{ tab.label }}
           </button>
         </nav>
@@ -119,10 +122,12 @@ onMounted(async () => {
           <PanelAbilityScores />
           <PanelCombatStats />
           <PanelSaves />
+          <PanelAbilities />
+          <PanelLanguages />
         </div>
 
         <!-- ═══════════════════════════════════
-             TAB: HABILIDADES (Skills)
+             TAB: SKILLS
         ═══════════════════════════════════ -->
         <div v-show="activeTab === 'habilidades'" class="tab-content">
           <PanelSkills />
@@ -144,13 +149,17 @@ onMounted(async () => {
         </div>
 
         <!-- ═══════════════════════════════════
-             TAB: HISTORIA
+             TAB: FEATS
         ═══════════════════════════════════ -->
-        <div v-show="activeTab === 'historia'" class="tab-content">
-          <PanelAbilities />
+        <div v-show="activeTab === 'feats'" class="tab-content">
           <PanelFeats />
-          <PanelLanguages />
-          <PanelEvents />
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: SESIONES
+        ═══════════════════════════════════ -->
+        <div v-show="activeTab === 'sesiones'" class="tab-content">
+          <PanelSessions />
         </div>
 
       </template>
@@ -257,21 +266,29 @@ onMounted(async () => {
   border: none;
   border-radius: var(--radius-md);
   color: var(--text-muted);
-  font-family: inherit;
-  font-size: 0.83rem;
+  font-family: var(--font-title);
+  font-size: 0.72rem;
   font-weight: 600;
-  padding: 0.45rem 1rem;
+  padding: 0.45rem 0.75rem;
   cursor: pointer;
   transition: all var(--transition);
   white-space: nowrap;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
 }
 .tab-btn:hover { color: var(--text-secondary); background: var(--bg-card); }
 .tab-btn.active {
   background: var(--bg-card);
   color: var(--gold);
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+
+.tab-icon {
+  flex-shrink: 0;
 }
 
 /* ── Tab content ── */
@@ -284,6 +301,6 @@ onMounted(async () => {
 @media (max-width: 600px) {
   .content { padding: 1rem; }
   .top-bar { flex-direction: column; align-items: flex-start; }
+  .tab-btn { font-size: 0.65rem; padding: 0.4rem 0.5rem; }
 }
 </style>
-

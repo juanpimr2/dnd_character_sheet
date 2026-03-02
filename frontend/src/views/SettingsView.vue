@@ -11,6 +11,7 @@ const loading      = ref(false)
 const regenerating = ref(false)
 const copied       = ref(false)
 const error        = ref('')
+const checkingOut  = ref(false)
 
 async function fetchMe() {
   loading.value = true
@@ -54,6 +55,22 @@ async function copyToken() {
   await navigator.clipboard.writeText(token)
   copied.value = true
   setTimeout(() => { copied.value = false }, 2000)
+}
+
+async function startCheckout(): Promise<void> {
+  checkingOut.value = true
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authStore.getToken()}` },
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error)
+    window.location.href = data.url
+  } catch (e) {
+    error.value = 'Error al iniciar el pago: ' + (e instanceof Error ? e.message : e)
+    checkingOut.value = false
+  }
 }
 
 onMounted(fetchMe)
@@ -134,6 +151,44 @@ onMounted(fetchMe)
           <span class="info-label">Personajes máx.</span>
           <span>{{ authStore.user?.maxCharacters ?? 2 }}</span>
         </div>
+      </section>
+
+      <!-- Plan / Compra -->
+      <section class="card">
+        <h2 class="card-title">Plan</h2>
+
+        <!-- Purchased -->
+        <template v-if="authStore.user?.purchased">
+          <div class="plan-status">
+            <span class="plan-badge plan-badge--gold">✓ Acceso completo · 10 personajes</span>
+            <span v-if="authStore.user.purchasedAt" class="plan-date">
+              Comprado el {{ new Date(authStore.user.purchasedAt).toLocaleDateString('es-ES') }}
+            </span>
+          </div>
+          <p class="card-desc">
+            Gracias por tu compra. Puedes crear hasta 10 personajes.
+          </p>
+        </template>
+
+        <!-- Free -->
+        <template v-else>
+          <div class="plan-status">
+            <span class="plan-badge plan-badge--free">Gratuito · 2 personajes</span>
+          </div>
+          <p class="card-desc">
+            El plan gratuito incluye hasta 2 personajes. Desbloquea el acceso completo con un pago único.
+          </p>
+          <button
+            class="btn-primary"
+            style="align-self: flex-start; font-size: 0.85rem; padding: 0.45rem 1rem;"
+            @click="startCheckout"
+            :disabled="checkingOut"
+          >
+            <span v-if="checkingOut">Redirigiendo…</span>
+            <span v-else>Comprar acceso completo · 4.99€ →</span>
+          </button>
+          <div v-if="error" class="error-text">{{ error }}</div>
+        </template>
       </section>
 
     </main>
@@ -278,5 +333,35 @@ details[open] summary::before { content: '▼ '; }
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.plan-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.plan-badge--gold {
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--gold-light);
+  border-color: rgba(201, 168, 76, 0.5);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.7rem;
+  text-transform: none;
+}
+
+.plan-badge--free {
+  background: rgba(120, 120, 140, 0.12);
+  color: var(--text-muted);
+  border-color: var(--border);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.7rem;
+  text-transform: none;
+}
+
+.plan-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 </style>

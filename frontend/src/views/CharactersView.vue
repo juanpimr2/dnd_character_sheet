@@ -1,19 +1,40 @@
-﻿<script setup lang="ts">
-import { onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+<script setup lang="ts">
+import { onMounted, computed, ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore }     from '@/stores/auth'
 import { useCharacterStore } from '@/stores/characters'
 import AppHeader    from '@/components/AppHeader.vue'
 import CharacterCard from '@/components/CharacterCard.vue'
 
 const router     = useRouter()
+const route      = useRoute()
 const authStore  = useAuthStore()
 const charStore  = useCharacterStore()
 
-const playerId = computed(() => authStore.user?.id ?? '')
+const playerId       = computed(() => authStore.user?.id ?? '')
+const successToast   = ref(false)
+const checkingOut    = ref(false)
+
+const maxAllowed = computed(() => {
+  const u = authStore.user
+  if (!u) return 2
+  return u.purchased ? 10 + (u.extraCharacters ?? 0) : 2
+})
+
+const atLimit = computed(() =>
+  charStore.characters.length >= maxAllowed.value
+)
 
 onMounted(async () => {
   await charStore.fetchCharacters()
+  if (route.query.payment === 'success') {
+    // Re-fetch profile para actualizar purchased
+    if (authStore.session?.user?.id) {
+      await authStore.fetchProfile(authStore.session.user.id)
+    }
+    successToast.value = true
+    setTimeout(() => { successToast.value = false }, 5000)
+  }
 })
 
 function openCharacter(id: string): void {
@@ -26,6 +47,7 @@ async function confirmDelete(id: string, name: string): Promise<void> {
 }
 
 async function createCharacter(): Promise<void> {
+  if (atLimit.value) return
   const name = window.prompt('Nombre del nuevo personaje:')?.trim()
   if (!name) return
   const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '')
@@ -33,6 +55,22 @@ async function createCharacter(): Promise<void> {
   const error = await charStore.createCharacter(id, name)
   if (error) { alert('Error al crear personaje: ' + error); return }
   router.push({ name: 'character', params: { id } })
+}
+
+async function startCheckout(): Promise<void> {
+  checkingOut.value = true
+  try {
+    const res = await fetch('/api/checkout', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${authStore.getToken()}` },
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error)
+    window.location.href = data.url
+  } catch (e) {
+    alert('Error al iniciar el pago: ' + (e instanceof Error ? e.message : e))
+    checkingOut.value = false
+  }
 }
 </script>
 
@@ -42,6 +80,11 @@ async function createCharacter(): Promise<void> {
 
     <main class="content">
 
+      <!-- Toast de éxito de pago -->
+      <div v-if="successToast" class="toast-success" role="status">
+        ✓ ¡Pago completado! Ya tienes acceso completo a 10 personajes.
+      </div>
+
       <!-- Cabecera de página -->
       <header class="page-header">
         <div class="page-header-left">
@@ -50,27 +93,55 @@ async function createCharacter(): Promise<void> {
             Jugador: <code>{{ playerId }}</code>
           </p>
         </div>
-        <button class="btn-outline" @click="createCharacter">
+        <button
+          class="btn-outline"
+          @click="createCharacter"
+          :disabled="atLimit"
+          :title="atLimit ? 'Has alcanzado el límite de personajes' : undefined"
+        >
           <span aria-hidden="true">✦</span> Nuevo Personaje
         </button>
       </header>
 
-      <!-- â”€â”€ Estado: cargando â”€â”€ -->
+      <!-- Banner de upsell (plan free en el límite) -->
+      <div
+        v-if="atLimit && !authStore.user?.purchased"
+        class="upsell-banner"
+        role="alert"
+      >
+        <div class="upsell-text">
+          <span class="upsell-icon" aria-hidden="true">🎲</span>
+          <div>
+            <strong>Tienes {{ charStore.characters.length }}/{{ maxAllowed }} personajes en el plan gratuito.</strong>
+            <span> Desbloquea hasta 10 personajes por 4.99€</span>
+          </div>
+        </div>
+        <button
+          class="btn-primary btn-checkout"
+          @click="startCheckout"
+          :disabled="checkingOut"
+        >
+          <span v-if="checkingOut">Redirigiendo…</span>
+          <span v-else>Comprar acceso completo →</span>
+        </button>
+      </div>
+
+      <!-- ── Estado: cargando ── -->
       <div v-if="charStore.loading" class="state-box">
         <div class="spinner-lg" role="status" aria-label="Cargando personajes"></div>
         <p>Cargando personajes…</p>
       </div>
 
-      <!-- â”€â”€ Estado: error â”€â”€ -->
+      <!-- ── Estado: error ── -->
       <div v-else-if="charStore.error" class="state-box state-error" role="alert">
-        <span class="state-icon" aria-hidden="true">⚠️</span>
+        <span class="state-icon" aria-hidden="true">⚠️</span>
         <p>{{ charStore.error }}</p>
         <button class="btn-outline" @click="charStore.fetchCharacters()">
           Reintentar
         </button>
       </div>
 
-      <!-- â”€â”€ Estado: vacío â”€â”€ -->
+      <!-- ── Estado: vacío ── -->
       <div v-else-if="charStore.characters.length === 0" class="empty-state">
         <div class="empty-icon" aria-hidden="true">🎭</div>
         <h2>Sin personajes todavía</h2>
@@ -80,7 +151,7 @@ async function createCharacter(): Promise<void> {
         </button>
       </div>
 
-      <!-- â”€â”€ Grid de personajes â”€â”€ -->
+      <!-- ── Grid de personajes ── -->
       <section v-else aria-label="Lista de personajes">
         <div class="char-grid">
           <CharacterCard
@@ -94,6 +165,7 @@ async function createCharacter(): Promise<void> {
         <p class="char-count">
           {{ charStore.characters.length }}
           {{ charStore.characters.length === 1 ? 'personaje' : 'personajes' }}
+          · límite: {{ maxAllowed }}
         </p>
       </section>
 
@@ -115,6 +187,17 @@ async function createCharacter(): Promise<void> {
   padding: 2rem 1.5rem;
 }
 
+/* Toast */
+.toast-success {
+  background: rgba(60, 140, 80, 0.15);
+  border: 1px solid rgba(60, 140, 80, 0.4);
+  color: #5dc878;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.88rem;
+  margin-bottom: 1rem;
+}
+
 /* Cabecera */
 .page-header {
   display: flex;
@@ -122,7 +205,7 @@ async function createCharacter(): Promise<void> {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
 }
 
 .page-title {
@@ -141,6 +224,38 @@ async function createCharacter(): Promise<void> {
   font-family: 'Courier New', monospace;
   color: var(--text-secondary);
   font-size: 0.78rem;
+}
+
+/* Upsell banner */
+.upsell-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: rgba(201, 168, 76, 0.08);
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.upsell-text {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.upsell-icon { font-size: 1.4rem; flex-shrink: 0; }
+
+.upsell-text strong { color: var(--gold-light); }
+
+.btn-checkout {
+  font-size: 0.85rem;
+  padding: 0.45rem 1rem;
+  white-space: nowrap;
 }
 
 /* Estado: cargando / error */
@@ -196,4 +311,3 @@ async function createCharacter(): Promise<void> {
   text-align: right;
 }
 </style>
-

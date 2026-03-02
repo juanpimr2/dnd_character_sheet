@@ -68,7 +68,7 @@ export const useCharacterStore = defineStore('characters', () => {
         },
         bonuses: { ac: [], fort: [], ref: [], will: [], attack: [], saveGeneral: [] },
         attacks: [], equipment: {}, skills: [], languages: [],
-        inventory: [], abilities: [], feats: [], events: [], customBreakdowns: [],
+        inventory: [], abilities: [], feats: [], events: [], sessions: [], customBreakdowns: [],
         ...raw,
         stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10, ...stats },
       } as Character
@@ -134,7 +134,7 @@ export const useCharacterStore = defineStore('characters', () => {
       },
       bonuses: { ac: [], fort: [], ref: [], will: [], attack: [], saveGeneral: [] },
       attacks: [], equipment: {}, skills: [], languages: [],
-      inventory: [], abilities: [], feats: [], events: [], customBreakdowns: [],
+      inventory: [], abilities: [], feats: [], events: [], sessions: [], customBreakdowns: [],
     }
     try {
       const res = await authFetch(

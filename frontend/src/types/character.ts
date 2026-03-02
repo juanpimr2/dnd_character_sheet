@@ -61,6 +61,13 @@ export interface EventEntry {
   id: number
 }
 
+export interface SessionGroup {
+  id: number
+  name: string       // "Sesión 1", "La Cueva del Dragón", etc.
+  date: string       // "2026-03-02"
+  entries: EventEntry[]
+}
+
 /** Resumen para tarjetas en la pantalla de selección de personaje */
 export interface CharacterSummary {
   id: string
@@ -129,5 +136,6 @@ export interface Character {
   abilities: AbilityEntry[]
   feats: string[]
   events: EventEntry[]
+  sessions: SessionGroup[]
   customBreakdowns: Array<{ name: string; bonuses: BonusEntry[] }>
 }

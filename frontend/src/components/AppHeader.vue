@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { Sword } from 'lucide-vue-next'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -16,7 +17,7 @@ async function logout(): Promise<void> {
     <div class="header-inner">
 
       <router-link to="/characters" class="brand">
-        <span class="brand-icon" aria-hidden="true">⚔️</span>
+        <Sword class="brand-icon" :size="18" aria-hidden="true" />
         <span class="brand-name">D&amp;D Manager</span>
       </router-link>
 
@@ -70,7 +71,7 @@ async function logout(): Promise<void> {
   text-decoration: none;
 }
 .brand:hover { color: var(--gold-light); }
-.brand-icon  { font-size: 1.15rem; }
+.brand-icon  { color: var(--gold); flex-shrink: 0; }
 
 /* Navegación derecha */
 .header-nav {

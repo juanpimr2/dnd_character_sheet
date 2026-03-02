@@ -3,12 +3,14 @@ const express    = require('express')
 const path       = require('path')
 const QRCode     = require('qrcode')
 const { createClient } = require('@supabase/supabase-js')
+const Stripe     = require('stripe')
 
 // ── Validar variables de entorno ─────────────────────────────────────────
 const {
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
   PORT = 3000, ALLOWED_ORIGIN = '*',
   ADMIN_SECRET, APP_URL = 'http://localhost:5173',
+  STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_WEBHOOK_SECRET,
 } = process.env
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -18,6 +20,9 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 if (!ADMIN_SECRET) {
   console.warn('⚠  ADMIN_SECRET no definido — rutas /api/admin desactivadas')
 }
+if (!STRIPE_SECRET_KEY) {
+  console.warn('⚠  STRIPE_SECRET_KEY no definido — pagos desactivados')
+}
 
 // ── Cliente Supabase con service_role (bypassa RLS) ──────────────────────
 //    Solo se usa en el backend. NUNCA exponer esta clave en el frontend.
@@ -25,8 +30,14 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 })
 
+// ── Stripe ────────────────────────────────────────────────────────────────
+const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
+
 // ── Express ───────────────────────────────────────────────────────────────
 const app = express()
+
+// Raw body para webhook de Stripe — DEBE ir ANTES de express.json()
+app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }))
 
 // Límite alto para portraits (base64 ~1.5MB → JSON ~2MB)
 app.use(express.json({ limit: '8mb' }))
@@ -204,7 +215,7 @@ app.post('/api/import', requireAuth, async (req, res) => {
 app.get('/api/profile', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, plan, max_characters, subscription_status')
+    .select('id, username, plan, max_characters, subscription_status, purchased, extra_characters')
     .eq('id', req.user.id)
     .single()
 
@@ -216,7 +227,7 @@ app.get('/api/profile', requireAuth, async (req, res) => {
 app.get('/api/me', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, plan, max_characters, subscription_status, api_token')
+    .select('id, username, plan, max_characters, subscription_status, api_token, purchased, extra_characters, purchased_at')
     .eq('id', req.user.id)
     .single()
 
@@ -245,6 +256,74 @@ app.post('/api/me/token', requireAuth, async (req, res) => {
 
   console.log(`🔑 API token regenerado: ${req.user.id.slice(0, 8)}…`)
   res.json({ api_token: newToken })
+})
+
+// ══════════════════════════════════════════════════════════════════
+//  STRIPE PAGOS
+// ══════════════════════════════════════════════════════════════════
+
+// ── Crear sesión de Stripe Checkout ───────────────────────────────
+app.post('/api/checkout', requireAuth, async (req, res) => {
+  if (!stripe || !STRIPE_PRICE_ID) {
+    return res.status(503).json({ error: 'Pagos no configurados' })
+  }
+
+  const { data: userAuth, error: userError } =
+    await supabase.auth.admin.getUserById(req.user.id)
+  if (userError || !userAuth.user) {
+    return res.status(500).json({ error: 'No se pudo obtener el usuario' })
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+    client_reference_id: req.user.id,
+    customer_email: userAuth.user.email,
+    success_url: `${APP_URL}/characters?payment=success`,
+    cancel_url:  `${APP_URL}/characters`,
+  })
+
+  res.json({ url: session.url })
+})
+
+// ── Webhook de Stripe (raw body, sin auth) ────────────────────────
+app.post('/api/webhook/stripe', async (req, res) => {
+  if (!stripe || !STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).json({ error: 'Webhook no configurado' })
+  }
+
+  const sig = req.headers['stripe-signature']
+  let event
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET)
+  } catch (err) {
+    console.error('Stripe webhook signature error:', err.message)
+    return res.status(400).json({ error: `Webhook error: ${err.message}` })
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object
+    const userId  = session.client_reference_id
+
+    if (userId) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          purchased:              true,
+          purchased_at:           new Date().toISOString(),
+          stripe_payment_intent:  session.payment_intent,
+        })
+        .eq('id', userId)
+
+      if (error) {
+        console.error('Error actualizando purchased en profiles:', error.message)
+      } else {
+        console.log(`✅ Compra confirmada: ${userId.slice(0, 8)}…`)
+      }
+    }
+  }
+
+  res.json({ received: true })
 })
 
 // ══════════════════════════════════════════════════════════════════

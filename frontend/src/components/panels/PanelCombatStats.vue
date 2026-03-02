@@ -115,15 +115,15 @@ function applyDamage(delta: number) {
         <div class="ac-values">
           <div class="ac-val">
             <div class="ac-num">{{ acNormal }}</div>
-            <div class="ac-lbl">Normal</div>
+            <div class="ac-lbl">AC</div>
           </div>
           <div class="ac-val ac-val-secondary">
             <div class="ac-num">{{ acTouch }}</div>
-            <div class="ac-lbl">Toque</div>
+            <div class="ac-lbl">Touch AC</div>
           </div>
           <div class="ac-val ac-val-secondary">
             <div class="ac-num">{{ acFlat }}</div>
-            <div class="ac-lbl">Despr.</div>
+            <div class="ac-lbl">Flat-Footed</div>
           </div>
         </div>
 

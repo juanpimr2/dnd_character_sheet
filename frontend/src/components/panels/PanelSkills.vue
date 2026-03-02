@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import type { SkillEntry, AbilityScores } from '@/types/character'
 
@@ -11,7 +11,71 @@ function save() { charStore.scheduleAutoSave() }
 const mod = (s: number) => Math.floor((s - 10) / 2)
 const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 
-const STATS = ['str','dex','con','int','wis','cha'] as const
+const PATHFINDER_SKILLS = [
+  { en: 'Acrobatics',                    es: 'Acrobacias',                  s: 'dex' },
+  { en: 'Appraise',                       es: 'Tasación',                    s: 'int' },
+  { en: 'Bluff',                          es: 'Engañar',                     s: 'cha' },
+  { en: 'Climb',                          es: 'Trepar',                      s: 'str' },
+  { en: 'Craft',                          es: 'Artesanía',                   s: 'int' },
+  { en: 'Diplomacy',                      es: 'Diplomacia',                  s: 'cha' },
+  { en: 'Disable Device',                 es: 'Inutilizar Mecanismo',        s: 'dex' },
+  { en: 'Disguise',                       es: 'Disfrazarse',                 s: 'cha' },
+  { en: 'Escape Artist',                  es: 'Escapismo',                   s: 'dex' },
+  { en: 'Fly',                            es: 'Volar',                       s: 'dex' },
+  { en: 'Handle Animal',                  es: 'Domar Animales',              s: 'cha' },
+  { en: 'Heal',                           es: 'Curar',                       s: 'wis' },
+  { en: 'Intimidate',                     es: 'Intimidar',                   s: 'cha' },
+  { en: 'Knowledge (Arcana)',             es: 'Conocimiento (Arcano)',        s: 'int' },
+  { en: 'Knowledge (Dungeoneering)',      es: 'Conocimiento (Mazmorras)',     s: 'int' },
+  { en: 'Knowledge (Engineering)',        es: 'Conocimiento (Ingeniería)',    s: 'int' },
+  { en: 'Knowledge (Geography)',          es: 'Conocimiento (Geografía)',     s: 'int' },
+  { en: 'Knowledge (History)',            es: 'Conocimiento (Historia)',      s: 'int' },
+  { en: 'Knowledge (Local)',              es: 'Conocimiento (Local)',         s: 'int' },
+  { en: 'Knowledge (Nature)',             es: 'Conocimiento (Naturaleza)',    s: 'int' },
+  { en: 'Knowledge (Nobility)',           es: 'Conocimiento (Nobleza)',       s: 'int' },
+  { en: 'Knowledge (Planes)',             es: 'Conocimiento (Planos)',        s: 'int' },
+  { en: 'Knowledge (Religion)',           es: 'Conocimiento (Religión)',      s: 'int' },
+  { en: 'Linguistics',                    es: 'Lingüística',                 s: 'int' },
+  { en: 'Perception',                     es: 'Percepción',                  s: 'wis' },
+  { en: 'Perform',                        es: 'Interpretar',                 s: 'cha' },
+  { en: 'Profession',                     es: 'Profesión',                   s: 'wis' },
+  { en: 'Ride',                           es: 'Montar',                      s: 'dex' },
+  { en: 'Sense Motive',                   es: 'Intuición',                   s: 'wis' },
+  { en: 'Sleight of Hand',                es: 'Juego de Manos',              s: 'dex' },
+  { en: 'Spellcraft',                     es: 'Conocimiento Mágico',         s: 'int' },
+  { en: 'Stealth',                        es: 'Sigilo',                      s: 'dex' },
+  { en: 'Survival',                       es: 'Supervivencia',               s: 'wis' },
+  { en: 'Swim',                           es: 'Nadar',                       s: 'str' },
+  { en: 'Use Magic Device',               es: 'Usar Objeto Mágico',          s: 'cha' },
+] as const
+
+const STAT_COLORS: Record<string, string> = {
+  str: '#c95252',
+  dex: '#45c070',
+  con: '#e08030',
+  int: '#5b8fd4',
+  wis: '#9b6dc5',
+  cha: '#d46fa8',
+}
+
+// Auto-populate skills if empty
+onMounted(() => {
+  if (char.value && char.value.skills.length === 0) {
+    char.value.skills = PATHFINDER_SKILLS.map(sk => ({
+      n: sk.en,
+      s: sk.s,
+      r: 0,
+      m: 0,
+      cs: false,
+    }))
+    save()
+  }
+})
+
+function getSpanishName(skillName: string): string {
+  const found = PATHFINDER_SKILLS.find(sk => sk.en === skillName)
+  return found ? found.es : ''
+}
 
 function skillTotal(sk: SkillEntry): number {
   const statMod = mod(char.value.stats[(sk.s ?? 'int') as keyof AbilityScores] ?? 10)
@@ -20,7 +84,7 @@ function skillTotal(sk: SkillEntry): number {
 }
 
 function addSkill() {
-  char.value.skills.push({ n: 'Nueva habilidad', s: 'int', r: 0, m: 0, cs: false })
+  char.value.skills.push({ n: 'New Skill', s: 'int', r: 0, m: 0, cs: false })
   save()
 }
 
@@ -33,27 +97,29 @@ const filter = ref('')
 const filtered = computed(() => {
   if (!filter.value) return char.value.skills
   const q = filter.value.toLowerCase()
-  return char.value.skills.filter(sk => sk.n.toLowerCase().includes(q))
+  return char.value.skills.filter(sk =>
+    sk.n.toLowerCase().includes(q) || getSpanishName(sk.n).toLowerCase().includes(q)
+  )
 })
 </script>
 
 <template>
   <section v-if="char" class="panel">
     <div class="panel-header">
-      <h2 class="panel-title">Habilidades</h2>
+      <h2 class="panel-title">Skills</h2>
       <div class="panel-actions">
-        <input v-model="filter" type="search" placeholder="Filtrar…" class="filter-input" />
-        <button class="btn-outline btn-sm" @click="addSkill">+ Añadir</button>
+        <input v-model="filter" type="search" placeholder="Filter…" class="filter-input" />
+        <button class="btn-outline btn-sm" @click="addSkill">+ Add</button>
       </div>
     </div>
 
     <div class="skills-table">
       <!-- Header -->
       <div class="skill-row skill-header">
-        <span title="Habilidad de clase">CS</span>
-        <span>Habilidad</span>
+        <span title="Class Skill">CS</span>
+        <span>Skill</span>
         <span>Stat</span>
-        <span title="Rangos">Rng</span>
+        <span title="Ranks">Rnk</span>
         <span title="Misc">Misc</span>
         <span>Total</span>
         <span></span>
@@ -70,20 +136,15 @@ const filtered = computed(() => {
           type="checkbox"
           :checked="sk.cs"
           @change="sk.cs = ($event.target as HTMLInputElement).checked; save()"
-          title="Habilidad de clase"
+          title="Class Skill"
         />
-        <input
-          type="text"
-          :value="sk.n"
-          @change="sk.n = ($event.target as HTMLInputElement).value; save()"
-          class="skill-name"
-        />
-        <select
-          :value="sk.s"
-          @change="sk.s = ($event.target as HTMLSelectElement).value; save()"
-        >
-          <option v-for="s in STATS" :key="s" :value="s">{{ s.toUpperCase() }}</option>
-        </select>
+        <div class="skill-name-cell">
+          <span class="skill-en">{{ sk.n }}</span>
+          <span v-if="getSpanishName(sk.n)" class="skill-es">{{ getSpanishName(sk.n) }}</span>
+        </div>
+        <div class="stat-chip" :style="{ background: STAT_COLORS[sk.s] + '33', color: STAT_COLORS[sk.s], borderColor: STAT_COLORS[sk.s] + '66' }">
+          {{ sk.s.toUpperCase() }}
+        </div>
         <input
           type="number"
           :value="sk.r"
@@ -100,11 +161,11 @@ const filtered = computed(() => {
         <span class="skill-total" :class="{ positive: skillTotal(sk) > 0 }">
           {{ fmt(skillTotal(sk)) }}
         </span>
-        <button class="btn-del" @click="removeSkill(char.skills.indexOf(sk))" title="Eliminar">✕</button>
+        <button class="btn-del" @click="removeSkill(char.skills.indexOf(sk))" title="Remove">✕</button>
       </div>
 
       <div v-if="char.skills.length === 0" class="empty-row">
-        Sin habilidades — pulsa "+ Añadir"
+        No skills — click "+ Add"
       </div>
     </div>
   </section>
@@ -144,7 +205,7 @@ const filtered = computed(() => {
 
 .skill-row {
   display: grid;
-  grid-template-columns: 28px 1fr 70px 55px 55px 55px 28px;
+  grid-template-columns: 28px 1fr 52px 50px 50px 52px 28px;
   gap: 4px;
   align-items: center;
   padding: 2px 0;
@@ -173,33 +234,44 @@ input[type="checkbox"] {
   display: block;
 }
 
-.skill-name {
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid transparent;
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 0.85rem;
-  padding: 0.15rem 0.1rem;
-  width: 100%;
-  outline: none;
-  transition: border-color var(--transition);
+.skill-name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0.1rem 0;
+  min-width: 0;
 }
-.skill-name:hover { border-bottom-color: var(--border); }
-.skill-name:focus { border-bottom-color: var(--gold-dim); }
 
-select {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: 0.75rem;
-  padding: 0.15rem 0.25rem;
-  outline: none;
-  width: 100%;
+.skill-en {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-select:focus { border-color: var(--gold-dim); }
+
+.skill-es {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: italic;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+  border: 1px solid;
+  text-align: center;
+  letter-spacing: 0.04em;
+}
 
 .num-input {
   background: var(--bg-input);
@@ -247,4 +319,3 @@ select:focus { border-color: var(--gold-dim); }
   padding: 2rem;
 }
 </style>
-

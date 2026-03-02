@@ -1,15 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    D&D Character Sheet — Design System
-   Paleta: oscuro cálido con dorados. Inspirado en D&D Beyond / Foundry VTT.
+   Paleta: navy oscuro elegante con dorados. Inspirado en D&D Beyond / Foundry VTT.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root {
   /* ── Fondos ── */
-  --bg-base:     #0d0b08;   /* el más oscuro: body */
-  --bg-surface:  #171410;   /* header, sidebar */
-  --bg-card:     #1f1b12;   /* tarjetas, paneles */
-  --bg-elevated: #28231a;   /* inputs, nested cards */
-  --bg-input:    #16130d;   /* fondo de campos de texto */
+  --bg-base:     #1a1a2e;   /* navy oscuro elegante */
+  --bg-surface:  #16213e;   /* header, sidebar */
+  --bg-card:     #16213e;   /* tarjetas, paneles */
+  --bg-elevated: #1e2a4a;   /* inputs, nested cards */
+  --bg-input:    #0f3460;   /* fondo de campos de texto */
 
   /* ── Dorado (acento principal) ── */
   --gold:        #c9a84c;
@@ -28,17 +28,21 @@
   --green-light: #45c070;
 
   /* ── Texto ── */
-  --text-primary:   #f0e6ce;   /* crema cálido */
+  --text-primary:   #e8e0d0;   /* blanco cálido */
   --text-secondary: #a89060;   /* marrón claro */
-  --text-muted:     #6b5c3e;   /* muy apagado */
+  --text-muted:     #6b7fa3;   /* azul apagado */
   --text-inverse:   #0d0b08;   /* sobre botones dorados */
 
   /* ── UI ── */
-  --border:        rgba(201, 168, 76, 0.18);
+  --border:        rgba(201, 168, 76, 0.25);
   --border-hover:  rgba(201, 168, 76, 0.45);
   --shadow:        0 4px 24px rgba(0, 0, 0, 0.65);
   --shadow-gold:   0 0 28px rgba(201, 168, 76, 0.10);
   --shadow-card:   0 2px 8px rgba(0, 0, 0, 0.4);
+
+  /* ── Tipografía ── */
+  --font-title:  'Cinzel', serif;
+  --font-body:   'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 
   /* ── Radios ── */
   --radius-sm: 4px;
@@ -65,7 +69,7 @@ html {
 }
 
 body {
-  font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-body);
   background-color: var(--bg-base);
   color: var(--text-primary);
   line-height: 1.5;
@@ -91,6 +95,27 @@ a {
   transition: color var(--transition);
 }
 a:hover { color: var(--gold-light); }
+
+/* ── Panel global ────────────────────────────────────────────────────────── */
+.panel {
+  background: var(--bg-card);
+  border: 1px solid rgba(201, 168, 76, 0.25);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.panel-title {
+  font-family: var(--font-title);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
 
 /* ── Utilities ───────────────────────────────────────────────────────────── */
 .sr-only {
