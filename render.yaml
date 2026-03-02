@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: dnd-character-sheet
+    env: node
+    region: frankfurt   # más cercano a España
+    plan: free
+
+    # 1. Compila el frontend Vue, luego instala deps del backend
+    buildCommand: |
+      cd frontend && npm ci && npx vite build && cd ../backend && npm ci
+
+    # 2. Arranca el servidor Express (sirve API + frontend compilado)
+    startCommand: node backend/server.js
+
+    # Variables de entorno — rellenar en el dashboard de Render
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false          # poner manualmente en Render dashboard
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ADMIN_SECRET
+        sync: false
+      - key: APP_URL
+        sync: false          # URL de Render, ej: https://dnd-character-sheet.onrender.com
+      - key: ALLOWED_ORIGIN
+        sync: false          # misma URL que APP_URL
+      - key: PORT
+        value: 10000         # Render usa 10000 por defecto
