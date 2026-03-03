@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls empty:*)",
+      "Bash(npx vue-tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vite:*)",
+      "Bash(timeout 5 node:*)",
+      "Bash(npm run:*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(.venv/Scripts/pip install:*)",
+      "Bash(.venv/Scripts/python:*)",
+      "Bash(mkdir:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd:*)",
+      "Bash(powershell:*)",
+      "Bash(kill:*)",
+      "Bash(ls:*)",
+      "Bash(python3:*)",
+      "Bash(.venv/Scripts/activate:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(npx tsc:*)",
+      "Bash(rm:*)",
+      "Bash(claude mcp:*)",
+      "WebFetch(domain:api-docs.render.com)",
+      "WebSearch"
+    ]
+  }
+}

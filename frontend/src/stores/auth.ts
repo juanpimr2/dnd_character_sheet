@@ -7,8 +7,6 @@ interface Profile {
   id: string
   username: string
   plan: 'free' | 'player' | 'dm' | 'table'
-  max_characters: number
-  subscription_status: string
   purchased: boolean
   extra_characters: number
   purchased_at: string | null
@@ -32,7 +30,6 @@ export const useAuthStore = defineStore('auth', () => {
           name:            profile.value.username,
           email:           session.value.user.email ?? '',
           plan:            profile.value.plan,
-          maxCharacters:   profile.value.max_characters,
           purchased:       profile.value.purchased,
           extraCharacters: profile.value.extra_characters,
           purchasedAt:     profile.value.purchased_at,
@@ -49,7 +46,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchProfile(userId: string): Promise<void> {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, username, plan, max_characters, subscription_status, purchased, extra_characters, purchased_at')
+      .select('id, username, plan, purchased, extra_characters, purchased_at')
       .eq('id', userId)
       .single()
 

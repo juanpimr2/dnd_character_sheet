@@ -215,7 +215,7 @@ app.post('/api/import', requireAuth, async (req, res) => {
 app.get('/api/profile', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, plan, max_characters, subscription_status, purchased, extra_characters')
+    .select('id, username, plan, purchased, extra_characters')
     .eq('id', req.user.id)
     .single()
 
@@ -227,7 +227,7 @@ app.get('/api/profile', requireAuth, async (req, res) => {
 app.get('/api/me', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, plan, max_characters, subscription_status, api_token, purchased, extra_characters, purchased_at')
+    .select('id, username, plan, api_token, purchased, extra_characters, purchased_at')
     .eq('id', req.user.id)
     .single()
 

@@ -1,57 +1,80 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   D&D Character Sheet — Design System
-   Paleta: navy oscuro elegante con dorados. Inspirado en D&D Beyond / Foundry VTT.
+   Rollbook — Design System v2
+   Paleta: Arcane Codex — medianoche violeta, oro arcano, amatista.
+   Regla 70/20/10. Inspirado en MtG + ilustraciones D&D high fantasy.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-:root {
-  /* ── Fondos ── */
-  --bg-base:     #1a1a2e;   /* navy oscuro elegante */
-  --bg-surface:  #16213e;   /* header, sidebar */
-  --bg-card:     #16213e;   /* tarjetas, paneles */
-  --bg-elevated: #1e2a4a;   /* inputs, nested cards */
-  --bg-input:    #0f3460;   /* fondo de campos de texto */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
 
-  /* ── Dorado (acento principal) ── */
+:root {
+  /* ── 70% BASE — Medianoche violeta ── */
+  --bg-base:     #0a0910;
+  --bg-surface:  #13111c;
+  --bg-card:     #16142a;
+  --bg-elevated: #1c1a2e;
+  --bg-input:    #0f0d1a;
+
+  /* ── Dorado arcano (acento principal) ── */
   --gold:        #c9a84c;
   --gold-light:  #e8d183;
+  --gold-bright: #f0df90;
   --gold-dim:    #8a6f2e;
-  --gold-subtle: rgba(201, 168, 76, 0.12);
-  --gold-border: rgba(201, 168, 76, 0.28);
+  --gold-subtle: rgba(201, 168, 76, 0.10);
+  --gold-border: rgba(201, 168, 76, 0.22);
 
-  /* ── Rojo (HP, peligro) ── */
-  --red:         #9e3030;
-  --red-light:   #c95252;
-  --red-subtle:  rgba(158, 48, 48, 0.15);
+  /* ── Amatista (magia — secundario) ── */
+  --arcane:        #8855d0;
+  --arcane-light:  #b070ee;
+  --arcane-subtle: rgba(136, 85, 208, 0.12);
+  --arcane-border: rgba(136, 85, 208, 0.28);
 
-  /* ── Verde (HP alto) ── */
+  /* ── Zafiro (agua/hielo — terciario) ── */
+  --sapphire:       #4a98e8;
+  --sapphire-light: #70b8f8;
+
+  /* ── Rojo carmesí (HP, peligro) ── */
+  --red:        #b02040;
+  --red-light:  #e04060;
+  --red-subtle: rgba(176, 32, 64, 0.14);
+
+  /* ── Verde esmeralda (HP alto, éxito) ── */
   --green:       #2d8a4e;
   --green-light: #45c070;
 
   /* ── Texto ── */
-  --text-primary:   #e8e0d0;   /* blanco cálido */
-  --text-secondary: #a89060;   /* marrón claro */
-  --text-muted:     #6b7fa3;   /* azul apagado */
-  --text-inverse:   #0d0b08;   /* sobre botones dorados */
+  --text-primary:   #e8e0f2;
+  --text-secondary: #9080b0;
+  --text-muted:     #5a4870;
+  --text-inverse:   #0d0b14;
 
-  /* ── UI ── */
-  --border:        rgba(201, 168, 76, 0.25);
-  --border-hover:  rgba(201, 168, 76, 0.45);
-  --shadow:        0 4px 24px rgba(0, 0, 0, 0.65);
-  --shadow-gold:   0 0 28px rgba(201, 168, 76, 0.10);
-  --shadow-card:   0 2px 8px rgba(0, 0, 0, 0.4);
+  /* ── Bordes y sombras ── */
+  --border:          rgba(201, 168, 76, 0.18);
+  --border-hover:    rgba(201, 168, 76, 0.40);
+  --border-arcane:   rgba(124, 80, 192, 0.22);
+  --shadow:          0 4px 32px rgba(0, 0, 0, 0.80);
+  --shadow-gold:     0 0 40px rgba(201, 168, 76, 0.18);
+  --shadow-arcane:   0 0 40px rgba(136, 85, 208, 0.20);
+  --shadow-card:     0 2px 16px rgba(0, 0, 0, 0.55);
+
+  /* ── Gradientes ── */
+  --grad-gold:    linear-gradient(135deg, #8a6f2e 0%, #c9a84c 50%, #e8d183 100%);
+  --grad-arcane:  linear-gradient(135deg, #4a2880 0%, #7c50c0 50%, #a070e0 100%);
+  --grad-surface: linear-gradient(180deg, #1c1a2e 0%, #13111c 100%);
+  --grad-card:    linear-gradient(145deg, #1e1c2e 0%, #16142a 100%);
+  --grad-hero:    linear-gradient(135deg, #0a0910 0%, #130f1e 50%, #0d0b16 100%);
 
   /* ── Tipografía ── */
-  --font-title:  'Cinzel', serif;
-  --font-body:   'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-title: 'Cinzel', 'Georgia', serif;
+  --font-body:  'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 
   /* ── Radios ── */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-xl: 18px;
 
   /* ── Transiciones ── */
-  --transition: 0.18s ease;
+  --transition:      0.18s ease;
   --transition-slow: 0.35s ease;
 }
 
@@ -74,19 +97,70 @@ body {
   color: var(--text-primary);
   line-height: 1.5;
   min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -5%,  rgba(136, 85, 208, 0.14) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 35% at 92% 85%,  rgba(201, 168, 76, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 35% 25% at 8%  70%,  rgba(74, 152, 232, 0.05) 0%, transparent 50%);
+}
+
+/* Grain / ruido visual — textura de pergamino encantado */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 180px 180px;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 7px; height: 7px; }
+::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-surface); }
-::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 4px; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--arcane) 0%, var(--gold-dim) 100%);
+  border-radius: 4px;
+}
 ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
 
-/* ── Tipografía base ─────────────────────────────────────────────────────── */
-h1, h2, h3, h4 {
+/* ── Tipografía — jerarquía visual ──────────────────────────────────────── */
+h1 {
+  font-family: var(--font-title);
   font-weight: 700;
+  font-size: 2rem;
+  line-height: 1.15;
+  letter-spacing: 0.03em;
+  background: var(--grad-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  filter: drop-shadow(0 0 20px rgba(201, 168, 76, 0.25));
+}
+
+h2 {
+  font-family: var(--font-title);
+  font-weight: 600;
+  font-size: 1.25rem;
   line-height: 1.2;
+  letter-spacing: 0.025em;
+  color: var(--gold-light);
+}
+
+h3 {
+  font-weight: 600;
+  font-size: 1rem;
   color: var(--text-primary);
+}
+
+h4 {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 a {
@@ -98,65 +172,80 @@ a:hover { color: var(--gold-light); }
 
 /* ── Panel global ────────────────────────────────────────────────────────── */
 .panel {
-  background: var(--bg-card);
-  border: 1px solid rgba(201, 168, 76, 0.25);
+  background: var(--grad-card);
+  border: 1px solid var(--border);
+  border-top-color: rgba(201, 168, 76, 0.30);
   border-radius: var(--radius-lg);
   padding: 1.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  position: relative;
+  overflow: hidden;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.4), transparent);
+  pointer-events: none;
 }
 
 .panel-title {
   font-family: var(--font-title);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--gold);
+  letter-spacing: 0.12em;
+  background: var(--grad-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin-bottom: 0.85rem;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-/* ── Utilities ───────────────────────────────────────────────────────────── */
-.sr-only {
-  position: absolute;
-  width: 1px; height: 1px;
-  padding: 0; margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-/* ── Componentes globales reutilizables ─────────────────────────────────── */
-
-/* Botón primario dorado */
+/* ── Botón primario dorado ───────────────────────────────────────────────── */
 .btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, var(--gold-dim), var(--gold));
-  color: var(--text-inverse);
+  background: linear-gradient(135deg, #6b5220 0%, #c9a84c 50%, #e8d183 100%);
+  color: #0d0b08;
   border: none;
   border-radius: var(--radius-md);
   padding: 0.7rem 1.5rem;
   font-size: 0.9rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   cursor: pointer;
   transition: all var(--transition);
   min-height: 42px;
+  box-shadow: 0 2px 12px rgba(201, 168, 76, 0.25), inset 0 1px 0 rgba(255,255,255,0.15);
+  position: relative;
+  overflow: hidden;
+}
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.08) 100%);
+  pointer-events: none;
 }
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  background: linear-gradient(135deg, #8a6f2e 0%, #e8d183 100%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(201, 168, 76, 0.3);
+  box-shadow: 0 6px 24px rgba(201, 168, 76, 0.40);
 }
 .btn-primary:active:not(:disabled) { transform: translateY(0); }
-.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* Botón outline dorado */
+/* ── Botón outline dorado ────────────────────────────────────────────────── */
 .btn-outline {
   display: inline-flex;
   align-items: center;
@@ -171,33 +260,37 @@ a:hover { color: var(--gold-light); }
   font-weight: 600;
   cursor: pointer;
   transition: all var(--transition);
+  letter-spacing: 0.03em;
 }
 .btn-outline:hover:not(:disabled) {
   background: var(--gold-subtle);
   border-color: var(--gold);
+  box-shadow: 0 0 16px rgba(201, 168, 76, 0.15);
+  color: var(--gold-light);
 }
-.btn-outline:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-outline:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* Spinner de carga */
+/* ── Spinner ─────────────────────────────────────────────────────────────── */
 .spinner {
   display: inline-block;
   width: 18px; height: 18px;
-  border: 2px solid rgba(0,0,0,0.2);
-  border-top-color: rgba(0,0,0,0.85);
+  border: 2px solid rgba(201, 168, 76, 0.2);
+  border-top-color: var(--gold);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
 .spinner-lg {
   width: 36px; height: 36px;
-  border: 3px solid var(--border);
-  border-top-color: var(--gold);
+  border: 3px solid rgba(124, 80, 192, 0.2);
+  border-top-color: var(--arcane-light);
+  border-right-color: var(--gold);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.9s linear infinite;
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Badge de nivel */
+/* ── Badge de nivel ──────────────────────────────────────────────────────── */
 .level-badge {
   font-size: 0.72rem;
   font-weight: 700;
@@ -206,4 +299,40 @@ a:hover { color: var(--gold-light); }
   border: 1px solid var(--gold-border);
   background: var(--gold-subtle);
   color: var(--gold);
+  letter-spacing: 0.04em;
+}
+
+/* ── Utilidades ──────────────────────────────────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Texto con gradiente dorado (reutilizable) */
+.text-gold-gradient {
+  background: var(--grad-gold);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Texto con gradiente arcano */
+.text-arcane-gradient {
+  background: var(--grad-arcane);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Divisor decorativo */
+.divider-arcane {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--arcane-border), var(--gold-border), transparent);
+  margin: 1rem 0;
 }

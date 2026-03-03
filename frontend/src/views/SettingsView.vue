@@ -160,23 +160,23 @@ onMounted(fetchMe)
         <!-- Purchased -->
         <template v-if="authStore.user?.purchased">
           <div class="plan-status">
-            <span class="plan-badge plan-badge--gold">✓ Acceso completo · 10 personajes</span>
+            <span class="plan-badge plan-badge--gold">✓ Acceso completo · 20 personajes</span>
             <span v-if="authStore.user.purchasedAt" class="plan-date">
               Comprado el {{ new Date(authStore.user.purchasedAt).toLocaleDateString('es-ES') }}
             </span>
           </div>
           <p class="card-desc">
-            Gracias por tu compra. Puedes crear hasta 10 personajes.
+            Gracias por tu compra. Puedes crear hasta 20 personajes.
           </p>
         </template>
 
         <!-- Free -->
         <template v-else>
           <div class="plan-status">
-            <span class="plan-badge plan-badge--free">Gratuito · 2 personajes</span>
+            <span class="plan-badge plan-badge--free">Gratuito · 1 personaje</span>
           </div>
           <p class="card-desc">
-            El plan gratuito incluye hasta 2 personajes. Desbloquea el acceso completo con un pago único.
+            El plan gratuito incluye 1 personaje. Desbloquea hasta 20 personajes con un pago único.
           </p>
           <button
             class="btn-primary"

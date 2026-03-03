@@ -17,8 +17,8 @@ const checkingOut    = ref(false)
 
 const maxAllowed = computed(() => {
   const u = authStore.user
-  if (!u) return 2
-  return u.purchased ? 10 + (u.extraCharacters ?? 0) : 2
+  if (!u) return 1
+  return u.purchased ? 20 + (u.extraCharacters ?? 0) : 1
 })
 
 const atLimit = computed(() =>
@@ -112,8 +112,8 @@ async function startCheckout(): Promise<void> {
         <div class="upsell-text">
           <span class="upsell-icon" aria-hidden="true">🎲</span>
           <div>
-            <strong>Tienes {{ charStore.characters.length }}/{{ maxAllowed }} personajes en el plan gratuito.</strong>
-            <span> Desbloquea hasta 10 personajes por 4.99€</span>
+            <strong>Tienes {{ charStore.characters.length }}/{{ maxAllowed }} personaje en el plan gratuito.</strong>
+            <span> Desbloquea hasta 20 personajes por 4.99€</span>
           </div>
         </div>
         <button
