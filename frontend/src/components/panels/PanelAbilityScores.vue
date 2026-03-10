@@ -1,46 +1,89 @@
 ﻿<script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
+import { calculateApplicableBonuses } from '@/composables/useBonusCalc'
 import type { AbilityScores } from '@/types/character'
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
 
+const emit = defineEmits<{ goToBreakdowns: [] }>()
+
 function save() { charStore.scheduleAutoSave() }
+
+function hasBreakdown(key: keyof AbilityScores): boolean {
+  return (charStore.activeCharacter?.abilityBreakdowns?.[key]?.length ?? 0) > 0
+}
+
+function statValue(key: keyof AbilityScores): number {
+  const character = charStore.activeCharacter!
+  const bd = character.abilityBreakdowns?.[key]
+  if (bd && bd.length > 0) return calculateApplicableBonuses(bd)
+  return character.stats[key]
+}
 
 const mod = (s: number) => Math.floor((s - 10) / 2)
 const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 
 const ABILITIES: { key: keyof AbilityScores; label: string; abbr: string }[] = [
-  { key: 'str', label: 'Fuerza',       abbr: 'FUE' },
-  { key: 'dex', label: 'Destreza',     abbr: 'DES' },
-  { key: 'con', label: 'Constitución', abbr: 'CON' },
-  { key: 'int', label: 'Inteligencia', abbr: 'INT' },
-  { key: 'wis', label: 'Sabiduría',    abbr: 'SAB' },
-  { key: 'cha', label: 'Carisma',      abbr: 'CAR' },
+  { key: 'str', label: 'Strength',     abbr: 'STR' },
+  { key: 'dex', label: 'Dexterity',    abbr: 'DEX' },
+  { key: 'con', label: 'Constitution', abbr: 'CON' },
+  { key: 'int', label: 'Intelligence', abbr: 'INT' },
+  { key: 'wis', label: 'Wisdom',       abbr: 'WIS' },
+  { key: 'cha', label: 'Charisma',     abbr: 'CHA' },
 ]
+
+// Tooltip toggle
+const openTooltip = ref<keyof AbilityScores | null>(null)
+
+function toggleTooltip(key: keyof AbilityScores, e: MouseEvent) {
+  e.stopPropagation()
+  openTooltip.value = openTooltip.value === key ? null : key
+}
+
+function closeTooltips() { openTooltip.value = null }
+
+onMounted(() => document.addEventListener('click', closeTooltips))
+onUnmounted(() => document.removeEventListener('click', closeTooltips))
 </script>
 
 <template>
   <section v-if="char" class="panel">
-    <h2 class="panel-title">Características</h2>
+    <h2 class="panel-title">Ability Scores</h2>
     <div class="ability-grid">
-      <div v-for="ab in ABILITIES" :key="ab.key" class="ability-box" :title="ab.label">
+      <div v-for="ab in ABILITIES" :key="ab.key" class="ability-box" :class="{ locked: hasBreakdown(ab.key) }" :title="ab.label">
         <div class="ab-label">{{ ab.abbr }}</div>
+        <!-- Editable: no breakdown defined -->
         <input
+          v-if="!hasBreakdown(ab.key)"
           type="number"
           class="ab-score-input"
           v-model.number="char.stats[ab.key]"
           @change="save"
           min="1" max="60"
         />
-        <div class="ab-mod">{{ fmt(mod(char.stats[ab.key])) }}</div>
+        <!-- Read-only: calculated from breakdown -->
+        <div v-else class="ab-score-readonly">{{ statValue(ab.key) }}</div>
+        <div class="ab-mod">{{ fmt(mod(statValue(ab.key))) }}</div>
+        <!-- Tooltip when locked -->
+        <div v-if="hasBreakdown(ab.key)" class="ab-lock-hint" @click.stop>
+          <button class="ab-lock-icon" @click="toggleTooltip(ab.key, $event)" :aria-label="`View breakdown for ${ab.label}`">⊕</button>
+          <div class="ab-tooltip" :class="{ visible: openTooltip === ab.key }">
+            Calculated from your Breakdown.<br/>
+            Edit it in
+            <button class="tooltip-link" @click="emit('goToBreakdowns'); closeTooltips()">Breakdowns →</button>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
+/* Necesario para que el tooltip escape el overflow:hidden del .panel global */
+section.panel { overflow: visible; }
+
 .ability-grid {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -48,6 +91,7 @@ const ABILITIES: { key: keyof AbilityScores; label: string; abbr: string }[] = [
 }
 
 .ability-box {
+  position: relative;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -56,6 +100,7 @@ const ABILITIES: { key: keyof AbilityScores; label: string; abbr: string }[] = [
   transition: border-color var(--transition);
 }
 .ability-box:focus-within { border-color: var(--gold-dim); }
+.ability-box.locked { border-color: rgba(136, 85, 208, 0.35); }
 
 .ab-label {
   font-size: 0.6rem;
@@ -90,6 +135,67 @@ const ABILITIES: { key: keyof AbilityScores; label: string; abbr: string }[] = [
   color: var(--gold);
   margin-top: 0.25rem;
 }
+
+.ab-score-readonly {
+  font-size: 1.4rem;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-primary);
+  padding: 0.1rem 0;
+  border-bottom: 1px solid rgba(136, 85, 208, 0.3);
+  margin-bottom: 0;
+  line-height: 1.4;
+}
+
+.ab-lock-hint {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+.ab-lock-icon {
+  background: transparent;
+  border: none;
+  font-size: 0.65rem;
+  color: var(--arcane-light);
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 0;
+  line-height: 1;
+  transition: opacity var(--transition), color var(--transition);
+}
+.ab-lock-icon:hover { opacity: 1; color: var(--gold-light); }
+
+.ab-tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: -4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--arcane-border);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.75rem;
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  z-index: 200;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  line-height: 1.6;
+}
+.ab-tooltip.visible { display: block; }
+
+.tooltip-link {
+  background: none;
+  border: none;
+  color: var(--gold-light);
+  font-size: 0.73rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition);
+}
+.tooltip-link:hover { color: var(--gold); }
 
 @media (max-width: 500px) {
   .ability-grid { grid-template-columns: repeat(3, 1fr); }

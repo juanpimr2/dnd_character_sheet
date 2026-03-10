@@ -24,6 +24,15 @@ export interface BonusEntry {
   applies?: string // para saveGeneral: 'All' | 'fort' | 'ref' | 'will'
 }
 
+export interface AbilityBreakdowns {
+  str: BonusEntry[]
+  dex: BonusEntry[]
+  con: BonusEntry[]
+  int: BonusEntry[]
+  wis: BonusEntry[]
+  cha: BonusEntry[]
+}
+
 export interface AttackEntry {
   weapon: string
   bonus: string
@@ -85,6 +94,7 @@ export interface Character {
   race: string
   classes: string
   level: number
+  xp?: number
   alignment: string
   deity: string
   height: string
@@ -92,6 +102,7 @@ export interface Character {
 
   // Stats base
   stats: AbilityScores
+  abilityBreakdowns?: AbilityBreakdowns
 
   // HP
   maxHP: number

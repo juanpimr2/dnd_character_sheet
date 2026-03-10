@@ -43,7 +43,7 @@ function removeSlot(slot: string) {
 
 <template>
   <section v-if="char" class="panel">
-    <h2 class="panel-title">Equipo por Ranura</h2>
+    <h2 class="panel-title">Equipment Slots</h2>
 
     <div class="slots-grid">
       <div v-for="slot in slots" :key="slot" class="slot-row">
@@ -52,10 +52,10 @@ function removeSlot(slot: string) {
           type="text"
           :value="char.equipment[slot]"
           @change="char.equipment[slot] = ($event.target as HTMLInputElement).value; save()"
-          :placeholder="`Vacío`"
+          placeholder="Empty"
           class="slot-input"
         />
-        <button class="btn-del" @click="removeSlot(slot)" title="Eliminar ranura">✕</button>
+        <button class="btn-del" @click="removeSlot(slot)" title="Remove slot">✕</button>
       </div>
     </div>
 
@@ -63,11 +63,11 @@ function removeSlot(slot: string) {
       <input
         type="text"
         v-model="newSlotName"
-        placeholder="Nueva ranura…"
+        placeholder="New slot…"
         class="add-input"
         @keydown.enter="addSlot"
       />
-      <button class="btn-outline btn-sm" @click="addSlot">+ Añadir</button>
+      <button class="btn-outline btn-sm" @click="addSlot">+ Add</button>
     </div>
   </section>
 </template>

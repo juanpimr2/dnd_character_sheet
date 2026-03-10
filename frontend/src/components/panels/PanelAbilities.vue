@@ -8,7 +8,7 @@ const char = computed(() => charStore.activeCharacter!)
 function save() { charStore.scheduleAutoSave() }
 
 function addAbility() {
-  char.value.abilities.push({ n: 'Nueva habilidad', d: '' })
+  char.value.abilities.push({ n: 'New ability', d: '' })
   save()
 }
 
@@ -21,8 +21,8 @@ function removeAbility(i: number) {
 <template>
   <section v-if="char" class="panel">
     <div class="panel-header">
-      <h2 class="panel-title">Habilidades de Clase</h2>
-      <button class="btn-outline btn-sm" @click="addAbility">+ Añadir</button>
+      <h2 class="panel-title">Class Abilities</h2>
+      <button class="btn-outline btn-sm" @click="addAbility">+ Add</button>
     </div>
 
     <div class="abilities-list">
@@ -32,22 +32,22 @@ function removeAbility(i: number) {
             type="text"
             v-model="ab.n"
             @change="save"
-            placeholder="Nombre…"
+            placeholder="Name…"
             class="ab-name"
           />
-          <button class="btn-del" @click="removeAbility(i)" title="Eliminar">✕</button>
+          <button class="btn-del" @click="removeAbility(i)" title="Remove">✕</button>
         </div>
         <textarea
           v-model="ab.d"
           @change="save"
-          placeholder="Descripción de la habilidad…"
+          placeholder="Ability description…"
           class="ab-desc"
           rows="3"
         ></textarea>
       </div>
 
       <div v-if="char.abilities.length === 0" class="empty-state">
-        Sin habilidades de clase — pulsa "+ Añadir"
+        No class abilities — press "+ Add"
       </div>
     </div>
   </section>

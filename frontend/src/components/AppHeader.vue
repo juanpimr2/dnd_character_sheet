@@ -31,9 +31,9 @@ async function logout(): Promise<void> {
       <nav class="header-nav">
 
         <!-- Badge plan completo -->
-        <span v-if="authStore.user?.purchased" class="plan-tag" title="Acceso completo">
+        <span v-if="authStore.user?.purchased" class="plan-tag" title="Full access">
           <span class="plan-tag-dot" aria-hidden="true"></span>
-          Acceso completo
+          Full access
         </span>
 
         <!-- Usuario activo -->
@@ -43,14 +43,14 @@ async function logout(): Promise<void> {
         </span>
 
         <!-- Ajustes -->
-        <router-link to="/settings" class="btn-icon-nav" title="Ajustes" aria-label="Ajustes">
+        <router-link to="/settings" class="btn-icon-nav" title="Settings" aria-label="Settings">
           <Settings :size="15" />
         </router-link>
 
         <!-- Logout -->
-        <button class="btn-logout" @click="logout" aria-label="Cerrar sesión">
+        <button class="btn-logout" @click="logout" aria-label="Log out">
           <LogOut :size="13" />
-          <span>Salir</span>
+          <span>Log out</span>
         </button>
 
       </nav>

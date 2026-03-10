@@ -3,7 +3,7 @@ import { onMounted, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore }      from '@/stores/auth'
 import { useCharacterStore } from '@/stores/characters'
-import { ScrollText, BookOpen, Swords, Backpack, Star, BookMarked } from 'lucide-vue-next'
+import { ScrollText, BookOpen, Swords, Backpack, Star, BookMarked, LayoutList } from 'lucide-vue-next'
 
 import AppHeader          from '@/components/AppHeader.vue'
 import PanelIdentity      from '@/components/panels/PanelIdentity.vue'
@@ -18,6 +18,7 @@ import PanelAbilities     from '@/components/panels/PanelAbilities.vue'
 import PanelFeats         from '@/components/panels/PanelFeats.vue'
 import PanelLanguages     from '@/components/panels/PanelLanguages.vue'
 import PanelSessions      from '@/components/panels/PanelSessions.vue'
+import PanelBreakdowns    from '@/components/panels/PanelBreakdowns.vue'
 
 const route      = useRoute()
 const router     = useRouter()
@@ -28,16 +29,17 @@ const characterId = computed(() => route.params.id as string)
 const playerId    = computed(() => authStore.user?.id ?? '')
 const char        = computed(() => charStore.activeCharacter)
 
-type Tab = 'ficha' | 'habilidades' | 'combate' | 'equipo' | 'feats' | 'sesiones'
+type Tab = 'ficha' | 'habilidades' | 'combate' | 'equipo' | 'feats' | 'sesiones' | 'desgloces'
 const activeTab = ref<Tab>('ficha')
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
-  { id: 'ficha',       label: 'Ficha',    icon: ScrollText  },
-  { id: 'habilidades', label: 'Skills',   icon: BookOpen    },
-  { id: 'combate',     label: 'Combate',  icon: Swords      },
-  { id: 'equipo',      label: 'Equipo',   icon: Backpack    },
-  { id: 'feats',       label: 'Feats',    icon: Star        },
-  { id: 'sesiones',    label: 'Sesiones', icon: BookMarked  },
+  { id: 'ficha',       label: 'Sheet',      icon: ScrollText  },
+  { id: 'habilidades', label: 'Skills',     icon: BookOpen    },
+  { id: 'combate',     label: 'Combat',     icon: Swords      },
+  { id: 'equipo',      label: 'Equipment',  icon: Backpack    },
+  { id: 'feats',       label: 'Feats',      icon: Star        },
+  { id: 'sesiones',    label: 'Sessions',   icon: BookMarked  },
+  { id: 'desgloces',   label: 'Breakdowns', icon: LayoutList  },
 ]
 
 onMounted(async () => {
@@ -53,30 +55,30 @@ onMounted(async () => {
 
     <main class="content">
 
-      <!-- ── Cargando ── -->
+      <!-- ── Loading ── -->
       <div v-if="charStore.loading" class="state-center">
-        <div class="spinner-lg" role="status" aria-label="Cargando personaje"></div>
+        <div class="spinner-lg" role="status" aria-label="Loading character"></div>
       </div>
 
       <!-- ── Error ── -->
       <div v-else-if="charStore.error" class="state-center" role="alert">
         <p class="error-text">{{ charStore.error }}</p>
-        <button class="btn-outline" @click="router.push({ name: 'characters' })">← Volver</button>
+        <button class="btn-outline" @click="router.push({ name: 'characters' })">← Back</button>
       </div>
 
-      <!-- ── Personaje nuevo sin datos ── -->
+      <!-- ── New character with no data ── -->
       <div v-else-if="!char" class="state-center">
         <span class="new-char-icon" aria-hidden="true">📜</span>
-        <h2>Personaje nuevo</h2>
+        <h2>New Character</h2>
         <p>ID: <code>{{ characterId }}</code></p>
-        <p class="muted">Abre la hoja clásica para crear el personaje, luego vuelve aquí.</p>
+        <p class="muted">Open the classic sheet to create the character, then come back here.</p>
         <div class="new-char-actions">
           <a
             :href="`http://localhost:3000?player=${playerId}&character=${characterId}`"
             target="_blank" rel="noopener"
             class="btn-primary"
-          >Abrir hoja clásica</a>
-          <button class="btn-outline" @click="router.push({ name: 'characters' })">← Volver</button>
+          >Open classic sheet</a>
+          <button class="btn-outline" @click="router.push({ name: 'characters' })">← Back</button>
         </div>
       </div>
 
@@ -85,23 +87,23 @@ onMounted(async () => {
 
         <!-- Barra superior: breadcrumb + nombre + estado de guardado -->
         <div class="top-bar">
-          <nav class="breadcrumb" aria-label="Navegación">
-            <router-link to="/characters">Mis Personajes</router-link>
+          <nav class="breadcrumb" aria-label="Navigation">
+            <router-link to="/characters">My Characters</router-link>
             <span aria-hidden="true">›</span>
             <span>{{ char.name }}</span>
           </nav>
 
           <div class="save-status" :class="{ saving: charStore.isSaving, dirty: charStore.isDirty && !charStore.isSaving }">
             <span v-if="charStore.isSaving">
-              <span class="spinner-xs"></span> Guardando…
+              <span class="spinner-xs"></span> Saving…
             </span>
-            <span v-else-if="charStore.isDirty">● Sin guardar</span>
-            <span v-else>✓ Guardado</span>
+            <span v-else-if="charStore.isDirty">● Unsaved</span>
+            <span v-else>✓ Saved</span>
           </div>
         </div>
 
-        <!-- Tabs de navegación -->
-        <nav class="tabs" aria-label="Secciones de la hoja">
+        <!-- Navigation tabs -->
+        <nav class="tabs" aria-label="Character sheet sections">
           <button
             v-for="tab in TABS"
             :key="tab.id"
@@ -119,7 +121,7 @@ onMounted(async () => {
         ═══════════════════════════════════ -->
         <div v-show="activeTab === 'ficha'" class="tab-content">
           <PanelIdentity />
-          <PanelAbilityScores />
+          <PanelAbilityScores @go-to-breakdowns="activeTab = 'desgloces'" />
           <PanelCombatStats />
           <PanelSaves />
           <PanelAbilities />
@@ -160,6 +162,13 @@ onMounted(async () => {
         ═══════════════════════════════════ -->
         <div v-show="activeTab === 'sesiones'" class="tab-content">
           <PanelSessions />
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: DESGLOCES
+        ═══════════════════════════════════ -->
+        <div v-show="activeTab === 'desgloces'" class="tab-content">
+          <PanelBreakdowns />
         </div>
 
       </template>

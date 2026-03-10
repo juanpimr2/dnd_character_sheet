@@ -33,15 +33,15 @@ async function handleSubmit(): Promise<void> {
   success.value = ''
 
   if (!email.value.trim() || !password.value) {
-    error.value = 'Rellena todos los campos'
+    error.value = 'Please fill in all fields'
     return
   }
   if (!isLogin.value && password.value !== confirm.value) {
-    error.value = 'Las contraseñas no coinciden'
+    error.value = 'Passwords do not match'
     return
   }
   if (!isLogin.value && password.value.length < 6) {
-    error.value = 'La contraseña debe tener al menos 6 caracteres'
+    error.value = 'Password must be at least 6 characters'
     return
   }
 
@@ -60,7 +60,7 @@ async function handleSubmit(): Promise<void> {
     if (authStore.isAuthenticated) {
       router.push({ name: 'characters' })
     } else {
-      success.value = 'Cuenta creada. Revisa tu email para confirmar.'
+      success.value = 'Account created. Check your email to confirm.'
       switchMode('login')
     }
   }
@@ -97,14 +97,18 @@ async function handleGoogle(): Promise<void> {
 
         <!-- Logo -->
         <div class="hero-logo">
-          <img src="/logo.png" alt="Rollbook emblem" class="hero-logo-img" />
+          <img src="/logo_nobg.png" alt="Rollbook emblem" class="hero-logo-img" />
         </div>
 
         <h1 class="hero-title">Rollbook</h1>
         <p class="hero-tagline">Every hero. Any world.</p>
 
         <!-- Divisor -->
-        <img src="/divider.png" alt="" class="hero-divider" aria-hidden="true" />
+        <div class="hero-divider" aria-hidden="true">
+          <span class="divider-line"></span>
+          <span class="divider-diamond"></span>
+          <span class="divider-line"></span>
+        </div>
 
         <!-- Feature list -->
         <ul class="hero-features">
@@ -112,25 +116,25 @@ async function handleGoogle(): Promise<void> {
             <span class="feat-icon" aria-hidden="true">
               <svg viewBox="0 0 16 16" fill="none"><polygon points="8,1 14,5 12,13 4,13 2,5" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
             </span>
-            Fichas completas para D&amp;D 3.5e, Pathfinder 1e y D&amp;D 5e
+            Full character sheets for D&amp;D 3.5e, Pathfinder 1e and D&amp;D 5e
           </li>
           <li>
             <span class="feat-icon" aria-hidden="true">
               <svg viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2"/></svg>
             </span>
-            Guardado automático en la nube — accede desde cualquier lugar
+            Auto-save to the cloud — access from anywhere
           </li>
           <li>
             <span class="feat-icon" aria-hidden="true">
               <svg viewBox="0 0 16 16" fill="none"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Cálculo automático de CA, tiradas de salvación y ataques
+            Automatic AC, saving throws and attack calculations
           </li>
           <li>
             <span class="feat-icon" aria-hidden="true">
               <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M5 6h6M5 9h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
             </span>
-            Gratis para empezar · Sin tarjeta de crédito
+            Free to start · No credit card required
           </li>
         </ul>
 
@@ -163,13 +167,13 @@ async function handleGoogle(): Promise<void> {
             :aria-selected="isLogin"
             :class="{ active: isLogin }"
             @click="switchMode('login')"
-          >Iniciar sesión</button>
+          >Sign in</button>
           <button
             role="tab"
             :aria-selected="!isLogin"
             :class="{ active: !isLogin }"
             @click="switchMode('register')"
-          >Crear cuenta</button>
+          >Create account</button>
         </div>
 
         <div v-if="success" class="success-banner" role="status">{{ success }}</div>
@@ -177,17 +181,17 @@ async function handleGoogle(): Promise<void> {
         <!-- Formulario -->
         <form class="login-form" @submit.prevent="handleSubmit" novalidate>
           <div class="field">
-            <label for="email">Correo electrónico</label>
+            <label for="email">Email</label>
             <input
               id="email" v-model="email" type="email"
-              placeholder="aventurero@ejemplo.com"
+              placeholder="adventurer@example.com"
               autocomplete="email" spellcheck="false"
               :disabled="loading" required
             />
           </div>
 
           <div class="field">
-            <label for="password">Contraseña</label>
+            <label for="password">Password</label>
             <input
               id="password" v-model="password" type="password"
               placeholder="••••••••"
@@ -197,7 +201,7 @@ async function handleGoogle(): Promise<void> {
           </div>
 
           <div v-if="!isLogin" class="field">
-            <label for="confirm">Confirmar contraseña</label>
+            <label for="confirm">Confirm password</label>
             <input
               id="confirm" v-model="confirm" type="password"
               placeholder="••••••••"
@@ -210,15 +214,15 @@ async function handleGoogle(): Promise<void> {
 
           <button type="submit" class="btn-primary btn-submit" :disabled="loading || loadingGoogle">
             <span v-if="loading" class="spinner"></span>
-            <span v-else-if="isLogin">Entrar al Salón</span>
-            <span v-else>Forjar mi cuenta</span>
+            <span v-else-if="isLogin">Enter the Hall</span>
+            <span v-else>Forge my account</span>
           </button>
         </form>
 
         <!-- OAuth -->
         <div class="oauth-divider">
           <span class="oauth-line"></span>
-          <span class="oauth-text">o continúa con</span>
+          <span class="oauth-text">or continue with</span>
           <span class="oauth-line"></span>
         </div>
 
@@ -231,7 +235,7 @@ async function handleGoogle(): Promise<void> {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Continuar con Google
+            Continue with Google
           </template>
         </button>
 
@@ -242,7 +246,7 @@ async function handleGoogle(): Promise<void> {
 </template>
 
 <style scoped>
-/* ══ Layout grimorio ══════════════════════════════════════════════ */
+/* ══ Layout ══════════════════════════════════════════════════════════ */
 .grimoire {
   min-height: 100vh;
   display: grid;
@@ -254,7 +258,7 @@ async function handleGoogle(): Promise<void> {
   .page-left { display: none; }
 }
 
-/* ══ Página izquierda ══════════════════════════════════════════════ */
+/* ══ Página izquierda ═══════════════════════════════════════════════ */
 .page-left {
   position: relative;
   overflow: hidden;
@@ -270,7 +274,6 @@ async function handleGoogle(): Promise<void> {
   background-size: cover;
   background-position: center;
   transform: scale(1.04);
-  transition: transform 20s ease;
   animation: hero-zoom 25s ease-in-out infinite alternate;
 }
 
@@ -283,8 +286,8 @@ async function handleGoogle(): Promise<void> {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(to right,  rgba(10, 9, 16, 0.15) 0%, rgba(10, 9, 16, 0.60) 100%),
-    linear-gradient(to bottom, rgba(10, 9, 16, 0.20) 0%, rgba(10, 9, 16, 0.45) 100%);
+    linear-gradient(to right,  rgba(10,9,16,0.15) 0%, rgba(10,9,16,0.60) 100%),
+    linear-gradient(to bottom, rgba(10,9,16,0.20) 0%, rgba(10,9,16,0.45) 100%);
 }
 
 .hero-content {
@@ -298,14 +301,13 @@ async function handleGoogle(): Promise<void> {
   gap: 0;
 }
 
-.hero-logo {
-  margin-bottom: 1rem;
-}
+/* ── Logo ── */
+.hero-logo { margin-bottom: 1rem; }
+
 .hero-logo-img {
-  width: 130px;
-  height: 130px;
+  width: 155px;
+  height: 155px;
   object-fit: contain;
-  mix-blend-mode: screen;
   filter: drop-shadow(0 0 24px rgba(201, 168, 76, 0.45));
   animation: logo-pulse 4s ease-in-out infinite;
 }
@@ -339,13 +341,27 @@ async function handleGoogle(): Promise<void> {
 }
 
 .hero-divider {
-  width: 80%;
-  max-width: 280px;
-  height: auto;
-  opacity: 0.75;
-  mix-blend-mode: screen;
-  margin-bottom: 1.5rem;
-  filter: drop-shadow(0 0 8px rgba(201, 168, 76, 0.2));
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 320px;
+  margin: 0.25rem 0 1.5rem;
+}
+
+.divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201, 168, 76, 0.6), transparent);
+}
+
+.divider-diamond {
+  width: 8px;
+  height: 8px;
+  background: var(--gold);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(201, 168, 76, 0.6);
 }
 
 .hero-features {
@@ -358,7 +374,6 @@ async function handleGoogle(): Promise<void> {
   max-width: 320px;
   margin-bottom: 1.5rem;
 }
-
 .hero-features li {
   display: flex;
   align-items: flex-start;
@@ -368,13 +383,7 @@ async function handleGoogle(): Promise<void> {
   line-height: 1.4;
 }
 
-.feat-icon {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  margin-top: 1px;
-  color: var(--gold);
-}
+.feat-icon { flex-shrink: 0; width: 16px; height: 16px; margin-top: 1px; color: var(--gold); }
 .feat-icon svg { width: 100%; height: 100%; }
 
 .hero-chips {
@@ -383,7 +392,6 @@ async function handleGoogle(): Promise<void> {
   flex-wrap: wrap;
   justify-content: center;
 }
-
 .hchip {
   font-size: 0.62rem;
   font-weight: 600;
@@ -397,25 +405,21 @@ async function handleGoogle(): Promise<void> {
   backdrop-filter: blur(4px);
 }
 
-/* Spine del libro — separador decorativo entre las dos páginas */
 .book-spine {
   position: absolute;
   top: 0; right: 0;
-  width: 3px;
-  height: 100%;
+  width: 3px; height: 100%;
   background: linear-gradient(180deg,
     transparent 0%,
-    rgba(201, 168, 76, 0.15) 15%,
-    rgba(201, 168, 76, 0.45) 40%,
-    rgba(201, 168, 76, 0.55) 50%,
-    rgba(201, 168, 76, 0.45) 60%,
-    rgba(201, 168, 76, 0.15) 85%,
+    rgba(201,168,76,0.15) 15%,
+    rgba(201,168,76,0.55) 50%,
+    rgba(201,168,76,0.15) 85%,
     transparent 100%
   );
   box-shadow: 0 0 16px rgba(201, 168, 76, 0.20);
 }
 
-/* ══ Página derecha ═══════════════════════════════════════════════ */
+/* ══ Página derecha ══════════════════════════════════════════════════ */
 .page-right {
   position: relative;
   display: flex;
@@ -426,22 +430,15 @@ async function handleGoogle(): Promise<void> {
   overflow: hidden;
 }
 
-.orb {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  filter: blur(80px);
-}
+.orb { position: absolute; border-radius: 50%; pointer-events: none; filter: blur(80px); }
 .orb-1 {
-  width: 400px; height: 400px;
-  top: -150px; right: -100px;
-  background: radial-gradient(circle, rgba(136, 85, 208, 0.12) 0%, transparent 70%);
+  width: 400px; height: 400px; top: -150px; right: -100px;
+  background: radial-gradient(circle, rgba(136,85,208,0.12) 0%, transparent 70%);
   animation: orb-drift 14s ease-in-out infinite;
 }
 .orb-2 {
-  width: 300px; height: 300px;
-  bottom: -80px; left: -60px;
-  background: radial-gradient(circle, rgba(201, 168, 76, 0.07) 0%, transparent 70%);
+  width: 300px; height: 300px; bottom: -80px; left: -60px;
+  background: radial-gradient(circle, rgba(201,168,76,0.07) 0%, transparent 70%);
   animation: orb-drift 18s ease-in-out infinite reverse;
 }
 @keyframes orb-drift {
@@ -449,12 +446,7 @@ async function handleGoogle(): Promise<void> {
   50%       { transform: translate(20px, -15px); }
 }
 
-.form-container {
-  width: 100%;
-  max-width: 380px;
-  position: relative;
-  z-index: 1;
-}
+.form-container { width: 100%; max-width: 380px; position: relative; z-index: 1; }
 
 /* ── Tabs ── */
 .mode-tabs {
@@ -462,22 +454,13 @@ async function handleGoogle(): Promise<void> {
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 3px;
-  margin-bottom: 1.5rem;
-  gap: 2px;
+  padding: 3px; margin-bottom: 1.5rem; gap: 2px;
 }
 .mode-tabs button {
-  flex: 1;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
-  font-family: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 0.45rem;
-  cursor: pointer;
-  transition: all var(--transition);
+  flex: 1; background: transparent; border: none;
+  border-radius: var(--radius-sm); color: var(--text-muted);
+  font-family: inherit; font-size: 0.82rem; font-weight: 600;
+  padding: 0.45rem; cursor: pointer; transition: all var(--transition);
 }
 .mode-tabs button.active {
   background: linear-gradient(135deg, rgba(136,85,208,0.20), rgba(201,168,76,0.12));
@@ -487,112 +470,60 @@ async function handleGoogle(): Promise<void> {
 }
 
 /* ── Form ── */
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
+.login-form { display: flex; flex-direction: column; gap: 0.9rem; }
 
 .field { display: flex; flex-direction: column; gap: 0.3rem; }
 .field label {
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
+  font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-secondary);
 }
 .field input {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 0.9rem;
-  font-family: inherit;
-  padding: 0.62rem 0.9rem;
-  width: 100%;
-  outline: none;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-md); color: var(--text-primary);
+  font-size: 0.9rem; font-family: inherit; padding: 0.62rem 0.9rem;
+  width: 100%; outline: none;
   transition: border-color var(--transition), box-shadow var(--transition);
 }
-.field input:focus {
-  border-color: var(--arcane);
-  box-shadow: 0 0 0 3px rgba(136, 85, 208, 0.14);
-}
+.field input:focus { border-color: var(--arcane); box-shadow: 0 0 0 3px rgba(136,85,208,0.14); }
 .field input::placeholder { color: var(--text-muted); opacity: 0.55; }
 .field input:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* Banners */
 .error-banner {
-  font-size: 0.8rem;
-  color: var(--red-light);
-  background: var(--red-subtle);
-  border: 1px solid rgba(176, 32, 64, 0.3);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem; color: var(--red-light); background: var(--red-subtle);
+  border: 1px solid rgba(176,32,64,0.3); border-radius: var(--radius-sm); padding: 0.5rem 0.85rem;
 }
 .success-banner {
-  font-size: 0.8rem;
-  color: var(--green-light);
-  background: rgba(45, 138, 78, 0.10);
-  border: 1px solid rgba(45, 138, 78, 0.28);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.85rem;
-  margin-bottom: 0.5rem;
+  font-size: 0.8rem; color: var(--green-light); background: rgba(45,138,78,0.10);
+  border: 1px solid rgba(45,138,78,0.28); border-radius: var(--radius-sm);
+  padding: 0.5rem 0.85rem; margin-bottom: 0.5rem;
 }
 
 .btn-submit {
-  width: 100%;
-  margin-top: 0.25rem;
-  font-size: 0.95rem;
-  font-family: var(--font-title);
-  letter-spacing: 0.06em;
-  padding: 0.82rem;
-  min-height: 46px;
+  width: 100%; margin-top: 0.25rem; font-size: 0.95rem;
+  font-family: var(--font-title); letter-spacing: 0.06em;
+  padding: 0.82rem; min-height: 46px;
 }
 
-/* OAuth */
-.oauth-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin: 1.25rem 0 1rem;
-}
+.oauth-divider { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0 1rem; }
 .oauth-line { flex: 1; height: 1px; background: var(--border); }
 .oauth-text {
-  font-size: 0.66rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-size: 0.66rem; color: var(--text-muted); white-space: nowrap;
+  text-transform: uppercase; letter-spacing: 0.08em;
 }
 
 .btn-google {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.65rem;
-  width: 100%;
-  min-height: 44px;
-  padding: 0.65rem 1rem;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 0.88rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition);
+  display: flex; align-items: center; justify-content: center; gap: 0.65rem;
+  width: 100%; min-height: 44px; padding: 0.65rem 1rem;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-md); color: var(--text-primary);
+  font-family: inherit; font-size: 0.88rem; font-weight: 500;
+  cursor: pointer; transition: all var(--transition);
 }
 .btn-google:hover:not(:disabled) {
-  background: rgba(136, 85, 208, 0.08);
-  border-color: var(--arcane-border);
-  box-shadow: 0 0 16px rgba(136, 85, 208, 0.12);
+  background: rgba(136,85,208,0.08); border-color: var(--arcane-border);
+  box-shadow: 0 0 16px rgba(136,85,208,0.12);
 }
 .btn-google:disabled { opacity: 0.4; cursor: not-allowed; }
 .google-icon { width: 18px; height: 18px; flex-shrink: 0; }
-
-.spinner-light {
-  border-color: rgba(232, 224, 242, 0.2);
-  border-top-color: var(--text-primary);
-}
+.spinner-light { border-color: rgba(232,224,242,0.2); border-top-color: var(--text-primary); }
 </style>

@@ -23,57 +23,61 @@ const portraitInput = ref<HTMLInputElement | null>(null)
 
 <template>
   <section class="panel">
-    <h2 class="panel-title">Identidad</h2>
+    <h2 class="panel-title">Identity</h2>
 
     <div class="identity-layout">
-      <!-- Retrato -->
+      <!-- Portrait -->
       <div class="portrait-col">
-        <div class="portrait-wrap" @click="portraitInput?.click()" title="Cambiar retrato">
-          <img v-if="char.portrait" :src="char.portrait" :alt="`Retrato de ${char.name}`" class="portrait-img" />
+        <div class="portrait-wrap" @click="portraitInput?.click()" title="Change portrait">
+          <img v-if="char.portrait" :src="char.portrait" :alt="`Portrait of ${char.name}`" class="portrait-img" />
           <div v-else class="portrait-placeholder">
             <span>{{ char.name.charAt(0).toUpperCase() }}</span>
-            <span class="portrait-hint">Subir</span>
+            <span class="portrait-hint">Upload</span>
           </div>
         </div>
         <input ref="portraitInput" type="file" accept="image/*" class="sr-only" @change="onPortraitChange" />
       </div>
 
-      <!-- Campos -->
+      <!-- Fields -->
       <div class="identity-fields">
         <div class="field-row">
           <div class="field field-lg">
-            <label>Nombre</label>
-            <input type="text" v-model="char.name" @input="save" placeholder="Nombre del personaje" />
+            <label>Name</label>
+            <input type="text" v-model="char.name" @input="save" placeholder="Character name" />
           </div>
           <div class="field field-sm">
-            <label>Nivel</label>
+            <label>Level</label>
             <input type="number" v-model.number="char.level" @change="save" min="1" max="40" />
           </div>
-        </div>
-
-        <div class="field-row">
-          <div class="field">
-            <label>Raza</label>
-            <input type="text" v-model="char.race" @change="save" placeholder="Ej: Elfo, Humano…" />
-          </div>
-          <div class="field">
-            <label>Clases</label>
-            <input type="text" v-model="char.classes" @change="save" placeholder="Ej: Guerrero 5 / Mago 3" />
+          <div class="field field-xp">
+            <label>XP</label>
+            <input type="number" v-model.number="char.xp" @change="save" min="0" placeholder="0" />
           </div>
         </div>
 
         <div class="field-row">
           <div class="field">
-            <label>Alineamiento</label>
-            <input type="text" v-model="char.alignment" @change="save" placeholder="Ej: Legal Bueno" />
+            <label>Race</label>
+            <input type="text" v-model="char.race" @change="save" placeholder="e.g. Elf, Human…" />
           </div>
           <div class="field">
-            <label>Deidad</label>
-            <input type="text" v-model="char.deity" @change="save" placeholder="Ej: Iomedae" />
+            <label>Classes</label>
+            <input type="text" v-model="char.classes" @change="save" placeholder="e.g. Fighter 5 / Wizard 3" />
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Alignment</label>
+            <input type="text" v-model="char.alignment" @change="save" placeholder="e.g. Lawful Good" />
+          </div>
+          <div class="field">
+            <label>Deity</label>
+            <input type="text" v-model="char.deity" @change="save" placeholder="e.g. Iomedae" />
           </div>
           <div class="field field-sm">
-            <label>Altura</label>
-            <input type="text" v-model="char.height" @change="save" placeholder="Ej: 1.75m" />
+            <label>Height</label>
+            <input type="text" v-model="char.height" @change="save" placeholder="e.g. 5'10&quot;" />
           </div>
         </div>
       </div>
@@ -132,8 +136,9 @@ const portraitInput = ref<HTMLInputElement | null>(null)
   flex-direction: column;
   gap: 0.3rem;
 }
-.field-sm { flex: 0 0 80px; }
-.field-lg { flex: 2; }
+.field-sm  { flex: 0 0 80px; }
+.field-xp  { flex: 0 0 100px; }
+.field-lg  { flex: 2; }
 
 .field label {
   font-size: 0.7rem;

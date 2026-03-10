@@ -42,18 +42,18 @@ function openCharacter(id: string): void {
 }
 
 async function confirmDelete(id: string, name: string): Promise<void> {
-  if (!confirm(`¿Eliminar a "${name}"? Esta acción no se puede deshacer.`)) return
+  if (!confirm(`Delete "${name}"? This action cannot be undone.`)) return
   await charStore.deleteCharacter(id)
 }
 
 async function createCharacter(): Promise<void> {
   if (atLimit.value) return
-  const name = window.prompt('Nombre del nuevo personaje:')?.trim()
+  const name = window.prompt('New character name:')?.trim()
   if (!name) return
   const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '')
   if (!id) return
   const error = await charStore.createCharacter(id, name)
-  if (error) { alert('Error al crear personaje: ' + error); return }
+  if (error) { alert('Error creating character: ' + error); return }
   router.push({ name: 'character', params: { id } })
 }
 
@@ -68,7 +68,7 @@ async function startCheckout(): Promise<void> {
     if (!res.ok) throw new Error(data.error)
     window.location.href = data.url
   } catch (e) {
-    alert('Error al iniciar el pago: ' + (e instanceof Error ? e.message : e))
+    alert('Error starting checkout: ' + (e instanceof Error ? e.message : e))
     checkingOut.value = false
   }
 }
@@ -80,30 +80,30 @@ async function startCheckout(): Promise<void> {
 
     <main class="content">
 
-      <!-- Toast de éxito de pago -->
+      <!-- Payment success toast -->
       <div v-if="successToast" class="toast-success" role="status">
-        ✓ ¡Pago completado! Ya tienes acceso completo a 10 personajes.
+        ✓ Payment complete! You now have full access to 20 characters.
       </div>
 
-      <!-- Cabecera de página -->
+      <!-- Page header -->
       <header class="page-header">
         <div class="page-header-left">
-          <h1 class="page-title">Mis Personajes</h1>
+          <h1 class="page-title">My Characters</h1>
           <p class="page-subtitle">
-            Jugador: <code>{{ playerId }}</code>
+            Player: <code>{{ playerId }}</code>
           </p>
         </div>
         <button
           class="btn-outline"
           @click="createCharacter"
           :disabled="atLimit"
-          :title="atLimit ? 'Has alcanzado el límite de personajes' : undefined"
+          :title="atLimit ? 'Character limit reached' : undefined"
         >
-          <span aria-hidden="true">✦</span> Nuevo Personaje
+          <span aria-hidden="true">✦</span> New Character
         </button>
       </header>
 
-      <!-- Banner de upsell (plan free en el límite) -->
+      <!-- Upsell banner (free plan at limit) -->
       <div
         v-if="atLimit && !authStore.user?.purchased"
         class="upsell-banner"
@@ -112,8 +112,8 @@ async function startCheckout(): Promise<void> {
         <div class="upsell-text">
           <span class="upsell-icon" aria-hidden="true">🎲</span>
           <div>
-            <strong>Tienes {{ charStore.characters.length }}/{{ maxAllowed }} personaje en el plan gratuito.</strong>
-            <span> Desbloquea hasta 20 personajes por 4.99€</span>
+            <strong>You have {{ charStore.characters.length }}/{{ maxAllowed }} character on the free plan.</strong>
+            <span> Unlock up to 20 characters for €4.99</span>
           </div>
         </div>
         <button
@@ -121,38 +121,38 @@ async function startCheckout(): Promise<void> {
           @click="startCheckout"
           :disabled="checkingOut"
         >
-          <span v-if="checkingOut">Redirigiendo…</span>
-          <span v-else>Comprar acceso completo →</span>
+          <span v-if="checkingOut">Redirecting…</span>
+          <span v-else>Get full access →</span>
         </button>
       </div>
 
-      <!-- ── Estado: cargando ── -->
+      <!-- ── Loading ── -->
       <div v-if="charStore.loading" class="state-box">
-        <div class="spinner-lg" role="status" aria-label="Cargando personajes"></div>
-        <p>Cargando personajes…</p>
+        <div class="spinner-lg" role="status" aria-label="Loading characters"></div>
+        <p>Loading characters…</p>
       </div>
 
-      <!-- ── Estado: error ── -->
+      <!-- ── Error ── -->
       <div v-else-if="charStore.error" class="state-box state-error" role="alert">
         <span class="state-icon" aria-hidden="true">⚠️</span>
         <p>{{ charStore.error }}</p>
         <button class="btn-outline" @click="charStore.fetchCharacters()">
-          Reintentar
+          Retry
         </button>
       </div>
 
-      <!-- ── Estado: vacío ── -->
+      <!-- ── Empty state ── -->
       <div v-else-if="charStore.characters.length === 0" class="empty-state">
         <div class="empty-icon" aria-hidden="true">🎭</div>
-        <h2>Sin personajes todavía</h2>
-        <p>Crea tu primer héroe para comenzar la aventura</p>
+        <h2>No characters yet</h2>
+        <p>Create your first hero to begin the adventure</p>
         <button class="btn-primary" @click="createCharacter">
-          ✦ Crear mi primer personaje
+          ✦ Create my first character
         </button>
       </div>
 
-      <!-- ── Grid de personajes ── -->
-      <section v-else aria-label="Lista de personajes">
+      <!-- ── Character grid ── -->
+      <section v-else aria-label="Character list">
         <div class="char-grid">
           <CharacterCard
             v-for="char in charStore.characters"
@@ -164,8 +164,8 @@ async function startCheckout(): Promise<void> {
         </div>
         <p class="char-count">
           {{ charStore.characters.length }}
-          {{ charStore.characters.length === 1 ? 'personaje' : 'personajes' }}
-          · límite: {{ maxAllowed }}
+          {{ charStore.characters.length === 1 ? 'character' : 'characters' }}
+          · limit: {{ maxAllowed }}
         </p>
       </section>
 
@@ -177,8 +177,36 @@ async function startCheckout(): Promise<void> {
 .page {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse 60% 40% at 80% 0%, rgba(201, 168, 76, 0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 35% at 15% 20%,  rgba(136, 85, 208, 0.10) 0%, transparent 60%),
+    radial-gradient(ellipse 45% 30% at 85% 10%,  rgba(201, 168, 76, 0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 50% at 90% 85%,  rgba(136, 85, 208, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 25% at 50% 100%, rgba(201, 168, 76, 0.04) 0%, transparent 60%),
     var(--bg-base);
+  position: relative;
+}
+
+.page::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  min-height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  background-image: url('/parchment.png');
+  background-size: 500px;
+  background-repeat: repeat;
+  opacity: 0.07;
+}
+
+.content { position: relative; z-index: 1; }
+
+/* Línea decorativa dorada bajo el header */
+.page::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.35) 30%, rgba(136,85,208,0.25) 60%, transparent 100%);
+  margin-top: -1px;
 }
 
 .content {
@@ -281,8 +309,9 @@ async function startCheckout(): Promise<void> {
   text-align: center;
   gap: 0.75rem;
   padding: 5rem 2rem;
-  border: 1px dashed var(--border);
+  border: 1px dashed rgba(201, 168, 76, 0.2);
   border-radius: var(--radius-xl);
+  background: radial-gradient(ellipse 60% 60% at 50% 40%, rgba(136,85,208,0.06) 0%, transparent 70%);
 }
 
 .empty-icon { font-size: 3rem; margin-bottom: 0.5rem; }

@@ -140,7 +140,6 @@ const filtered = computed(() => {
         />
         <div class="skill-name-cell">
           <span class="skill-en">{{ sk.n }}</span>
-          <span v-if="getSpanishName(sk.n)" class="skill-es">{{ getSpanishName(sk.n) }}</span>
         </div>
         <div class="stat-chip" :style="{ background: STAT_COLORS[sk.s] + '33', color: STAT_COLORS[sk.s], borderColor: STAT_COLORS[sk.s] + '66' }">
           {{ sk.s.toUpperCase() }}

@@ -21,34 +21,34 @@ function removeAttack(i: number) {
 <template>
   <section v-if="char" class="panel">
     <div class="panel-header">
-      <h2 class="panel-title">Ataques</h2>
-      <button class="btn-outline btn-sm" @click="addAttack">+ Añadir</button>
+      <h2 class="panel-title">Attacks</h2>
+      <button class="btn-outline btn-sm" @click="addAttack">+ Add</button>
     </div>
 
     <div class="attacks-table" v-if="char.attacks.length > 0">
       <div class="atk-header">
-        <span>Arma</span>
-        <span>Bonus ataque</span>
-        <span>Daño</span>
-        <span>Crítico</span>
-        <span>Tipo</span>
-        <span>Notas</span>
+        <span>Weapon</span>
+        <span>Attack bonus</span>
+        <span>Damage</span>
+        <span>Critical</span>
+        <span>Type</span>
+        <span>Notes</span>
         <span></span>
       </div>
 
       <div v-for="(atk, i) in char.attacks" :key="i" class="atk-row">
-        <input type="text" v-model="atk.weapon" @change="save" placeholder="Espada larga" />
+        <input type="text" v-model="atk.weapon" @change="save" placeholder="Longsword" />
         <input type="text" v-model="atk.bonus"  @change="save" placeholder="+5/+0" />
         <input type="text" v-model="atk.damage" @change="save" placeholder="1d8+3" />
         <input type="text" v-model="atk.crit"   @change="save" placeholder="19-20/×2" />
         <input type="text" v-model="atk.type"   @change="save" placeholder="C/P/S" />
-        <input type="text" v-model="atk.notes"  @change="save" placeholder="Notas…" />
-        <button class="btn-del" @click="removeAttack(i)" title="Eliminar">✕</button>
+        <input type="text" v-model="atk.notes"  @change="save" placeholder="Notes…" />
+        <button class="btn-del" @click="removeAttack(i)" title="Remove">✕</button>
       </div>
     </div>
 
     <div v-else class="empty-state">
-      Sin ataques — pulsa "+ Añadir"
+      No attacks — press "+ Add"
     </div>
   </section>
 </template>

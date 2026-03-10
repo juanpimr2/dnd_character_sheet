@@ -9,12 +9,12 @@ function save() { charStore.scheduleAutoSave() }
 
 const newLang = ref('')
 
-// Idiomas comunes de D&D 3.5/Pathfinder para sugerencias
+// Common D&D 3.5/Pathfinder languages for suggestions
 const COMMON_LANGUAGES = [
-  'Común', 'Élfico', 'Enano', 'Gnomo', 'Mediano', 'Semiorco',
-  'Orco', 'Goblin', 'Gigante', 'Dracónico', 'Infernal', 'Abismal',
-  'Celestial', 'Silvano', 'Gnoll', 'Kobold', 'Ígneo', 'Acuático',
-  'Aéreo', 'Terráqueo', 'Druidico',
+  'Common', 'Elven', 'Dwarven', 'Gnome', 'Halfling', 'Half-Orc',
+  'Orc', 'Goblin', 'Giant', 'Draconic', 'Infernal', 'Abyssal',
+  'Celestial', 'Sylvan', 'Gnoll', 'Kobold', 'Ignan', 'Aquan',
+  'Auran', 'Terran', 'Druidic',
 ]
 
 function addLanguage() {
@@ -42,23 +42,23 @@ function addSuggestion(lang: string) {
 
 <template>
   <section v-if="char" class="panel">
-    <h2 class="panel-title">Idiomas</h2>
+    <h2 class="panel-title">Languages</h2>
 
     <!-- Lista actual -->
     <div v-if="char.languages.length > 0" class="lang-list">
       <div v-for="(lang, i) in char.languages" :key="i" class="lang-tag">
         <span>{{ lang }}</span>
-        <button class="btn-del" @click="removeLanguage(i)" :title="`Eliminar ${lang}`">✕</button>
+        <button class="btn-del" @click="removeLanguage(i)" :title="`Remove ${lang}`">✕</button>
       </div>
     </div>
-    <div v-else class="empty-state">Sin idiomas — añade uno abajo</div>
+    <div v-else class="empty-state">No languages — add one below</div>
 
-    <!-- Añadir idioma -->
+    <!-- Add language -->
     <div class="add-row">
       <input
         type="text"
         v-model="newLang"
-        placeholder="Nombre del idioma…"
+        placeholder="Language name…"
         class="add-input"
         @keydown.enter="addLanguage"
         list="lang-suggestions"
@@ -66,12 +66,12 @@ function addSuggestion(lang: string) {
       <datalist id="lang-suggestions">
         <option v-for="l in COMMON_LANGUAGES" :key="l" :value="l" />
       </datalist>
-      <button class="btn-outline btn-sm" @click="addLanguage">+ Añadir</button>
+      <button class="btn-outline btn-sm" @click="addLanguage">+ Add</button>
     </div>
 
-    <!-- Sugerencias rápidas -->
+    <!-- Quick suggestions -->
     <div class="suggestions">
-      <span class="suggestions-label">Comunes:</span>
+      <span class="suggestions-label">Common:</span>
       <button
         v-for="lang in COMMON_LANGUAGES.slice(0, 8)"
         :key="lang"

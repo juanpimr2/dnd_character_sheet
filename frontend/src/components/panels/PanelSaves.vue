@@ -19,9 +19,9 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 const STATS = ['str','dex','con','int','wis','cha'] as const
 
 const SAVES = [
-  { key: 'fort' as const, label: 'Fortaleza', color: '#e8d183' },
-  { key: 'ref'  as const, label: 'Reflejos',  color: '#6ec6a0' },
-  { key: 'will' as const, label: 'Voluntad',  color: '#a08ec8' },
+  { key: 'fort' as const, label: 'Fortitude', color: '#e8d183' },
+  { key: 'ref'  as const, label: 'Reflex',    color: '#6ec6a0' },
+  { key: 'will' as const, label: 'Will',      color: '#a08ec8' },
 ]
 
 function saveTotal(key: 'fort' | 'ref' | 'will') {
@@ -48,7 +48,7 @@ function saveTotal(key: 'fort' | 'ref' | 'will') {
 
 <template>
   <section v-if="char" class="panel">
-    <h2 class="panel-title">Tiradas de Salvación</h2>
+    <h2 class="panel-title">Saving Throws</h2>
 
     <div class="saves-grid">
       <div v-for="sv in SAVES" :key="sv.key" class="save-block">
@@ -77,7 +77,7 @@ function saveTotal(key: 'fort' | 'ref' | 'will') {
 
         <!-- Desglose de bonificadores específicos -->
         <details class="breakdown-wrap">
-          <summary class="breakdown-toggle">Bonificadores</summary>
+          <summary class="breakdown-toggle">Bonuses</summary>
           <BonusBreakdown
             :bonuses="char.bonuses[sv.key]"
             :bonus-types="SAVE_BONUS_TYPES"
@@ -89,9 +89,9 @@ function saveTotal(key: 'fort' | 'ref' | 'will') {
 
     <!-- Bonuses generales de salvación -->
     <details class="general-saves-wrap">
-      <summary class="breakdown-toggle general-toggle">Bonificadores Generales de Salvación</summary>
+      <summary class="breakdown-toggle general-toggle">General Saving Throw Bonuses</summary>
       <div class="general-saves-body">
-        <p class="general-hint">Aplican a una o varias salvaciones según la columna "Aplica a".</p>
+        <p class="general-hint">Apply to one or more saves according to the "Applies to" column.</p>
         <BonusBreakdown
           :bonuses="char.bonuses.saveGeneral"
           :bonus-types="SAVE_BONUS_TYPES"

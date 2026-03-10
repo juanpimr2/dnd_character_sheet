@@ -25,7 +25,7 @@ function removeFeat(i: number) {
 
 <template>
   <section v-if="char" class="panel">
-    <h2 class="panel-title">Dotes</h2>
+    <h2 class="panel-title">Feats</h2>
 
     <div class="feats-list" v-if="char.feats.length > 0">
       <div v-for="(feat, i) in char.feats" :key="i" class="feat-item">
@@ -35,20 +35,20 @@ function removeFeat(i: number) {
           @change="char.feats[i] = ($event.target as HTMLInputElement).value; save()"
           class="feat-input"
         />
-        <button class="btn-del" @click="removeFeat(i)" title="Eliminar">✕</button>
+        <button class="btn-del" @click="removeFeat(i)" title="Remove">✕</button>
       </div>
     </div>
-    <div v-else class="empty-state">Sin dotes — añade una abajo</div>
+    <div v-else class="empty-state">No feats — add one below</div>
 
     <div class="add-row">
       <input
         type="text"
         v-model="newFeat"
-        placeholder="Nombre de la dote…"
+        placeholder="Feat name…"
         class="add-input"
         @keydown.enter="addFeat"
       />
-      <button class="btn-outline btn-sm" @click="addFeat">+ Añadir</button>
+      <button class="btn-outline btn-sm" @click="addFeat">+ Add</button>
     </div>
   </section>
 </template>

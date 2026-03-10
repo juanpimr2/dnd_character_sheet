@@ -21,34 +21,34 @@ function removeItem(i: number) {
 <template>
   <section v-if="char" class="panel">
     <div class="panel-header">
-      <h2 class="panel-title">Inventario</h2>
-      <button class="btn-outline btn-sm" @click="addItem">+ Añadir</button>
+      <h2 class="panel-title">Inventory</h2>
+      <button class="btn-outline btn-sm" @click="addItem">+ Add</button>
     </div>
 
     <div class="inv-table" v-if="char.inventory.length > 0">
       <div class="inv-header">
-        <span>Nombre</span>
-        <span title="Cantidad">Cant</span>
-        <span title="Cargas">Carg</span>
-        <span title="Nivel de lanzador">NL</span>
-        <span title="Dificultad">DC</span>
-        <span>Nota</span>
+        <span>Name</span>
+        <span title="Quantity">Qty</span>
+        <span title="Charges">Chg</span>
+        <span title="Caster Level">CL</span>
+        <span title="Difficulty Class">DC</span>
+        <span>Note</span>
         <span></span>
       </div>
 
       <div v-for="(it, i) in char.inventory" :key="i" class="inv-row">
-        <input type="text"   v-model="it.n"           @change="save" placeholder="Nombre" />
+        <input type="text"   v-model="it.n"           @change="save" placeholder="Name" />
         <input type="number" v-model.number="it.q"    @change="save" min="0" class="num" />
         <input type="number" v-model.number="it.c"    @change="save" min="0" class="num" placeholder="—" />
         <input type="number" v-model.number="it.cl"   @change="save" min="0" class="num" placeholder="—" />
         <input type="number" v-model.number="it.dc"   @change="save" min="0" class="num" placeholder="—" />
-        <input type="text"   v-model="it.note"        @change="save" placeholder="Notas…" />
-        <button class="btn-del" @click="removeItem(i)" title="Eliminar">✕</button>
+        <input type="text"   v-model="it.note"        @change="save" placeholder="Notes…" />
+        <button class="btn-del" @click="removeItem(i)" title="Remove">✕</button>
       </div>
     </div>
 
     <div v-else class="empty-state">
-      Sin items — pulsa "+ Añadir"
+      No items — press "+ Add"
     </div>
   </section>
 </template>

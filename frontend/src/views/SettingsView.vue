@@ -22,14 +22,14 @@ async function fetchMe() {
     const data = await res.json()
     maskedToken.value = data.api_token
   } catch {
-    error.value = 'Error al cargar el perfil'
+    error.value = 'Error loading profile'
   } finally {
     loading.value = false
   }
 }
 
 async function regenerateToken() {
-  if (!confirm('¿Generar un nuevo API token? El token actual dejará de funcionar.')) return
+  if (!confirm('Generate a new API token? The current token will stop working.')) return
   regenerating.value = true
   clearToken.value   = null
   error.value        = ''
@@ -43,7 +43,7 @@ async function regenerateToken() {
     clearToken.value   = data.api_token
     maskedToken.value  = data.api_token.slice(0, 8) + '...'
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Error al regenerar'
+    error.value = e instanceof Error ? e.message : 'Error regenerating token'
   } finally {
     regenerating.value = false
   }
@@ -68,7 +68,7 @@ async function startCheckout(): Promise<void> {
     if (!res.ok) throw new Error(data.error)
     window.location.href = data.url
   } catch (e) {
-    error.value = 'Error al iniciar el pago: ' + (e instanceof Error ? e.message : e)
+    error.value = 'Error starting checkout: ' + (e instanceof Error ? e.message : e)
     checkingOut.value = false
   }
 }
@@ -82,34 +82,34 @@ onMounted(fetchMe)
     <main class="content">
 
       <header class="page-header">
-        <h1 class="page-title">Ajustes</h1>
+        <h1 class="page-title">Settings</h1>
       </header>
 
       <!-- API Token -->
       <section class="card">
         <h2 class="card-title">API Token</h2>
         <p class="card-desc">
-          Usa este token para autenticarte en la API sin sesión de browser.
-          Útil para integraciones con VTT, bots o scripts externos.
+          Use this token to authenticate with the API without a browser session.
+          Useful for VTT integrations, bots, or external scripts.
         </p>
 
-        <div v-if="loading" class="token-loading">Cargando…</div>
+        <div v-if="loading" class="token-loading">Loading…</div>
 
         <template v-else>
-          <!-- Aviso si se acaba de regenerar -->
+          <!-- Warning if just regenerated -->
           <div v-if="clearToken" class="token-alert" role="alert">
-            ⚠ Guarda este token ahora — no volverá a mostrarse completo.
+            ⚠ Save this token now — it will not be shown in full again.
           </div>
 
           <div class="token-row">
             <code class="token-display">{{ clearToken ?? maskedToken ?? '—' }}</code>
-            <button class="btn-icon" @click="copyToken" :title="copied ? 'Copiado' : 'Copiar'">
+            <button class="btn-icon" @click="copyToken" :title="copied ? 'Copied' : 'Copy'">
               {{ copied ? '✓' : '⧉' }}
             </button>
           </div>
 
           <div class="token-hint" v-if="!clearToken">
-            Solo se muestra el token completo justo después de generarlo.
+            The full token is only shown immediately after generating it.
           </div>
 
           <div v-if="error" class="error-text">{{ error }}</div>
@@ -119,13 +119,13 @@ onMounted(fetchMe)
             @click="regenerateToken"
             :disabled="regenerating"
           >
-            <span v-if="regenerating">Generando…</span>
-            <span v-else>Regenerar token</span>
+            <span v-if="regenerating">Generating…</span>
+            <span v-else>Regenerate token</span>
           </button>
 
-          <!-- Ejemplo de uso -->
+          <!-- Usage example -->
           <details class="usage-details">
-            <summary>Cómo usarlo</summary>
+            <summary>How to use it</summary>
             <pre class="code-block">curl https://tuapp.com/api/characters \
   -H "Authorization: Bearer {{ clearToken ?? maskedToken ?? 'TU_TOKEN' }}"</pre>
           </details>
@@ -148,7 +148,7 @@ onMounted(fetchMe)
           <span class="plan-badge">{{ authStore.user?.plan ?? 'free' }}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Personajes máx.</span>
+          <span class="info-label">Max characters</span>
           <span>{{ authStore.user?.maxCharacters ?? 2 }}</span>
         </div>
       </section>
@@ -160,23 +160,23 @@ onMounted(fetchMe)
         <!-- Purchased -->
         <template v-if="authStore.user?.purchased">
           <div class="plan-status">
-            <span class="plan-badge plan-badge--gold">✓ Acceso completo · 20 personajes</span>
+            <span class="plan-badge plan-badge--gold">✓ Full access · 20 characters</span>
             <span v-if="authStore.user.purchasedAt" class="plan-date">
-              Comprado el {{ new Date(authStore.user.purchasedAt).toLocaleDateString('es-ES') }}
+              Purchased on {{ new Date(authStore.user.purchasedAt).toLocaleDateString('en-US') }}
             </span>
           </div>
           <p class="card-desc">
-            Gracias por tu compra. Puedes crear hasta 20 personajes.
+            Thank you for your purchase. You can create up to 20 characters.
           </p>
         </template>
 
         <!-- Free -->
         <template v-else>
           <div class="plan-status">
-            <span class="plan-badge plan-badge--free">Gratuito · 1 personaje</span>
+            <span class="plan-badge plan-badge--free">Free · 1 character</span>
           </div>
           <p class="card-desc">
-            El plan gratuito incluye 1 personaje. Desbloquea hasta 20 personajes con un pago único.
+            The free plan includes 1 character. Unlock up to 20 characters with a one-time purchase.
           </p>
           <button
             class="btn-primary"
@@ -184,8 +184,8 @@ onMounted(fetchMe)
             @click="startCheckout"
             :disabled="checkingOut"
           >
-            <span v-if="checkingOut">Redirigiendo…</span>
-            <span v-else>Comprar acceso completo · 4.99€ →</span>
+            <span v-if="checkingOut">Redirecting…</span>
+            <span v-else>Get full access · €4.99 →</span>
           </button>
           <div v-if="error" class="error-text">{{ error }}</div>
         </template>

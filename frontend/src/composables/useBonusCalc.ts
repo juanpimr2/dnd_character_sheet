@@ -20,13 +20,18 @@ const BONUS_TYPES: Record<string, BonusTypeInfo> = {
   sacred:      { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
   profane:     { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
   size:        { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
-  // Saves
-  alchemical:  { stacks: false, category: 'save' },
+  // Saves / general
+  alchemical:  { stacks: true,  category: 'save' },   // stacks per SRD (nonmagical substances)
   morale:      { stacks: false, category: 'save' },
   resistance:  { stacks: false, category: 'save' },
-  // Attack
+  // Universal (all categories)
+  circumstance: { stacks: true,  category: 'all' },   // stacks from different conditions
+  competence:   { stacks: false, category: 'all' },
+  racial:       { stacks: false, category: 'all' },
+  inherent:     { stacks: false, category: 'all' },
+  // Attack-specific
   trait:       { stacks: false, category: 'attack' },
-  // Universal
+  // Untyped always stacks
   untyped:     { stacks: true,  appliesToTouch: false, appliesToFlat: true,  category: 'all' },
 }
 
@@ -79,15 +84,20 @@ export const ATTACK_BONUS_TYPES = Object.entries(BONUS_TYPES)
   .filter(([, v]) => v.category === 'attack' || v.category === 'all')
   .map(([k]) => k)
 
-/** Nombre legible del tipo (para UI) */
+export const ABILITY_BONUS_TYPES = [
+  'untyped', 'enhancement', 'inherent', 'morale', 'alchemical', 'sacred', 'profane', 'size',
+]
+
+/** Human-readable label for bonus type (for UI) */
 export function bonusTypeLabel(t: string): string {
   const labels: Record<string, string> = {
-    armor: 'Armadura', shield: 'Escudo', deflection: 'Deflexión',
-    dodge: 'Esquiva', natural: 'Natural', enhancement: 'Mejora',
-    insight: 'Percepción', luck: 'Suerte', sacred: 'Sagrado',
-    profane: 'Profano', size: 'Tamaño', alchemical: 'Alquímico',
-    morale: 'Moral', resistance: 'Resistencia', trait: 'Rasgo',
-    untyped: 'Sin tipo',
+    armor: 'Armor', shield: 'Shield', deflection: 'Deflection',
+    dodge: 'Dodge', natural: 'Natural', enhancement: 'Enhancement',
+    insight: 'Insight', luck: 'Luck', sacred: 'Sacred',
+    profane: 'Profane', size: 'Size', alchemical: 'Alchemical',
+    morale: 'Morale', resistance: 'Resistance', inherent: 'Inherent', trait: 'Trait',
+    circumstance: 'Circumstance', competence: 'Competence', racial: 'Racial',
+    untyped: 'Untyped',
   }
   return labels[t] ?? t
 }

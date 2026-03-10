@@ -25,7 +25,7 @@ onMounted(() => {
   if (char.value.sessions.length === 0 && char.value.events?.length > 0) {
     char.value.sessions = [{
       id: 1,
-      name: 'Sesión 1',
+      name: 'Session 1',
       date: new Date().toISOString().slice(0, 10),
       entries: [...char.value.events],
     }]
@@ -55,7 +55,7 @@ function createSession() {
   const n = (char.value.sessions?.length ?? 0) + 1
   const session: SessionGroup = {
     id: nextId(),
-    name: `Sesión ${n}`,
+    name: `Session ${n}`,
     date: today,
     entries: [],
   }
@@ -66,7 +66,7 @@ function createSession() {
 }
 
 function deleteSession(id: number) {
-  if (!confirm('¿Eliminar esta sesión y todas sus entradas?')) return
+  if (!confirm('Delete this session and all its entries?')) return
   const idx = char.value.sessions.findIndex(s => s.id === id)
   if (idx === -1) return
   char.value.sessions.splice(idx, 1)
@@ -133,15 +133,15 @@ function removeEntry(entryId: number) {
 
 <template>
   <section v-if="char" class="panel sessions-panel">
-    <h2 class="panel-title">Sesiones</h2>
+    <h2 class="panel-title">Sessions</h2>
 
     <div class="sessions-layout">
 
       <!-- ── Sidebar (session list) ── -->
       <aside class="sessions-sidebar" :class="{ open: sidebarOpen }">
         <div class="sidebar-header">
-          <span class="sidebar-title">Sesiones</span>
-          <button class="btn-new-session" @click="createSession" title="Nueva sesión">
+          <span class="sidebar-title">Sessions</span>
+          <button class="btn-new-session" @click="createSession" title="New session">
             <Plus :size="14" />
           </button>
         </div>
@@ -168,16 +168,16 @@ function removeEntry(entryId: number) {
               <span v-else class="session-name">{{ session.name }}</span>
             </div>
             <div class="session-item-actions">
-              <button @click.stop="startRename(session)" title="Renombrar" class="icon-btn">
+              <button @click.stop="startRename(session)" title="Rename" class="icon-btn">
                 <Edit2 :size="11" />
               </button>
-              <button @click.stop="moveSession(session.id, -1)" :disabled="idx === 0" title="Subir" class="icon-btn">
+              <button @click.stop="moveSession(session.id, -1)" :disabled="idx === 0" title="Move up" class="icon-btn">
                 <ChevronUp :size="11" />
               </button>
-              <button @click.stop="moveSession(session.id, 1)" :disabled="idx === char.sessions.length - 1" title="Bajar" class="icon-btn">
+              <button @click.stop="moveSession(session.id, 1)" :disabled="idx === char.sessions.length - 1" title="Move down" class="icon-btn">
                 <ChevronDown :size="11" />
               </button>
-              <button @click.stop="deleteSession(session.id)" title="Eliminar" class="icon-btn icon-btn-del">
+              <button @click.stop="deleteSession(session.id)" title="Delete" class="icon-btn icon-btn-del">
                 <Trash2 :size="11" />
               </button>
             </div>
@@ -185,13 +185,13 @@ function removeEntry(entryId: number) {
         </ul>
 
         <div v-if="char.sessions.length === 0" class="sidebar-empty">
-          Sin sesiones.<br>Crea una nueva.
+          No sessions.<br>Create a new one.
         </div>
       </aside>
 
       <!-- ── Mobile sidebar toggle ── -->
       <button class="sidebar-toggle" @click="sidebarOpen = !sidebarOpen">
-        {{ sidebarOpen ? '✕ Cerrar' : '☰ Sesiones' }}
+        {{ sidebarOpen ? '✕ Close' : '☰ Sessions' }}
       </button>
 
       <!-- ── Main area ── -->
@@ -214,13 +214,13 @@ function removeEntry(entryId: number) {
           <div class="entry-form">
             <textarea
               v-model="newEntryText"
-              placeholder="Añadir nueva entrada…"
+              placeholder="Add new entry…"
               class="entry-textarea"
               rows="2"
               @keydown.ctrl.enter="addEntry"
             ></textarea>
             <button class="btn-outline btn-add-entry" @click="addEntry" :disabled="!newEntryText.trim()">
-              Añadir
+              Add
             </button>
           </div>
 
@@ -233,18 +233,18 @@ function removeEntry(entryId: number) {
             >
               <span class="entry-time">{{ entry.t }}</span>
               <span class="entry-text">{{ entry.txt }}</span>
-              <button class="btn-del-entry" @click="removeEntry(entry.id)" title="Eliminar entrada">
+              <button class="btn-del-entry" @click="removeEntry(entry.id)" title="Remove entry">
                 <X :size="12" />
               </button>
             </li>
             <li v-if="selectedSession.entries.length === 0" class="entries-empty">
-              Sin entradas en esta sesión.
+              No entries in this session.
             </li>
           </ul>
         </template>
 
         <div v-else class="no-session">
-          <span>Selecciona o crea una sesión para empezar.</span>
+          <span>Select or create a session to get started.</span>
         </div>
       </div>
 

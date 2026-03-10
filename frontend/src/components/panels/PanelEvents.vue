@@ -36,20 +36,20 @@ const sortedEvents = computed(() =>
 
 <template>
   <section v-if="char" class="panel">
-    <h2 class="panel-title">Registro de Sesión</h2>
+    <h2 class="panel-title">Session Log</h2>
 
     <!-- Add form -->
     <div class="add-event">
       <textarea
         v-model="newEvent"
-        placeholder="Describe lo que ocurrió en la sesión…"
+        placeholder="Describe what happened in the session…"
         class="event-textarea"
         rows="3"
         @keydown.ctrl.enter="addEvent"
       ></textarea>
       <div class="add-actions">
-        <span class="hint">Ctrl+Enter para guardar</span>
-        <button class="btn-primary btn-sm" @click="addEvent">Añadir evento</button>
+        <span class="hint">Ctrl+Enter to save</span>
+        <button class="btn-primary btn-sm" @click="addEvent">Add entry</button>
       </div>
     </div>
 
@@ -58,13 +58,13 @@ const sortedEvents = computed(() =>
       <div v-for="ev in sortedEvents" :key="ev.id" class="event-card">
         <div class="ev-header">
           <span class="ev-time">{{ ev.t }}</span>
-          <button class="btn-del" @click="removeEvent(ev.id)" title="Eliminar">✕</button>
+          <button class="btn-del" @click="removeEvent(ev.id)" title="Remove">✕</button>
         </div>
         <p class="ev-text">{{ ev.txt }}</p>
       </div>
 
       <div v-if="char.events.length === 0" class="empty-state">
-        Sin eventos — añade el primero arriba
+        No entries — add the first one above
       </div>
     </div>
   </section>

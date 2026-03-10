@@ -65,16 +65,16 @@ function applyDamage(delta: number) {
 
 <template>
   <section v-if="char" class="panel">
-    <h2 class="panel-title">Combate</h2>
+    <h2 class="panel-title">Combat</h2>
 
     <div class="combat-grid">
 
       <!-- HP Block -->
       <div class="block block-hp">
-        <div class="block-label">Puntos de Vida</div>
+        <div class="block-label">Hit Points</div>
         <div class="hp-row">
           <div class="hp-field">
-            <label>Máx</label>
+            <label>Max</label>
             <input type="number" v-model.number="char.maxHP" @change="save" min="0" />
           </div>
           <div class="hp-current">
@@ -82,10 +82,10 @@ function applyDamage(delta: number) {
             <span class="hp-sep">/ {{ char.maxHP }}</span>
           </div>
           <div class="hp-dmg-btns">
-            <button @click="applyDamage(-1)" title="-1 daño">−1</button>
-            <button @click="applyDamage(1)"  title="+1 daño">+1</button>
-            <button @click="applyDamage(-5)" title="-5 daño">−5</button>
-            <button @click="applyDamage(5)"  title="+5 daño">+5</button>
+            <button @click="applyDamage(-1)" title="-1 damage">−1</button>
+            <button @click="applyDamage(1)"  title="+1 damage">+1</button>
+            <button @click="applyDamage(-5)" title="-5 damage">−5</button>
+            <button @click="applyDamage(5)"  title="+5 damage">+5</button>
           </div>
         </div>
         <div class="hp-bar-track">
@@ -93,7 +93,7 @@ function applyDamage(delta: number) {
         </div>
         <div class="hp-extra">
           <div class="hp-mini">
-            <label>Daño actual</label>
+            <label>Damage taken</label>
             <input type="number" v-model.number="char.damage" @change="save" min="0" />
           </div>
           <div class="hp-mini">
@@ -101,7 +101,7 @@ function applyDamage(delta: number) {
             <input type="number" v-model.number="char.tempHP" @change="save" min="0" />
           </div>
           <div class="hp-mini">
-            <label>No letal</label>
+            <label>Nonlethal</label>
             <input type="number" v-model.number="char.nonLethal" @change="save" min="0" />
           </div>
         </div>
@@ -109,7 +109,7 @@ function applyDamage(delta: number) {
 
       <!-- AC Block -->
       <div class="block block-ac">
-        <div class="block-label">Clase de Armadura</div>
+        <div class="block-label">Armor Class</div>
 
         <!-- 3 valores de AC -->
         <div class="ac-values">
@@ -138,7 +138,7 @@ function applyDamage(delta: number) {
 
         <!-- Desglose de bonificadores -->
         <details class="breakdown-wrap">
-          <summary class="breakdown-toggle">Bonificadores AC</summary>
+          <summary class="breakdown-toggle">AC Bonuses</summary>
           <BonusBreakdown
             :bonuses="char.bonuses.ac"
             :bonus-types="AC_BONUS_TYPES"
@@ -149,7 +149,7 @@ function applyDamage(delta: number) {
 
       <!-- Iniciativa Block -->
       <div class="block">
-        <div class="block-label">Iniciativa</div>
+        <div class="block-label">Initiative</div>
         <div class="init-total">{{ fmt(initTotal) }}</div>
         <div class="sub-field">
           <label>Stat</label>
@@ -170,14 +170,14 @@ function applyDamage(delta: number) {
       </div>
 
       <div class="block">
-        <div class="block-label">Velocidad (ft)</div>
+        <div class="block-label">Speed (ft)</div>
         <input type="number" class="block-input big" v-model.number="char.speed" @change="save" step="5" min="0" />
       </div>
 
       <!-- DR / SR -->
       <div class="block">
         <div class="block-label">RD</div>
-        <input type="text" class="block-input" v-model="char.dr" @change="save" placeholder="Ej: 5/magic" />
+        <input type="text" class="block-input" v-model="char.dr" @change="save" placeholder="e.g. 5/magic" />
       </div>
 
       <div class="block">

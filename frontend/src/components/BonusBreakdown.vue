@@ -62,7 +62,7 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
           class="bb-toggle"
           :class="{ on: b.active }"
           @click="toggleActive(b)"
-          :title="b.active ? 'Activo — click para desactivar' : 'Inactivo — click para activar'"
+          :title="b.active ? 'Active — click to disable' : 'Inactive — click to activate'"
         >{{ b.active ? '●' : '○' }}</button>
 
         <!-- Nombre -->
@@ -71,7 +71,7 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
           :value="b.n"
           @change="b.n = ($event.target as HTMLInputElement).value; emit('change')"
           class="bb-name"
-          placeholder="Fuente"
+          placeholder="Source"
         />
 
         <!-- Valor -->
@@ -83,63 +83,63 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
           class="bb-val-input"
         />
 
-        <!-- Tipo -->
+        <!-- Type -->
         <select
           :value="b.t"
           @change="b.t = ($event.target as HTMLSelectElement).value; emit('change')"
           class="bb-type"
         >
           <option v-for="t in bonusTypes" :key="t" :value="t">{{ bonusTypeLabel(t) }}</option>
-          <option value="untyped">Sin tipo</option>
+          <option value="untyped">Untyped</option>
         </select>
 
-        <!-- Applies (solo saveGeneral) -->
+        <!-- Applies (saveGeneral only) -->
         <select
           v-if="showApplies"
           :value="b.applies ?? 'All'"
           @change="b.applies = ($event.target as HTMLSelectElement).value; emit('change')"
           class="bb-applies"
         >
-          <option value="All">Todas</option>
+          <option value="All">All</option>
           <option value="fort">Fort</option>
           <option value="ref">Ref</option>
-          <option value="will">Vol</option>
+          <option value="will">Will</option>
         </select>
 
-        <!-- Marcar como activable -->
+        <!-- Mark as situational -->
         <button
           class="bb-act-btn"
-          :title="b.activable ? 'Es situacional' : 'Hacer situacional'"
+          :title="b.activable ? 'Situational' : 'Make situational'"
           @click="b.activable = !b.activable; if (!b.activable) b.active = undefined; emit('change')"
         >{{ b.activable ? '⚡' : '⚡' }}</button>
 
-        <button class="bb-del" @click="remove(i)" title="Eliminar">✕</button>
+        <button class="bb-del" @click="remove(i)" title="Remove">✕</button>
       </div>
     </div>
-    <p v-else class="bb-empty">Sin bonificadores</p>
+    <p v-else class="bb-empty">No bonuses</p>
 
-    <!-- Añadir nueva entrada -->
+    <!-- Add new entry -->
     <div class="bb-add">
       <input
         type="text"
         v-model="newName"
-        placeholder="Fuente del bonus…"
+        placeholder="Bonus source…"
         class="bb-name"
         @keydown.enter="addBonus"
       />
-      <input type="number" v-model.number="newVal" class="bb-val-input" title="Valor" />
+      <input type="number" v-model.number="newVal" class="bb-val-input" title="Value" />
       <select v-model="newType" class="bb-type">
-        <option value="">tipo…</option>
+        <option value="">type…</option>
         <option v-for="t in bonusTypes" :key="t" :value="t">{{ bonusTypeLabel(t) }}</option>
-        <option value="untyped">Sin tipo</option>
+        <option value="untyped">Untyped</option>
       </select>
       <select v-if="showApplies" v-model="newApplies" class="bb-applies">
-        <option value="All">Todas</option>
+        <option value="All">All</option>
         <option value="fort">Fort</option>
         <option value="ref">Ref</option>
-        <option value="will">Vol</option>
+        <option value="will">Will</option>
       </select>
-      <button class="bb-add-btn btn-outline btn-sm" @click="addBonus">+ Añadir</button>
+      <button class="bb-add-btn btn-outline btn-sm" @click="addBonus">+ Add</button>
     </div>
   </div>
 </template>
