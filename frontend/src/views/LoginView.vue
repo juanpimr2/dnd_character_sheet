@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import StoreRegisterModal from '@/components/StoreRegisterModal.vue'
 
 const router    = useRouter()
 const route     = useRoute()
@@ -18,8 +19,9 @@ const loadingGoogle = ref(false)
 const error         = ref('')
 const success       = ref('')
 
-const isLogin    = computed(() => mode.value === 'login')
-const storeName  = ref<string | null>(null)
+const isLogin         = computed(() => mode.value === 'login')
+const storeName       = ref<string | null>(null)
+const showStoreModal  = ref(false)
 
 function switchMode(m: Mode) {
   mode.value     = m
@@ -259,10 +261,22 @@ async function handleGoogle(): Promise<void> {
           </template>
         </button>
 
+        <!-- Store CTA -->
+        <div class="store-cta">
+          <span class="store-cta-text">Are you a game store?</span>
+          <button class="btn-store-link" @click="showStoreModal = true">
+            Get your free QR →
+          </button>
+        </div>
+
       </div>
     </div>
 
   </div>
+
+  <!-- Store registration modal -->
+  <StoreRegisterModal v-if="showStoreModal" @close="showStoreModal = false" />
+
 </template>
 
 <style scoped>
@@ -546,6 +560,35 @@ async function handleGoogle(): Promise<void> {
 .btn-google:disabled { opacity: 0.4; cursor: not-allowed; }
 .google-icon { width: 18px; height: 18px; flex-shrink: 0; }
 .spinner-light { border-color: rgba(232,224,242,0.2); border-top-color: var(--text-primary); }
+
+/* ── Store CTA ── */
+.store-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 1.25rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+}
+
+.store-cta-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.btn-store-link {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  font-family: inherit;
+  font-weight: 600;
+  color: var(--gold);
+  cursor: pointer;
+  padding: 0;
+  transition: opacity var(--transition);
+}
+.btn-store-link:hover { opacity: 0.75; }
 
 /* ── Store referral banner ── */
 .store-banner {

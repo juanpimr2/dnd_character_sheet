@@ -572,6 +572,43 @@ app.post('/api/me/store', requireAuth, async (req, res) => {
   res.json({ ok: true })
 })
 
+// ── Público: registro de tienda self-service ──────────────────────
+app.post('/api/stores/register', async (req, res) => {
+  const { name, city, owner_name, owner_email } = req.body
+  if (!name || !city || !owner_email) {
+    return res.status(400).json({ error: 'name, city y owner_email son obligatorios' })
+  }
+
+  // Verificar que no hay otra tienda con ese email ya registrada
+  const { data: existing } = await supabase
+    .from('stores').select('id').eq('owner_email', owner_email).single()
+  if (existing) {
+    return res.status(409).json({ error: 'Ya existe una tienda registrada con ese email' })
+  }
+
+  let referral_code, attempts = 0
+  while (attempts < 10) {
+    referral_code = generateReferralCode()
+    const { data: taken } = await supabase
+      .from('stores').select('id').eq('referral_code', referral_code).single()
+    if (!taken) break
+    attempts++
+  }
+
+  const notes = `Self-registered${owner_name ? ` — ${owner_name}` : ''} — pending approval`
+
+  const { data, error } = await supabase
+    .from('stores')
+    .insert({ name, city, owner_email, referral_code, active: false, notes })
+    .select('id, name, city, referral_code')
+    .single()
+
+  if (error) return res.status(500).json({ error: error.message })
+
+  console.log(`🏪 Tienda self-registered (pendiente): ${name} (${city}) → ${referral_code}`)
+  res.status(201).json({ ...data, qr_url: `${APP_URL}/t/${data.referral_code}` })
+})
+
 // ── Público: info de tienda por código (para landing /t/:code) ───
 app.get('/api/stores/:code', async (req, res) => {
   const { data, error } = await supabase
