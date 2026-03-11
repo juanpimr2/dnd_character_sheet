@@ -18,6 +18,7 @@ const checkingOut    = ref(false)
 const maxAllowed = computed(() => {
   const u = authStore.user
   if (!u) return 1
+  if (u.plan === 'dm') return Infinity
   return u.purchased ? 20 + (u.extraCharacters ?? 0) : 1
 })
 
@@ -57,10 +58,10 @@ async function createCharacter(): Promise<void> {
   router.push({ name: 'character', params: { id } })
 }
 
-async function startCheckout(): Promise<void> {
+async function startCheckout(endpoint = '/api/checkout'): Promise<void> {
   checkingOut.value = true
   try {
-    const res = await fetch('/api/checkout', {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { Authorization: `Bearer ${authStore.getToken()}` },
     })
@@ -82,7 +83,12 @@ async function startCheckout(): Promise<void> {
 
       <!-- Payment success toast -->
       <div v-if="successToast" class="toast-success" role="status">
-        ✓ Payment complete! You now have full access to 20 characters.
+        <template v-if="authStore.user?.plan === 'dm'">
+          ✓ Plan Maestro DM activated! Unlimited characters unlocked.
+        </template>
+        <template v-else>
+          ✓ Payment complete! You now have full access to 20 characters.
+        </template>
       </div>
 
       <!-- Page header -->
@@ -113,17 +119,27 @@ async function startCheckout(): Promise<void> {
           <span class="upsell-icon" aria-hidden="true">🎲</span>
           <div>
             <strong>You have {{ charStore.characters.length }}/{{ maxAllowed }} character on the free plan.</strong>
-            <span> Unlock up to 20 characters for €4.99</span>
+            <span> Unlock up to 20 characters for €4.99 — or go unlimited with the DM plan for €9.99</span>
           </div>
         </div>
-        <button
-          class="btn-primary btn-checkout"
-          @click="startCheckout"
-          :disabled="checkingOut"
-        >
-          <span v-if="checkingOut">Redirecting…</span>
-          <span v-else>Get full access →</span>
-        </button>
+        <div class="upsell-actions">
+          <button
+            class="btn-primary btn-checkout"
+            @click="startCheckout('/api/checkout')"
+            :disabled="checkingOut"
+          >
+            <span v-if="checkingOut">Redirecting…</span>
+            <span v-else>Full access €4.99 →</span>
+          </button>
+          <button
+            class="btn-outline btn-checkout"
+            @click="startCheckout('/api/checkout/dm')"
+            :disabled="checkingOut"
+          >
+            <span v-if="checkingOut">Redirecting…</span>
+            <span v-else>DM plan €9.99 ∞</span>
+          </button>
+        </div>
       </div>
 
       <!-- ── Loading ── -->
@@ -279,6 +295,12 @@ async function startCheckout(): Promise<void> {
 .upsell-icon { font-size: 1.4rem; flex-shrink: 0; }
 
 .upsell-text strong { color: var(--gold-light); }
+
+.upsell-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
 
 .btn-checkout {
   font-size: 0.85rem;

@@ -10,7 +10,7 @@ const {
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
   PORT = 3000, ALLOWED_ORIGIN = '*',
   ADMIN_SECRET, APP_URL = 'http://localhost:5173',
-  STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_WEBHOOK_SECRET,
+  STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_PRICE_ID_DM, STRIPE_WEBHOOK_SECRET,
 } = process.env
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -286,6 +286,31 @@ app.post('/api/checkout', requireAuth, async (req, res) => {
   res.json({ url: session.url })
 })
 
+// ── Crear sesión de Stripe Checkout — Plan Maestro DM ─────────────
+app.post('/api/checkout/dm', requireAuth, async (req, res) => {
+  if (!stripe || !STRIPE_PRICE_ID_DM) {
+    return res.status(503).json({ error: 'DM plan not configured' })
+  }
+
+  const { data: userAuth, error: userError } =
+    await supabase.auth.admin.getUserById(req.user.id)
+  if (userError || !userAuth.user) {
+    return res.status(500).json({ error: 'Could not get user' })
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items: [{ price: STRIPE_PRICE_ID_DM, quantity: 1 }],
+    client_reference_id: req.user.id,
+    customer_email: userAuth.user.email,
+    metadata: { plan: 'dm' },
+    success_url: `${APP_URL}/characters?payment=success`,
+    cancel_url:  `${APP_URL}/characters`,
+  })
+
+  res.json({ url: session.url })
+})
+
 // ── Webhook de Stripe (raw body, sin auth) ────────────────────────
 app.post('/api/webhook/stripe', async (req, res) => {
   if (!stripe || !STRIPE_WEBHOOK_SECRET) {
@@ -304,21 +329,28 @@ app.post('/api/webhook/stripe', async (req, res) => {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object
     const userId  = session.client_reference_id
+    const plan    = session.metadata?.plan  // 'dm' or undefined (full access)
 
     if (userId) {
+      const updates = {
+        purchased:             true,
+        purchased_at:          new Date().toISOString(),
+        stripe_payment_intent: session.payment_intent,
+      }
+      if (plan === 'dm') {
+        updates.plan = 'dm'
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          purchased:              true,
-          purchased_at:           new Date().toISOString(),
-          stripe_payment_intent:  session.payment_intent,
-        })
+        .update(updates)
         .eq('id', userId)
 
       if (error) {
-        console.error('Error actualizando purchased en profiles:', error.message)
+        console.error('Stripe webhook — DB update error:', error.message)
       } else {
-        console.log(`✅ Compra confirmada: ${userId.slice(0, 8)}…`)
+        const label = plan === 'dm' ? 'Plan Maestro DM' : 'Full access'
+        console.log(`✅ ${label} confirmed: ${userId.slice(0, 8)}…`)
       }
     }
   }

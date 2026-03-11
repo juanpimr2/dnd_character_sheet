@@ -31,7 +31,11 @@ async function logout(): Promise<void> {
       <nav class="header-nav">
 
         <!-- Badge plan completo -->
-        <span v-if="authStore.user?.purchased" class="plan-tag" title="Full access">
+        <span v-if="authStore.user?.plan === 'dm'" class="plan-tag plan-tag--dm" title="Plan Maestro DM">
+          <span class="plan-tag-dot" aria-hidden="true"></span>
+          DM plan
+        </span>
+        <span v-else-if="authStore.user?.purchased" class="plan-tag" title="Full access">
           <span class="plan-tag-dot" aria-hidden="true"></span>
           Full access
         </span>
@@ -160,6 +164,16 @@ async function logout(): Promise<void> {
   background: var(--gold);
   border-radius: 50%;
   box-shadow: 0 0 6px rgba(201, 168, 76, 0.7);
+}
+
+.plan-tag--dm {
+  color: #b07ee8;
+  background: rgba(138, 92, 200, 0.1);
+  border-color: rgba(138, 92, 200, 0.3);
+}
+.plan-tag--dm .plan-tag-dot {
+  background: #b07ee8;
+  box-shadow: 0 0 6px rgba(138, 92, 200, 0.7);
 }
 
 .user-pill {

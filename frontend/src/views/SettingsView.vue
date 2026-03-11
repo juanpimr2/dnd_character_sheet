@@ -57,10 +57,10 @@ async function copyToken() {
   setTimeout(() => { copied.value = false }, 2000)
 }
 
-async function startCheckout(): Promise<void> {
+async function startCheckout(endpoint = '/api/checkout'): Promise<void> {
   checkingOut.value = true
   try {
-    const res = await fetch('/api/checkout', {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { Authorization: `Bearer ${authStore.getToken()}` },
     })
@@ -157,8 +157,21 @@ onMounted(fetchMe)
       <section class="card">
         <h2 class="card-title">Plan</h2>
 
-        <!-- Purchased -->
-        <template v-if="authStore.user?.purchased">
+        <!-- DM Plan -->
+        <template v-if="authStore.user?.plan === 'dm'">
+          <div class="plan-status">
+            <span class="plan-badge plan-badge--dm">⚔ Plan Maestro DM · Unlimited characters</span>
+            <span v-if="authStore.user.purchasedAt" class="plan-date">
+              Purchased on {{ new Date(authStore.user.purchasedAt).toLocaleDateString('en-US') }}
+            </span>
+          </div>
+          <p class="card-desc">
+            You have unlimited characters. Rule them all, Dungeon Master.
+          </p>
+        </template>
+
+        <!-- Full access (non-DM) -->
+        <template v-else-if="authStore.user?.purchased">
           <div class="plan-status">
             <span class="plan-badge plan-badge--gold">✓ Full access · 20 characters</span>
             <span v-if="authStore.user.purchasedAt" class="plan-date">
@@ -167,7 +180,18 @@ onMounted(fetchMe)
           </div>
           <p class="card-desc">
             Thank you for your purchase. You can create up to 20 characters.
+            Want unlimited? Upgrade to the DM plan.
           </p>
+          <button
+            class="btn-outline"
+            style="align-self: flex-start; font-size: 0.85rem; padding: 0.45rem 1rem;"
+            @click="startCheckout('/api/checkout/dm')"
+            :disabled="checkingOut"
+          >
+            <span v-if="checkingOut">Redirecting…</span>
+            <span v-else>Upgrade to DM plan · €9.99 ∞</span>
+          </button>
+          <div v-if="error" class="error-text">{{ error }}</div>
         </template>
 
         <!-- Free -->
@@ -176,17 +200,29 @@ onMounted(fetchMe)
             <span class="plan-badge plan-badge--free">Free · 1 character</span>
           </div>
           <p class="card-desc">
-            The free plan includes 1 character. Unlock up to 20 characters with a one-time purchase.
+            The free plan includes 1 character. Unlock up to 20 characters for €4.99,
+            or go unlimited with the DM plan for €9.99.
           </p>
-          <button
-            class="btn-primary"
-            style="align-self: flex-start; font-size: 0.85rem; padding: 0.45rem 1rem;"
-            @click="startCheckout"
-            :disabled="checkingOut"
-          >
-            <span v-if="checkingOut">Redirecting…</span>
-            <span v-else>Get full access · €4.99 →</span>
-          </button>
+          <div class="plan-actions">
+            <button
+              class="btn-primary"
+              style="font-size: 0.85rem; padding: 0.45rem 1rem;"
+              @click="startCheckout('/api/checkout')"
+              :disabled="checkingOut"
+            >
+              <span v-if="checkingOut">Redirecting…</span>
+              <span v-else>Full access · €4.99 →</span>
+            </button>
+            <button
+              class="btn-outline"
+              style="font-size: 0.85rem; padding: 0.45rem 1rem;"
+              @click="startCheckout('/api/checkout/dm')"
+              :disabled="checkingOut"
+            >
+              <span v-if="checkingOut">Redirecting…</span>
+              <span v-else>DM plan · €9.99 ∞</span>
+            </button>
+          </div>
           <div v-if="error" class="error-text">{{ error }}</div>
         </template>
       </section>
@@ -358,6 +394,22 @@ details[open] summary::before { content: '▼ '; }
   font-size: 0.8rem;
   padding: 0.2rem 0.7rem;
   text-transform: none;
+}
+
+.plan-badge--dm {
+  background: rgba(138, 92, 200, 0.15);
+  color: #b07ee8;
+  border-color: rgba(138, 92, 200, 0.35);
+  font-size: 0.8rem;
+  padding: 0.2rem 0.7rem;
+  text-transform: none;
+}
+
+.plan-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-self: flex-start;
 }
 
 .plan-date {
