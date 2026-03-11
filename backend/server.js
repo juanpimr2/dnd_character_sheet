@@ -481,6 +481,41 @@ app.get('/api/admin/stores/stats', requireAdmin, async (req, res) => {
   res.json(data)
 })
 
+// ── Admin: lista limpia de tiendas con total de registros ─────────
+app.get('/api/admin/stores/list', requireAdmin, async (req, res) => {
+  const [{ data: stores, error }, { data: statsRows }] = await Promise.all([
+    supabase.from('stores').select('*').order('created_at', { ascending: false }),
+    supabase.from('store_daily_registrations').select('store_id, registrations'),
+  ])
+  if (error) return res.status(500).json({ error: error.message })
+
+  const totals = {}
+  for (const row of statsRows ?? []) {
+    totals[row.store_id] = (totals[row.store_id] ?? 0) + Number(row.registrations)
+  }
+
+  res.json((stores ?? []).map(s => ({ ...s, total_registrations: totals[s.id] ?? 0 })))
+})
+
+// ── Admin: overview stats ─────────────────────────────────────────
+app.get('/api/admin/overview', requireAdmin, async (req, res) => {
+  const today = new Date().toISOString().split('T')[0]
+  const [
+    { count: totalUsers },
+    { data: todayStats },
+    { count: activeStores },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*', { count: 'exact', head: true }),
+    supabase.from('store_daily_registrations').select('store_name, registrations').eq('registration_date', today),
+    supabase.from('stores').select('*', { count: 'exact', head: true }).eq('active', true),
+  ])
+
+  const registrationsToday = (todayStats ?? []).reduce((acc, r) => acc + Number(r.registrations), 0)
+  const topStore = (todayStats ?? []).sort((a, b) => Number(b.registrations) - Number(a.registrations))[0] ?? null
+
+  res.json({ totalUsers, registrationsToday, activeStores, topStoreToday: topStore })
+})
+
 // ── Admin: QR de una tienda (SVG) ─────────────────────────────────
 app.get('/api/admin/stores/:id/qr', requireAdmin, async (req, res) => {
   const { data: store, error } = await supabase

@@ -6,6 +6,7 @@ const LoginView      = () => import('@/views/LoginView.vue')
 const CharactersView = () => import('@/views/CharactersView.vue')
 const CharacterView  = () => import('@/views/CharacterView.vue')
 const SettingsView   = () => import('@/views/SettingsView.vue')
+const AdminView      = () => import('@/views/AdminView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -37,6 +38,12 @@ const router = createRouter({
       name: 'settings',
       component: SettingsView,
       meta: { requiresAuth: true, title: 'Ajustes' }
+    },
+    {
+      path: '/admin',
+      name: 'admin',
+      component: AdminView,
+      meta: { requiresAuth: false, title: 'Admin — Rollbook' }
     },
     // Catch-all → login
     {
@@ -73,7 +80,7 @@ router.beforeEach(async (to, _from, next) => {
 // Actualizar <title> con la meta de la ruta
 router.afterEach((to) => {
   const title = to.meta.title as string | undefined
-  document.title = title ? `${title} — D&D Manager` : 'D&D Manager'
+  document.title = title ?? 'Rollbook'
 })
 
 export default router
