@@ -64,6 +64,28 @@ export interface AbilityEntry {
   d: string
 }
 
+export type SpellSchool = 'Abjur' | 'Conj' | 'Div' | 'Ench' | 'Evoc' | 'Illus' | 'Necro' | 'Trans' | 'Univ' | ''
+
+export interface SpellEntry {
+  id: number
+  name: string
+  level: number       // 0–9
+  school: SpellSchool
+  prepared: number    // slots prepared today (prepared casters) — irrelevant for spontaneous
+  notes: string
+}
+
+export interface SpellcastingBlock {
+  spellClass: string                        // 'Wizard', 'Cleric', 'Sorcerer'…
+  type: 'prepared' | 'spontaneous'
+  stat: 'int' | 'wis' | 'cha'
+  casterLevel: number
+  concentrationBonus: number                // manual misc bonus to concentration
+  slotsPerDay: number[]                     // [lvl0..lvl9] base slots from class table
+  slotsUsed: number[]                       // [lvl0..lvl9] used today (resets on rest)
+  spells: SpellEntry[]
+}
+
 export interface EventEntry {
   t: string       // timestamp
   txt: string
@@ -149,4 +171,5 @@ export interface Character {
   events: EventEntry[]
   sessions: SessionGroup[]
   customBreakdowns: Array<{ name: string; bonuses: BonusEntry[] }>
+  spellcasting?: SpellcastingBlock
 }

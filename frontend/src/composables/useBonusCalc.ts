@@ -21,7 +21,7 @@ const BONUS_TYPES: Record<string, BonusTypeInfo> = {
   profane:     { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
   size:        { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
   // Saves / general
-  alchemical:  { stacks: true,  category: 'save' },   // stacks per SRD (nonmagical substances)
+  alchemical:  { stacks: false, category: 'save' },   // named bonus type — only highest applies
   morale:      { stacks: false, category: 'save' },
   resistance:  { stacks: false, category: 'save' },
   // Universal (all categories)

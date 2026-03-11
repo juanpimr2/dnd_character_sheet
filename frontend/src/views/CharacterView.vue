@@ -3,7 +3,7 @@ import { onMounted, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore }      from '@/stores/auth'
 import { useCharacterStore } from '@/stores/characters'
-import { ScrollText, BookOpen, Swords, Backpack, Star, BookMarked, LayoutList } from 'lucide-vue-next'
+import { ScrollText, BookOpen, Swords, Backpack, Star, BookMarked, LayoutList, Wand2 } from 'lucide-vue-next'
 
 import AppHeader          from '@/components/AppHeader.vue'
 import PanelIdentity      from '@/components/panels/PanelIdentity.vue'
@@ -19,6 +19,7 @@ import PanelFeats         from '@/components/panels/PanelFeats.vue'
 import PanelLanguages     from '@/components/panels/PanelLanguages.vue'
 import PanelSessions      from '@/components/panels/PanelSessions.vue'
 import PanelBreakdowns    from '@/components/panels/PanelBreakdowns.vue'
+import PanelSpells        from '@/components/panels/PanelSpells.vue'
 
 const route      = useRoute()
 const router     = useRouter()
@@ -29,7 +30,7 @@ const characterId = computed(() => route.params.id as string)
 const playerId    = computed(() => authStore.user?.id ?? '')
 const char        = computed(() => charStore.activeCharacter)
 
-type Tab = 'ficha' | 'habilidades' | 'combate' | 'equipo' | 'feats' | 'sesiones' | 'desgloces'
+type Tab = 'ficha' | 'habilidades' | 'combate' | 'equipo' | 'feats' | 'hechizos' | 'sesiones' | 'desgloces'
 const activeTab = ref<Tab>('ficha')
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
@@ -38,6 +39,7 @@ const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: 'combate',     label: 'Combat',     icon: Swords      },
   { id: 'equipo',      label: 'Equipment',  icon: Backpack    },
   { id: 'feats',       label: 'Feats',      icon: Star        },
+  { id: 'hechizos',    label: 'Spells',     icon: Wand2       },
   { id: 'sesiones',    label: 'Sessions',   icon: BookMarked  },
   { id: 'desgloces',   label: 'Breakdowns', icon: LayoutList  },
 ]
@@ -174,6 +176,13 @@ async function exportCurrent(): Promise<void> {
         ═══════════════════════════════════ -->
         <div v-show="activeTab === 'feats'" class="tab-content">
           <PanelFeats />
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: HECHIZOS
+        ═══════════════════════════════════ -->
+        <div v-show="activeTab === 'hechizos'" class="tab-content">
+          <PanelSpells />
         </div>
 
         <!-- ═══════════════════════════════════
