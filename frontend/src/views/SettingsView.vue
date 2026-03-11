@@ -179,18 +179,29 @@ onMounted(fetchMe)
             </span>
           </div>
           <p class="card-desc">
-            Thank you for your purchase. You can create up to 20 characters.
-            Want unlimited? Upgrade to the DM plan.
+            You have 20 + {{ authStore.user?.extraCharacters ?? 0 }} characters available.
+            Add more slots or go unlimited with the DM plan.
           </p>
-          <button
-            class="btn-outline"
-            style="align-self: flex-start; font-size: 0.85rem; padding: 0.45rem 1rem;"
-            @click="startCheckout('/api/checkout/dm')"
-            :disabled="checkingOut"
-          >
-            <span v-if="checkingOut">Redirecting…</span>
-            <span v-else>Upgrade to DM plan · €9.99 ∞</span>
-          </button>
+          <div class="plan-actions">
+            <button
+              class="btn-outline"
+              style="font-size: 0.85rem; padding: 0.45rem 1rem;"
+              @click="startCheckout('/api/checkout/slots')"
+              :disabled="checkingOut"
+            >
+              <span v-if="checkingOut">Redirecting…</span>
+              <span v-else>+5 slots · €1.99</span>
+            </button>
+            <button
+              class="btn-outline"
+              style="font-size: 0.85rem; padding: 0.45rem 1rem;"
+              @click="startCheckout('/api/checkout/dm')"
+              :disabled="checkingOut"
+            >
+              <span v-if="checkingOut">Redirecting…</span>
+              <span v-else>Upgrade to DM plan · €9.99 ∞</span>
+            </button>
+          </div>
           <div v-if="error" class="error-text">{{ error }}</div>
         </template>
 

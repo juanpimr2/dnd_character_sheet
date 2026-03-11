@@ -86,6 +86,9 @@ async function startCheckout(endpoint = '/api/checkout'): Promise<void> {
         <template v-if="authStore.user?.plan === 'dm'">
           ✓ Plan Maestro DM activated! Unlimited characters unlocked.
         </template>
+        <template v-else-if="(authStore.user?.extraCharacters ?? 0) > 0 && authStore.user?.purchased">
+          ✓ +5 slots added! You now have {{ 20 + (authStore.user?.extraCharacters ?? 0) }} characters available.
+        </template>
         <template v-else>
           ✓ Payment complete! You now have full access to 20 characters.
         </template>

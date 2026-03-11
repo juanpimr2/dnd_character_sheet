@@ -10,7 +10,7 @@ const {
   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
   PORT = 3000, ALLOWED_ORIGIN = '*',
   ADMIN_SECRET, APP_URL = 'http://localhost:5173',
-  STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_PRICE_ID_DM, STRIPE_WEBHOOK_SECRET,
+  STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_PRICE_ID_DM, STRIPE_PRICE_ID_SLOTS, STRIPE_WEBHOOK_SECRET,
 } = process.env
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -311,6 +311,31 @@ app.post('/api/checkout/dm', requireAuth, async (req, res) => {
   res.json({ url: session.url })
 })
 
+// ── Crear sesión de Stripe Checkout — Pack +5 slots ───────────────
+app.post('/api/checkout/slots', requireAuth, async (req, res) => {
+  if (!stripe || !STRIPE_PRICE_ID_SLOTS) {
+    return res.status(503).json({ error: 'Slots pack not configured' })
+  }
+
+  const { data: userAuth, error: userError } =
+    await supabase.auth.admin.getUserById(req.user.id)
+  if (userError || !userAuth.user) {
+    return res.status(500).json({ error: 'Could not get user' })
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    line_items: [{ price: STRIPE_PRICE_ID_SLOTS, quantity: 1 }],
+    client_reference_id: req.user.id,
+    customer_email: userAuth.user.email,
+    metadata: { plan: 'slots' },
+    success_url: `${APP_URL}/characters?payment=success`,
+    cancel_url:  `${APP_URL}/characters`,
+  })
+
+  res.json({ url: session.url })
+})
+
 // ── Webhook de Stripe (raw body, sin auth) ────────────────────────
 app.post('/api/webhook/stripe', async (req, res) => {
   if (!stripe || !STRIPE_WEBHOOK_SECRET) {
@@ -332,24 +357,36 @@ app.post('/api/webhook/stripe', async (req, res) => {
     const plan    = session.metadata?.plan  // 'dm' or undefined (full access)
 
     if (userId) {
-      const updates = {
-        purchased:             true,
-        purchased_at:          new Date().toISOString(),
-        stripe_payment_intent: session.payment_intent,
-      }
-      if (plan === 'dm') {
-        updates.plan = 'dm'
-      }
+      let error, label
 
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', userId)
+      if (plan === 'slots') {
+        // Pack +5 slots: incrementar extra_characters
+        const { data: current } = await supabase
+          .from('profiles')
+          .select('extra_characters')
+          .eq('id', userId)
+          .single()
+
+        const newTotal = (current?.extra_characters ?? 0) + 5;
+        ({ error } = await supabase
+          .from('profiles')
+          .update({ extra_characters: newTotal, purchased: true })
+          .eq('id', userId))
+        label = `Pack +5 slots (total: ${newTotal} extra)`
+      } else {
+        const updates = {
+          purchased:             true,
+          purchased_at:          new Date().toISOString(),
+          stripe_payment_intent: session.payment_intent,
+        }
+        if (plan === 'dm') updates.plan = 'dm';
+        ({ error } = await supabase.from('profiles').update(updates).eq('id', userId))
+        label = plan === 'dm' ? 'Plan Maestro DM' : 'Full access'
+      }
 
       if (error) {
         console.error('Stripe webhook — DB update error:', error.message)
       } else {
-        const label = plan === 'dm' ? 'Plan Maestro DM' : 'Full access'
         console.log(`✅ ${label} confirmed: ${userId.slice(0, 8)}…`)
       }
     }
