@@ -47,6 +47,20 @@ onMounted(async () => {
   charStore.clearActive()
   await charStore.loadCharacter(characterId.value)
 })
+
+async function exportCurrent(): Promise<void> {
+  const res = await fetch(`/api/export?character=${characterId.value}`, {
+    headers: { Authorization: `Bearer ${authStore.getToken()}` },
+  })
+  if (!res.ok) { alert('Export failed'); return }
+  const blob = await res.blob()
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `${(char.value?.name ?? characterId.value).replace(/\s+/g, '_')}_rollbook.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 </script>
 
 <template>
@@ -93,12 +107,17 @@ onMounted(async () => {
             <span>{{ char.name }}</span>
           </nav>
 
-          <div class="save-status" :class="{ saving: charStore.isSaving, dirty: charStore.isDirty && !charStore.isSaving }">
-            <span v-if="charStore.isSaving">
-              <span class="spinner-xs"></span> Saving…
-            </span>
-            <span v-else-if="charStore.isDirty">● Unsaved</span>
-            <span v-else>✓ Saved</span>
+          <div class="top-bar-right">
+            <button class="btn-export" @click="exportCurrent" title="Export as JSON">
+              ↓ Export
+            </button>
+            <div class="save-status" :class="{ saving: charStore.isSaving, dirty: charStore.isDirty && !charStore.isSaving }">
+              <span v-if="charStore.isSaving">
+                <span class="spinner-xs"></span> Saving…
+              </span>
+              <span v-else-if="charStore.isDirty">● Unsaved</span>
+              <span v-else>✓ Saved</span>
+            </div>
           </div>
         </div>
 
@@ -210,6 +229,28 @@ onMounted(async () => {
   justify-content: space-between;
   margin-bottom: 1rem;
   gap: 1rem;
+}
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-export {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.65rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.btn-export:hover {
+  border-color: var(--gold-dim);
+  color: var(--gold-light);
 }
 
 .breadcrumb {

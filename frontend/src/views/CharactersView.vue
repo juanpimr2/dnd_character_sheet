@@ -14,6 +14,7 @@ const charStore  = useCharacterStore()
 const playerId       = computed(() => authStore.user?.id ?? '')
 const successToast   = ref(false)
 const checkingOut    = ref(false)
+const importing      = ref(false)
 
 const maxAllowed = computed(() => {
   const u = authStore.user
@@ -56,6 +57,59 @@ async function createCharacter(): Promise<void> {
   const error = await charStore.createCharacter(id, name)
   if (error) { alert('Error creating character: ' + error); return }
   router.push({ name: 'character', params: { id } })
+}
+
+async function exportCharacter(id: string, name: string): Promise<void> {
+  const res = await fetch(`/api/export?character=${id}`, {
+    headers: { Authorization: `Bearer ${authStore.getToken()}` },
+  })
+  if (!res.ok) { alert('Export failed'); return }
+  const blob = await res.blob()
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `${name.replace(/\s+/g, '_')}_rollbook.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function importCharacter(): void {
+  if (atLimit.value) {
+    alert('Character limit reached. Upgrade your plan to import more characters.')
+    return
+  }
+  const input = document.createElement('input')
+  input.type  = 'file'
+  input.accept = '.json,application/json'
+  input.onchange = async () => {
+    const file = input.files?.[0]
+    if (!file) return
+    importing.value = true
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      const suggestedName = data.name || file.name.replace(/\.json$/i, '').replace(/_rollbook$/, '')
+      const name = window.prompt('Character name:', suggestedName)?.trim()
+      if (!name) return
+      const id = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_-]/g, '') || `char_${Date.now()}`
+      const res = await fetch(`/api/import?character=${id}`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          Authorization: `Bearer ${authStore.getToken()}`,
+        },
+        body: JSON.stringify({ ...data, name }),
+      })
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error) }
+      await charStore.fetchCharacters()
+      router.push({ name: 'character', params: { id } })
+    } catch (e) {
+      alert('Import failed: ' + (e instanceof Error ? e.message : e))
+    } finally {
+      importing.value = false
+    }
+  }
+  input.click()
 }
 
 async function startCheckout(endpoint = '/api/checkout'): Promise<void> {
@@ -102,14 +156,25 @@ async function startCheckout(endpoint = '/api/checkout'): Promise<void> {
             Player: <code>{{ playerId }}</code>
           </p>
         </div>
-        <button
-          class="btn-outline"
-          @click="createCharacter"
-          :disabled="atLimit"
-          :title="atLimit ? 'Character limit reached' : undefined"
-        >
-          <span aria-hidden="true">✦</span> New Character
-        </button>
+        <div class="header-actions">
+          <button
+            class="btn-outline btn-sm"
+            @click="importCharacter"
+            :disabled="importing || atLimit"
+            title="Import character from JSON"
+          >
+            <span v-if="importing">Importing…</span>
+            <span v-else>↑ Import</span>
+          </button>
+          <button
+            class="btn-outline"
+            @click="createCharacter"
+            :disabled="atLimit"
+            :title="atLimit ? 'Character limit reached' : undefined"
+          >
+            <span aria-hidden="true">✦</span> New Character
+          </button>
+        </div>
       </header>
 
       <!-- Upsell banner (free plan at limit) -->
@@ -179,6 +244,7 @@ async function startCheckout(endpoint = '/api/checkout'): Promise<void> {
             :character="char"
             @click="openCharacter(char.id)"
             @delete="confirmDelete(char.id, char.name)"
+            @export="exportCharacter(char.id, char.name)"
           />
         </div>
         <p class="char-count">
@@ -254,6 +320,14 @@ async function startCheckout(endpoint = '/api/checkout'): Promise<void> {
   gap: 1rem;
   margin-bottom: 1.5rem;
 }
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-sm { font-size: 0.82rem; padding: 0.35rem 0.75rem; }
 
 .page-title {
   font-size: 1.7rem;

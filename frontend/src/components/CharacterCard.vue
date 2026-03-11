@@ -8,6 +8,7 @@ defineProps<{
 defineEmits<{
   click: []
   delete: []
+  export: []
 }>()
 
 function levelTier(level: number): string {
@@ -62,13 +63,21 @@ function levelTier(level: number): string {
     <!-- Flecha decorativa -->
     <span class="card-arrow" aria-hidden="true">›</span>
 
-    <!-- Botón borrar -->
-    <button
-      class="btn-delete"
-      title="Eliminar personaje"
-      aria-label="Eliminar personaje"
-      @click.stop="$emit('delete')"
-    >✕</button>
+    <!-- Acciones (hover) -->
+    <div class="card-actions" @click.stop>
+      <button
+        class="btn-card-action"
+        title="Export as JSON"
+        aria-label="Export character"
+        @click.stop="$emit('export')"
+      >↓</button>
+      <button
+        class="btn-card-action btn-card-delete"
+        title="Delete character"
+        aria-label="Delete character"
+        @click.stop="$emit('delete')"
+      >✕</button>
+    </div>
   </article>
 </template>
 
@@ -228,11 +237,24 @@ function levelTier(level: number): string {
   transform: translateX(3px);
 }
 
-/* ── Botón borrar ── */
-.btn-delete {
+/* ── Acciones (hover) ── */
+.card-actions {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
+  top: 0.45rem;
+  right: 0.45rem;
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity var(--transition);
+  z-index: 1;
+}
+
+.char-card:hover .card-actions,
+.char-card:focus-visible .card-actions {
+  opacity: 1;
+}
+
+.btn-card-action {
   width: 1.5rem;
   height: 1.5rem;
   display: flex;
@@ -242,19 +264,17 @@ function levelTier(level: number): string {
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity var(--transition), background var(--transition), color var(--transition);
-  z-index: 1;
+  transition: background var(--transition), color var(--transition);
 }
 
-.char-card:hover .btn-delete,
-.char-card:focus-visible .btn-delete {
-  opacity: 1;
+.btn-card-action:hover {
+  background: rgba(201, 168, 76, 0.15);
+  color: var(--gold-light);
 }
 
-.btn-delete:hover {
+.btn-card-delete:hover {
   background: rgba(200, 60, 60, 0.18);
   color: #e06060;
 }
