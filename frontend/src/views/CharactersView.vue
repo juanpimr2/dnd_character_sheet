@@ -261,38 +261,38 @@ async function startCheckout(endpoint = '/api/checkout'): Promise<void> {
 <style scoped>
 .page {
   min-height: 100vh;
-  background:
-    radial-gradient(ellipse 55% 35% at 15% 20%,  rgba(136, 85, 208, 0.10) 0%, transparent 60%),
-    radial-gradient(ellipse 45% 30% at 85% 10%,  rgba(201, 168, 76, 0.08) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 50% at 90% 85%,  rgba(136, 85, 208, 0.07) 0%, transparent 55%),
-    radial-gradient(ellipse 60% 25% at 50% 100%, rgba(201, 168, 76, 0.04) 0%, transparent 60%),
-    var(--bg-base);
   position: relative;
+  isolation: isolate;
 }
 
+/* Fondo hero fijo (parallax suave al scrollear) */
 .page::after {
   content: '';
-  position: absolute;
+  position: fixed;
   inset: 0;
-  min-height: 100vh;
-  pointer-events: none;
-  z-index: 0;
-  background-image: url('/parchment.png');
-  background-size: 500px;
-  background-repeat: repeat;
-  opacity: 0.07;
+  z-index: -1;
+  background-image: url('/hero-bg.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
+/* Overlay oscuro para legibilidad — más denso que el login */
+.page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to bottom,
+      rgba(8, 7, 14, 0.82) 0%,
+      rgba(8, 7, 14, 0.75) 40%,
+      rgba(8, 7, 14, 0.88) 100%
+    ),
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(136, 85, 208, 0.08) 0%, transparent 70%);
 }
 
 .content { position: relative; z-index: 1; }
-
-/* Línea decorativa dorada bajo el header */
-.page::before {
-  content: '';
-  display: block;
-  height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.35) 30%, rgba(136,85,208,0.25) 60%, transparent 100%);
-  margin-top: -1px;
-}
 
 .content {
   max-width: 1100px;
