@@ -572,6 +572,19 @@ app.post('/api/me/store', requireAuth, async (req, res) => {
   res.json({ ok: true })
 })
 
+// ── Público: info de tienda por código (para landing /t/:code) ───
+app.get('/api/stores/:code', async (req, res) => {
+  const { data, error } = await supabase
+    .from('stores')
+    .select('name, city, referral_code')
+    .eq('referral_code', req.params.code.toUpperCase())
+    .eq('active', true)
+    .single()
+
+  if (error || !data) return res.status(404).json({ error: 'Tienda no encontrada' })
+  res.json(data)
+})
+
 // ── Health check ─────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok' }))
 

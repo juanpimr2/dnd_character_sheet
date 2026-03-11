@@ -69,6 +69,7 @@ async function handleSubmit(): Promise<void> {
 onMounted(() => {
   const ref = route.query.ref as string | undefined
   if (ref) localStorage.setItem('dnd_store_ref', ref)
+  if (route.query.mode === 'register') mode.value = 'register'
 })
 
 async function handleGoogle(): Promise<void> {

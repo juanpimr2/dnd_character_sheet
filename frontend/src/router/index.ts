@@ -7,6 +7,7 @@ const CharactersView = () => import('@/views/CharactersView.vue')
 const CharacterView  = () => import('@/views/CharacterView.vue')
 const SettingsView   = () => import('@/views/SettingsView.vue')
 const AdminView      = () => import('@/views/AdminView.vue')
+const StoreView      = () => import('@/views/StoreView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -44,6 +45,12 @@ const router = createRouter({
       name: 'admin',
       component: AdminView,
       meta: { requiresAuth: false, title: 'Admin — Rollbook' }
+    },
+    {
+      path: '/t/:code',
+      name: 'store',
+      component: StoreView,
+      meta: { requiresAuth: false, title: 'Rollbook' }
     },
     // Catch-all → login
     {
