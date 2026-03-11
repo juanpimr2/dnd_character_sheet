@@ -18,7 +18,8 @@ const loadingGoogle = ref(false)
 const error         = ref('')
 const success       = ref('')
 
-const isLogin = computed(() => mode.value === 'login')
+const isLogin    = computed(() => mode.value === 'login')
+const storeName  = ref<string | null>(null)
 
 function switchMode(m: Mode) {
   mode.value     = m
@@ -66,9 +67,18 @@ async function handleSubmit(): Promise<void> {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   const ref = route.query.ref as string | undefined
-  if (ref) localStorage.setItem('dnd_store_ref', ref)
+  if (ref) {
+    localStorage.setItem('dnd_store_ref', ref)
+    try {
+      const res = await fetch(`/api/stores/${ref}`)
+      if (res.ok) {
+        const data = await res.json()
+        storeName.value = data.name
+      }
+    } catch { /* ignore — banner is optional */ }
+  }
   if (route.query.mode === 'register') mode.value = 'register'
 })
 
@@ -160,6 +170,15 @@ async function handleGoogle(): Promise<void> {
       <div class="orb orb-2" aria-hidden="true"></div>
 
       <div class="form-container">
+
+        <!-- Store referral banner -->
+        <div v-if="storeName" class="store-banner" role="note">
+          <span class="store-banner-icon">🎲</span>
+          <span class="store-banner-text">
+            Recommended by <strong>{{ storeName }}</strong> —
+            creating your account helps support them.
+          </span>
+        </div>
 
         <!-- Tabs -->
         <div class="mode-tabs" role="tablist">
@@ -527,4 +546,21 @@ async function handleGoogle(): Promise<void> {
 .btn-google:disabled { opacity: 0.4; cursor: not-allowed; }
 .google-icon { width: 18px; height: 18px; flex-shrink: 0; }
 .spinner-light { border-color: rgba(232,224,242,0.2); border-top-color: var(--text-primary); }
+
+/* ── Store referral banner ── */
+.store-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  background: rgba(201, 168, 76, 0.07);
+  border: 1px solid rgba(201, 168, 76, 0.22);
+  border-radius: var(--radius-md);
+  padding: 0.6rem 0.85rem;
+  margin-bottom: 1.1rem;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.store-banner-icon { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+.store-banner-text strong { color: var(--gold); font-weight: 600; }
 </style>

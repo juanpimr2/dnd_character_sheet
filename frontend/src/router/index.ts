@@ -7,7 +7,6 @@ const CharactersView = () => import('@/views/CharactersView.vue')
 const CharacterView  = () => import('@/views/CharacterView.vue')
 const SettingsView   = () => import('@/views/SettingsView.vue')
 const AdminView      = () => import('@/views/AdminView.vue')
-const StoreView      = () => import('@/views/StoreView.vue')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -49,8 +48,7 @@ const router = createRouter({
     {
       path: '/t/:code',
       name: 'store',
-      component: StoreView,
-      meta: { requiresAuth: false, title: 'Rollbook' }
+      redirect: (to) => ({ name: 'login', query: { ref: to.params.code } })
     },
     // Catch-all → login
     {
