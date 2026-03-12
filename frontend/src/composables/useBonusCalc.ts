@@ -8,29 +8,28 @@ interface BonusTypeInfo {
 }
 
 const BONUS_TYPES: Record<string, BonusTypeInfo> = {
-  // AC
+  // ── Pure AC (armor slot, physical defense) ───────────────────────────────
   armor:       { stacks: false, appliesToTouch: false, appliesToFlat: true,  category: 'ac' },
   shield:      { stacks: false, appliesToTouch: false, appliesToFlat: true,  category: 'ac' },
   deflection:  { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
   dodge:       { stacks: true,  appliesToTouch: true,  appliesToFlat: false, category: 'ac' },
   natural:     { stacks: false, appliesToTouch: false, appliesToFlat: true,  category: 'ac' },
-  enhancement: { stacks: false, appliesToTouch: false, appliesToFlat: true,  category: 'ac' },
-  insight:     { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
-  luck:        { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
-  sacred:      { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
-  profane:     { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
-  size:        { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'ac' },
-  // Saves / general
-  alchemical:  { stacks: false, category: 'save' },   // named bonus type — only highest applies
-  morale:      { stacks: false, category: 'save' },
-  resistance:  { stacks: false, category: 'save' },
-  // Universal (all categories)
-  circumstance: { stacks: true,  category: 'all' },   // stacks from different conditions
+  // ── Save-specific ─────────────────────────────────────────────────────────
+  resistance:  { stacks: false, category: 'save' },   // Cloak of Resistance, etc.
+  // ── Universal (AC + saves + attacks + skills) ─────────────────────────────
+  enhancement: { stacks: false, appliesToTouch: false, appliesToFlat: true,  category: 'all' },
+  insight:     { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'all' },
+  luck:        { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'all' },
+  sacred:      { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'all' },
+  profane:     { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'all' },
+  morale:      { stacks: false, category: 'all' },    // Heroism, Prayer, etc.
+  alchemical:  { stacks: false, category: 'all' },    // Alchemist's fire, antitoxin
+  size:        { stacks: false, appliesToTouch: true,  appliesToFlat: true,  category: 'all' },
+  circumstance: { stacks: true,  category: 'all' },   // stacks from different sources
   competence:   { stacks: false, category: 'all' },
   racial:       { stacks: false, category: 'all' },
   inherent:     { stacks: false, category: 'all' },
-  // Attack-specific
-  trait:       { stacks: false, category: 'attack' },
+  trait:        { stacks: false, category: 'all' },   // Pathfinder character traits
   // Untyped always stacks
   untyped:     { stacks: true,  appliesToTouch: false, appliesToFlat: true,  category: 'all' },
 }

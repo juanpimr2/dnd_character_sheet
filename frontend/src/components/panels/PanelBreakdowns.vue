@@ -11,6 +11,23 @@ import {
 } from '@/composables/useBonusCalc'
 import type { AbilityScores, BonusEntry } from '@/types/character'
 
+const SAVE_KEYS = [
+  { key: 'fort' as const, label: 'Fortitude' },
+  { key: 'ref'  as const, label: 'Reflex' },
+  { key: 'will' as const, label: 'Will' },
+]
+
+function saveStat(key: 'fort' | 'ref' | 'will') {
+  return (char.value.saves?.[key]?.stat ?? 'con') as keyof AbilityScores
+}
+function saveStatMod(key: 'fort' | 'ref' | 'will') {
+  const stat = saveStat(key)
+  return Math.floor((( char.value.stats?.[stat] ?? 10) - 10) / 2)
+}
+function savePermTotal(key: 'fort' | 'ref' | 'will') {
+  return calculateApplicableBonuses(char.value.bonuses?.[key] ?? [])
+}
+
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
 function save() { charStore.scheduleAutoSave() }
@@ -144,14 +161,23 @@ const ALL_BONUS_TYPES = [...new Set([...ABILITY_BONUS_TYPES, ...AC_BONUS_TYPES, 
 
     <!-- ══ SAVES ══ -->
     <div v-if="activeSubTab === 'saves'" class="sub-content">
-      <h3 class="sub-title">Fortitude</h3>
-      <BonusBreakdown :bonuses="char.bonuses.fort" :bonusTypes="SAVE_BONUS_TYPES" @change="save" />
-      <h3 class="sub-title">Reflex</h3>
-      <BonusBreakdown :bonuses="char.bonuses.ref" :bonusTypes="SAVE_BONUS_TYPES" @change="save" />
-      <h3 class="sub-title">Will</h3>
-      <BonusBreakdown :bonuses="char.bonuses.will" :bonusTypes="SAVE_BONUS_TYPES" @change="save" />
-      <h3 class="sub-title">General <span class="sub-title-note">(applies to selected saves)</span></h3>
-      <BonusBreakdown :bonuses="char.bonuses.saveGeneral" :bonusTypes="SAVE_BONUS_TYPES" :showApplies="true" @change="save" />
+      <p class="hint">
+        Add permanent bonuses here (equipment, feats, class features).
+        Ability modifier is read from the stat selected in the <strong>Saving Throws</strong> panel — change it there.
+      </p>
+      <template v-for="sv in SAVE_KEYS" :key="sv.key">
+        <h3 class="sub-title">{{ sv.label }}</h3>
+        <!-- Fila read-only: modificador de característica -->
+        <div class="stat-mod-row">
+          <span class="smr-label">{{ saveStat(sv.key).toUpperCase() }} modifier</span>
+          <span class="smr-val">{{ fmt(saveStatMod(sv.key)) }}</span>
+          <span class="smr-note">(from Saving Throws panel)</span>
+          <span class="smr-total">
+            Total bonuses: <strong>{{ fmt(savePermTotal(sv.key)) }}</strong>
+          </span>
+        </div>
+        <BonusBreakdown :bonuses="char.bonuses[sv.key]" :bonusTypes="SAVE_BONUS_TYPES" @change="save" />
+      </template>
     </div>
 
     <!-- ══ CUSTOM ══ -->
@@ -249,6 +275,46 @@ const ALL_BONUS_TYPES = [...new Set([...ABILITY_BONUS_TYPES, ...AC_BONUS_TYPES, 
   border-bottom: 1px solid var(--border);
   margin-top: 0.5rem;
 }
+/* ── Stat modifier read-only row ── */
+.stat-mod-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  background: rgba(136,85,208,0.06);
+  border: 1px solid var(--arcane-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  flex-wrap: wrap;
+}
+.smr-label {
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+}
+.smr-val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--gold-light);
+  min-width: 30px;
+}
+.smr-note {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-style: italic;
+  flex: 1;
+}
+.smr-total {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.smr-total strong {
+  color: var(--text-primary);
+}
+
 .sub-title:first-child { margin-top: 0; }
 .sub-title-note {
   font-family: var(--font-body);

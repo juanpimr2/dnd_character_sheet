@@ -66,7 +66,7 @@ export const useCharacterStore = defineStore('characters', () => {
           ref:  { base: 0, stat: 'dex', total: 0 },
           will: { base: 0, stat: 'wis', total: 0 },
         },
-        bonuses: { ac: [], fort: [], ref: [], will: [], attack: [], saveGeneral: [] },
+        bonuses: { ac: [], fort: [], ref: [], will: [], attack: [] },
         attacks: [], equipment: {}, skills: [], languages: [],
         inventory: [], abilities: [], feats: [], events: [], sessions: [], customBreakdowns: [],
         ...raw,
@@ -132,7 +132,7 @@ export const useCharacterStore = defineStore('characters', () => {
         ref:  { base: 0, stat: 'dex', total: 0 },
         will: { base: 0, stat: 'wis', total: 0 },
       },
-      bonuses: { ac: [], fort: [], ref: [], will: [], attack: [], saveGeneral: [] },
+      bonuses: { ac: [], fort: [], ref: [], will: [], attack: [] },
       attacks: [], equipment: {}, skills: [], languages: [],
       inventory: [], abilities: [], feats: [], events: [], sessions: [], customBreakdowns: [],
     }

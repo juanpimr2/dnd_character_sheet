@@ -19,7 +19,7 @@ async function logout(): Promise<void> {
       <!-- ── Marca ── -->
       <router-link to="/characters" class="brand">
         <!-- Rollbook mark — Midjourney -->
-        <img src="/logo.png" alt="" class="brand-mark" aria-hidden="true" />
+        <img src="/logo_nobg.png" alt="" class="brand-mark" aria-hidden="true" />
 
         <div class="brand-text">
           <span class="brand-name">Rollbook</span>
@@ -99,7 +99,6 @@ async function logout(): Promise<void> {
   height: 36px;
   flex-shrink: 0;
   object-fit: contain;
-  mix-blend-mode: screen;
   filter: drop-shadow(0 0 8px rgba(201, 168, 76, 0.30));
   transition: filter var(--transition);
 }

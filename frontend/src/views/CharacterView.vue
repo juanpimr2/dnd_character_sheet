@@ -144,7 +144,7 @@ async function exportCurrent(): Promise<void> {
           <PanelIdentity />
           <PanelAbilityScores @go-to-breakdowns="activeTab = 'desgloces'" />
           <PanelCombatStats />
-          <PanelSaves />
+          <PanelSaves @go-to-breakdowns="activeTab = 'desgloces'" />
           <PanelAbilities />
           <PanelLanguages />
         </div>

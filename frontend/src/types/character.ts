@@ -11,8 +11,9 @@ export interface AbilityScores {
 
 export interface SaveThrow {
   base: number
-  stat: string   // 'con' | 'dex' | 'wis'
+  stat: string   // any ability key — e.g. 'con', 'dex', 'wis', or 'cha' with Steadfast Determination
   total: number
+  quick?: BonusEntry[]  // temporary in-session bonuses (Heroism, Aid, etc.)
 }
 
 export interface BonusEntry {
@@ -157,7 +158,7 @@ export interface Character {
     ref: BonusEntry[]
     will: BonusEntry[]
     attack: BonusEntry[]
-    saveGeneral: BonusEntry[]
+    saveGeneral?: BonusEntry[]  // legacy — no longer used in UI
   }
 
   // Contenido

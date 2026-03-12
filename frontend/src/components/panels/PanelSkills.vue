@@ -11,42 +11,44 @@ function save() { charStore.scheduleAutoSave() }
 const mod = (s: number) => Math.floor((s - 10) / 2)
 const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 
+const STATS = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const
+
 const PATHFINDER_SKILLS = [
-  { en: 'Acrobatics',                    es: 'Acrobacias',                  s: 'dex' },
-  { en: 'Appraise',                       es: 'Tasación',                    s: 'int' },
-  { en: 'Bluff',                          es: 'Engañar',                     s: 'cha' },
-  { en: 'Climb',                          es: 'Trepar',                      s: 'str' },
-  { en: 'Craft',                          es: 'Artesanía',                   s: 'int' },
-  { en: 'Diplomacy',                      es: 'Diplomacia',                  s: 'cha' },
-  { en: 'Disable Device',                 es: 'Inutilizar Mecanismo',        s: 'dex' },
-  { en: 'Disguise',                       es: 'Disfrazarse',                 s: 'cha' },
-  { en: 'Escape Artist',                  es: 'Escapismo',                   s: 'dex' },
-  { en: 'Fly',                            es: 'Volar',                       s: 'dex' },
-  { en: 'Handle Animal',                  es: 'Domar Animales',              s: 'cha' },
-  { en: 'Heal',                           es: 'Curar',                       s: 'wis' },
-  { en: 'Intimidate',                     es: 'Intimidar',                   s: 'cha' },
-  { en: 'Knowledge (Arcana)',             es: 'Conocimiento (Arcano)',        s: 'int' },
-  { en: 'Knowledge (Dungeoneering)',      es: 'Conocimiento (Mazmorras)',     s: 'int' },
-  { en: 'Knowledge (Engineering)',        es: 'Conocimiento (Ingeniería)',    s: 'int' },
-  { en: 'Knowledge (Geography)',          es: 'Conocimiento (Geografía)',     s: 'int' },
-  { en: 'Knowledge (History)',            es: 'Conocimiento (Historia)',      s: 'int' },
-  { en: 'Knowledge (Local)',              es: 'Conocimiento (Local)',         s: 'int' },
-  { en: 'Knowledge (Nature)',             es: 'Conocimiento (Naturaleza)',    s: 'int' },
-  { en: 'Knowledge (Nobility)',           es: 'Conocimiento (Nobleza)',       s: 'int' },
-  { en: 'Knowledge (Planes)',             es: 'Conocimiento (Planos)',        s: 'int' },
-  { en: 'Knowledge (Religion)',           es: 'Conocimiento (Religión)',      s: 'int' },
-  { en: 'Linguistics',                    es: 'Lingüística',                 s: 'int' },
-  { en: 'Perception',                     es: 'Percepción',                  s: 'wis' },
-  { en: 'Perform',                        es: 'Interpretar',                 s: 'cha' },
-  { en: 'Profession',                     es: 'Profesión',                   s: 'wis' },
-  { en: 'Ride',                           es: 'Montar',                      s: 'dex' },
-  { en: 'Sense Motive',                   es: 'Intuición',                   s: 'wis' },
-  { en: 'Sleight of Hand',                es: 'Juego de Manos',              s: 'dex' },
-  { en: 'Spellcraft',                     es: 'Conocimiento Mágico',         s: 'int' },
-  { en: 'Stealth',                        es: 'Sigilo',                      s: 'dex' },
-  { en: 'Survival',                       es: 'Supervivencia',               s: 'wis' },
-  { en: 'Swim',                           es: 'Nadar',                       s: 'str' },
-  { en: 'Use Magic Device',               es: 'Usar Objeto Mágico',          s: 'cha' },
+  { en: 'Acrobatics',                    s: 'dex' },
+  { en: 'Appraise',                      s: 'int' },
+  { en: 'Bluff',                         s: 'cha' },
+  { en: 'Climb',                         s: 'str' },
+  { en: 'Craft',                         s: 'int' },
+  { en: 'Diplomacy',                     s: 'cha' },
+  { en: 'Disable Device',                s: 'dex' },
+  { en: 'Disguise',                      s: 'cha' },
+  { en: 'Escape Artist',                 s: 'dex' },
+  { en: 'Fly',                           s: 'dex' },
+  { en: 'Handle Animal',                 s: 'cha' },
+  { en: 'Heal',                          s: 'wis' },
+  { en: 'Intimidate',                    s: 'cha' },
+  { en: 'Knowledge (Arcana)',            s: 'int' },
+  { en: 'Knowledge (Dungeoneering)',     s: 'int' },
+  { en: 'Knowledge (Engineering)',       s: 'int' },
+  { en: 'Knowledge (Geography)',         s: 'int' },
+  { en: 'Knowledge (History)',           s: 'int' },
+  { en: 'Knowledge (Local)',             s: 'int' },
+  { en: 'Knowledge (Nature)',            s: 'int' },
+  { en: 'Knowledge (Nobility)',          s: 'int' },
+  { en: 'Knowledge (Planes)',            s: 'int' },
+  { en: 'Knowledge (Religion)',          s: 'int' },
+  { en: 'Linguistics',                   s: 'int' },
+  { en: 'Perception',                    s: 'wis' },
+  { en: 'Perform',                       s: 'cha' },
+  { en: 'Profession',                    s: 'wis' },
+  { en: 'Ride',                          s: 'dex' },
+  { en: 'Sense Motive',                  s: 'wis' },
+  { en: 'Sleight of Hand',               s: 'dex' },
+  { en: 'Spellcraft',                    s: 'int' },
+  { en: 'Stealth',                       s: 'dex' },
+  { en: 'Survival',                      s: 'wis' },
+  { en: 'Swim',                          s: 'str' },
+  { en: 'Use Magic Device',              s: 'cha' },
 ] as const
 
 const STAT_COLORS: Record<string, string> = {
@@ -72,11 +74,6 @@ onMounted(() => {
   }
 })
 
-function getSpanishName(skillName: string): string {
-  const found = PATHFINDER_SKILLS.find(sk => sk.en === skillName)
-  return found ? found.es : ''
-}
-
 function skillTotal(sk: SkillEntry): number {
   const statMod = mod(char.value.stats[(sk.s ?? 'int') as keyof AbilityScores] ?? 10)
   const csBonus = (sk.cs && (sk.r ?? 0) > 0) ? 3 : 0
@@ -88,18 +85,54 @@ function addSkill() {
   save()
 }
 
-function removeSkill(i: number) {
-  char.value.skills.splice(i, 1)
-  save()
+
+// ── Filtro ────────────────────────────────────────────────────────────────────
+const filter = ref('')
+
+// ── Ordenación ────────────────────────────────────────────────────────────────
+type SortKey = 'name' | 'stat' | 'total' | 'ranks' | 'cs'
+const sortKey = ref<SortKey | null>(null)
+const sortDir = ref<'asc' | 'desc'>('asc')
+
+function toggleSort(key: SortKey) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = key === 'total' ? 'desc' : 'asc'  // total: mayor primero por defecto
+  }
 }
 
-const filter = ref('')
-const filtered = computed(() => {
-  if (!filter.value) return char.value.skills
-  const q = filter.value.toLowerCase()
-  return char.value.skills.filter(sk =>
-    sk.n.toLowerCase().includes(q) || getSpanishName(sk.n).toLowerCase().includes(q)
-  )
+function sortIndicator(key: SortKey) {
+  if (sortKey.value !== key) return ''
+  return sortDir.value === 'asc' ? ' ▲' : ' ▼'
+}
+
+const displayedSkills = computed(() => {
+  let list = [...char.value.skills]
+
+  // Filtro
+  if (filter.value) {
+    const q = filter.value.toLowerCase()
+    list = list.filter(sk => sk.n.toLowerCase().includes(q))
+  }
+
+  // Ordenación
+  if (sortKey.value) {
+    const dir = sortDir.value === 'asc' ? 1 : -1
+    list.sort((a, b) => {
+      switch (sortKey.value) {
+        case 'name':  return dir * a.n.localeCompare(b.n)
+        case 'stat':  return dir * a.s.localeCompare(b.s)
+        case 'total': return dir * (skillTotal(a) - skillTotal(b))
+        case 'ranks': return dir * ((a.r ?? 0) - (b.r ?? 0))
+        case 'cs':    return dir * ((a.cs ? 1 : 0) - (b.cs ? 1 : 0))
+        default: return 0
+      }
+    })
+  }
+
+  return list
 })
 </script>
 
@@ -114,36 +147,70 @@ const filtered = computed(() => {
     </div>
 
     <div class="skills-table">
-      <!-- Header -->
+      <!-- Cabecera sortable -->
       <div class="skill-row skill-header">
-        <span title="Class Skill">CS</span>
-        <span>Skill</span>
-        <span>Stat</span>
-        <span title="Ranks">Rnk</span>
-        <span title="Misc">Misc</span>
-        <span>Total</span>
-        <span></span>
+        <button class="sort-btn" @click="toggleSort('cs')" title="Class Skill">
+          CS{{ sortIndicator('cs') }}
+        </button>
+        <button class="sort-btn sort-left" @click="toggleSort('name')">
+          Skill{{ sortIndicator('name') }}
+        </button>
+        <button class="sort-btn" @click="toggleSort('stat')">
+          Stat{{ sortIndicator('stat') }}
+        </button>
+        <button class="sort-btn" @click="toggleSort('ranks')" title="Ranks">
+          Rnk{{ sortIndicator('ranks') }}
+        </button>
+        <span class="col-misc" title="Misc">Misc</span>
+        <button class="sort-btn" @click="toggleSort('total')">
+          Total{{ sortIndicator('total') }}
+        </button>
       </div>
 
-      <!-- Skills -->
+      <!-- Filas de skills -->
       <div
-        v-for="(sk, idx) in filtered"
-        :key="idx"
+        v-for="sk in displayedSkills"
+        :key="sk.n + sk.s"
         class="skill-row"
         :class="{ 'cs-row': sk.cs }"
       >
+        <!-- Class Skill -->
         <input
           type="checkbox"
           :checked="sk.cs"
           @change="sk.cs = ($event.target as HTMLInputElement).checked; save()"
           title="Class Skill"
         />
-        <div class="skill-name-cell">
-          <span class="skill-en">{{ sk.n }}</span>
+
+        <!-- Nombre editable -->
+        <input
+          type="text"
+          :value="sk.n"
+          @change="sk.n = ($event.target as HTMLInputElement).value; save()"
+          class="skill-name-input"
+        />
+
+        <!-- Stat editable con color dinámico -->
+        <div
+          class="stat-wrap"
+          :style="{
+            background: (STAT_COLORS[sk.s] ?? '#888') + '22',
+            borderColor: (STAT_COLORS[sk.s] ?? '#888') + '88',
+          }"
+          :title="`Ability: ${sk.s.toUpperCase()} (${fmt(mod(char.stats[sk.s as keyof AbilityScores] ?? 10))})`"
+        >
+          <select
+            :value="sk.s"
+            @change="sk.s = ($event.target as HTMLSelectElement).value; save()"
+            class="stat-select"
+            :style="{ color: STAT_COLORS[sk.s] ?? '#888' }"
+          >
+            <option v-for="st in STATS" :key="st" :value="st">{{ st.toUpperCase() }}</option>
+          </select>
+          <span class="stat-arrow" :style="{ color: STAT_COLORS[sk.s] ?? '#888' }">▾</span>
         </div>
-        <div class="stat-chip" :style="{ background: STAT_COLORS[sk.s] + '33', color: STAT_COLORS[sk.s], borderColor: STAT_COLORS[sk.s] + '66' }">
-          {{ sk.s.toUpperCase() }}
-        </div>
+
+        <!-- Ranks -->
         <input
           type="number"
           :value="sk.r"
@@ -151,16 +218,19 @@ const filtered = computed(() => {
           min="0" max="40"
           class="num-input"
         />
+
+        <!-- Misc -->
         <input
           type="number"
           :value="sk.m"
           @change="sk.m = +($event.target as HTMLInputElement).value; save()"
           class="num-input"
         />
+
+        <!-- Total -->
         <span class="skill-total" :class="{ positive: skillTotal(sk) > 0 }">
           {{ fmt(skillTotal(sk)) }}
         </span>
-        <button class="btn-del" @click="removeSkill(char.skills.indexOf(sk))" title="Remove">✕</button>
       </div>
 
       <div v-if="char.skills.length === 0" class="empty-row">
@@ -196,6 +266,7 @@ const filtered = computed(() => {
 
 .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.8rem; }
 
+/* ── Tabla ── */
 .skills-table {
   display: flex;
   flex-direction: column;
@@ -204,24 +275,47 @@ const filtered = computed(() => {
 
 .skill-row {
   display: grid;
-  grid-template-columns: 28px 1fr 52px 50px 50px 52px 28px;
+  grid-template-columns: 28px 1fr 62px 46px 46px 52px;
   gap: 4px;
   align-items: center;
   padding: 2px 0;
 }
 
+/* ── Cabecera ── */
 .skill-header {
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.sort-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  cursor: pointer;
+  padding: 0.15rem 0.1rem;
+  text-align: center;
+  transition: color var(--transition);
+  white-space: nowrap;
+}
+.sort-btn:hover { color: var(--gold-light); }
+.sort-left { text-align: left; }
+
+.col-misc {
   font-size: 0.6rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
   color: var(--text-muted);
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 2px;
+  text-align: center;
 }
-.skill-header span { text-align: center; }
 
+/* ── Filas ── */
 .cs-row { background: rgba(201, 168, 76, 0.04); border-radius: 3px; }
 
 input[type="checkbox"] {
@@ -233,43 +327,69 @@ input[type="checkbox"] {
   display: block;
 }
 
-.skill-name-cell {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding: 0.1rem 0;
-  min-width: 0;
-}
-
-.skill-en {
-  font-size: 0.85rem;
+/* Nombre editable — parece texto hasta que haces focus */
+.skill-name-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
   color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
   font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.skill-es {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-style: italic;
-}
-
-.stat-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.6rem;
-  font-weight: 700;
   padding: 0.1rem 0.25rem;
+  outline: none;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color var(--transition), background var(--transition);
+}
+.skill-name-input:hover { border-color: var(--border); background: var(--bg-input); }
+.skill-name-input:focus { border-color: var(--gold-dim); background: var(--bg-input); }
+
+/* Stat select con color dinámico */
+.stat-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
   border-radius: 4px;
   border: 1px solid;
-  text-align: center;
+  overflow: hidden;
+  cursor: pointer;
+  transition: opacity var(--transition);
+}
+.stat-wrap:hover { opacity: 0.82; }
+
+.stat-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 0.62rem;
+  font-weight: 700;
   letter-spacing: 0.04em;
+  text-align: center;
+  text-align-last: center;
+  padding: 0.1rem 0 0.1rem 0.3rem;
+  cursor: pointer;
+  outline: none;
+  flex: 1;
+  min-width: 0;
+}
+.stat-select option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+
+.stat-arrow {
+  font-size: 0.58rem;
+  padding-right: 3px;
+  pointer-events: none;
+  flex-shrink: 0;
+  line-height: 1;
+  opacity: 0.9;
 }
 
 .num-input {
@@ -297,19 +417,6 @@ input[type="checkbox"] {
 }
 .skill-total.positive { color: var(--gold); }
 
-.btn-del {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  cursor: pointer;
-  padding: 0.2rem;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition);
-  display: block;
-  margin: auto;
-}
-.btn-del:hover { color: var(--red-light); }
 
 .empty-row {
   text-align: center;
