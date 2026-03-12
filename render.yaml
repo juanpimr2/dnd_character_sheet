@@ -17,15 +17,35 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 10000         # Render usa 10000 por defecto
+
+      # ── Backend runtime ───────────────────────────────────────────
       - key: SUPABASE_URL
-        sync: false          # poner manualmente en Render dashboard
+        sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
       - key: ADMIN_SECRET
         sync: false
       - key: APP_URL
-        sync: false          # URL de Render, ej: https://dnd-character-sheet.onrender.com
+        sync: false          # URL final de Render, ej: https://rollbook.onrender.com
       - key: ALLOWED_ORIGIN
         sync: false          # misma URL que APP_URL
-      - key: PORT
-        value: 10000         # Render usa 10000 por defecto
+
+      # ── Stripe (opcional — si no se ponen, pagos desactivados) ────
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: STRIPE_PRICE_ID_DM
+        sync: false
+      - key: STRIPE_PRICE_ID_SLOTS
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      # ── Frontend build time (VITE_ vars se incrustan en el bundle) ─
+      - key: VITE_SUPABASE_URL
+        sync: false          # mismo valor que SUPABASE_URL
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false          # clave anon pública de Supabase
