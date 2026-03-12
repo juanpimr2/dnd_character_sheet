@@ -20,3 +20,6 @@ Thumbs.db
 
 # Claude Code local settings (may contain secrets)
 .claude/settings.local.json
+
+# Archivo local de secretos (NUNCA subir)
+SECRETS.local.md
