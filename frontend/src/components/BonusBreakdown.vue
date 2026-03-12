@@ -15,10 +15,15 @@ const newName    = ref('')
 const newVal     = ref<number>(0)
 const newType    = ref('')
 const newApplies = ref('All')
+const nameError  = ref(false)
 
 function addBonus() {
   const n = newName.value.trim()
-  if (!n) return
+  if (!n) {
+    nameError.value = true
+    return
+  }
+  nameError.value = false
   const entry: BonusEntry = {
     n,
     v: newVal.value,
@@ -120,13 +125,16 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 
     <!-- Add new entry -->
     <div class="bb-add">
-      <input
-        type="text"
-        v-model="newName"
-        placeholder="Bonus source…"
-        class="bb-name"
-        @keydown.enter="addBonus"
-      />
+      <div class="bb-name-wrap">
+        <input
+          type="text"
+          v-model="newName"
+          :placeholder="nameError ? 'Required — enter a source name' : 'Bonus source…'"
+          :class="['bb-name', { 'bb-name--error': nameError }]"
+          @keydown.enter="addBonus"
+          @input="nameError = false"
+        />
+      </div>
       <input type="number" v-model.number="newVal" class="bb-val-input" title="Value" />
       <select v-model="newType" class="bb-type">
         <option value="">type…</option>
@@ -179,9 +187,15 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 }
 .bb-toggle.on { color: var(--gold); }
 
-.bb-name {
+.bb-name-wrap {
   flex: 1;
   min-width: 0;
+  position: relative;
+}
+
+.bb-name {
+  width: 100%;
+  box-sizing: border-box;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -195,6 +209,15 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 .bb-name:focus {
   background: var(--bg-input);
   border-color: var(--gold-dim);
+}
+.bb-name--error {
+  background: rgba(176, 32, 64, 0.08);
+  border-color: rgba(176, 32, 64, 0.6) !important;
+  color: var(--text-primary);
+}
+.bb-name--error::placeholder {
+  color: var(--red-light);
+  font-weight: 500;
 }
 
 .bb-val-display {
