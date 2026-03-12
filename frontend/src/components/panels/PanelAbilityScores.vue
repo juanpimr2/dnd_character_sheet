@@ -3,6 +3,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import { calculateApplicableBonuses } from '@/composables/useBonusCalc'
 import type { AbilityScores } from '@/types/character'
+import { HelpCircle } from 'lucide-vue-next'
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
@@ -68,7 +69,9 @@ onUnmounted(() => document.removeEventListener('click', closeTooltips))
         <div class="ab-mod">{{ fmt(mod(statValue(ab.key))) }}</div>
         <!-- Tooltip when locked -->
         <div v-if="hasBreakdown(ab.key)" class="ab-lock-hint" @click.stop>
-          <button class="ab-lock-icon" @click="toggleTooltip(ab.key, $event)" :aria-label="`View breakdown for ${ab.label}`">⊕</button>
+          <button class="ab-lock-icon" @click="toggleTooltip(ab.key, $event)" :aria-label="`View breakdown for ${ab.label}`">
+            <HelpCircle :size="13" />
+          </button>
           <div class="ab-tooltip" :class="{ visible: openTooltip === ab.key }">
             Calculated from your Breakdown.<br/>
             Edit it in
@@ -155,12 +158,13 @@ section.panel { overflow: visible; }
 .ab-lock-icon {
   background: transparent;
   border: none;
-  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--arcane-light);
   cursor: pointer;
   opacity: 0.7;
   padding: 0;
-  line-height: 1;
   transition: opacity var(--transition), color var(--transition);
 }
 .ab-lock-icon:hover { opacity: 1; color: var(--gold-light); }
