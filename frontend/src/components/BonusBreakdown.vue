@@ -15,15 +15,11 @@ const newName    = ref('')
 const newVal     = ref<number>(0)
 const newType    = ref('')
 const newApplies = ref('All')
-const nameError  = ref(false)
 
 function addBonus() {
+  // Source is optional — fall back to the type label or "Bonus"
   const n = newName.value.trim()
-  if (!n) {
-    nameError.value = true
-    return
-  }
-  nameError.value = false
+    || (newType.value ? bonusTypeLabel(newType.value) + ' bonus' : 'Bonus')
   const entry: BonusEntry = {
     n,
     v: newVal.value,
@@ -129,10 +125,9 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
         <input
           type="text"
           v-model="newName"
-          :placeholder="nameError ? 'Required — enter a source name' : 'Bonus source…'"
-          :class="['bb-name', { 'bb-name--error': nameError }]"
+          placeholder="Source: Heroism, Ring of Prot…"
+          class="bb-name"
           @keydown.enter="addBonus"
-          @input="nameError = false"
         />
       </div>
       <input type="number" v-model.number="newVal" class="bb-val-input" title="Value" />
@@ -209,15 +204,6 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 .bb-name:focus {
   background: var(--bg-input);
   border-color: var(--gold-dim);
-}
-.bb-name--error {
-  background: rgba(176, 32, 64, 0.08);
-  border-color: rgba(176, 32, 64, 0.6) !important;
-  color: var(--text-primary);
-}
-.bb-name--error::placeholder {
-  color: var(--red-light);
-  font-weight: 500;
 }
 
 .bb-val-display {
