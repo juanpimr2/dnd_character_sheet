@@ -302,6 +302,16 @@ const fmt = (n: number) => (n >= 0 ? '+' : '') + n
   flex-wrap: wrap;
 }
 
+/* Source field in add-row gets same visible style as the other inputs */
+.bb-add .bb-name-wrap { flex: 1; min-width: 0; }
+.bb-add .bb-name {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-input);
+  border-color: var(--border);
+}
+.bb-add .bb-name::placeholder { color: var(--text-muted); font-style: italic; }
+
 .bb-add-btn {
   padding: 0.2rem 0.55rem;
   font-size: 0.75rem;
