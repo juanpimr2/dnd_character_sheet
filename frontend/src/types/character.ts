@@ -117,6 +117,32 @@ export interface CharacterSummary {
   portrait?: string | null
 }
 
+// ─── World Lore ───────────────────────────────────────────────────────────────
+
+export type EntityKind = 'city' | 'location' | 'npc' | 'faction'
+
+export interface LoreFlag {
+  type: 'visit' | 'danger' | 'ally' | 'enemy' | 'quest' | 'note'
+  note?: string
+}
+
+export interface WorldEntity {
+  id: number
+  name: string
+  kind: EntityKind
+  description: string
+  sessions: number[]     // session IDs that mention this entity
+  x: number              // canvas position (%)
+  y: number
+  flags: LoreFlag[]
+}
+
+export interface WorldLore {
+  entities: WorldEntity[]
+  lastAnalysis?: string  // ISO timestamp of last AI analysis
+  lastManualAnalysis?: string  // ISO timestamp of last manual-triggered analysis
+}
+
 /** Estado completo del personaje (mapeado desde el JSON del backend) */
 export interface Character {
   // Identidad
@@ -182,4 +208,5 @@ export interface Character {
   sessions: SessionGroup[]
   customBreakdowns: Array<{ name: string; bonuses: BonusEntry[] }>
   spellcasting?: SpellcastingBlock | SpellcastingBlock[]  // array desde v2; objeto legacy migrado en PanelSpells
+  worldLore?: WorldLore
 }

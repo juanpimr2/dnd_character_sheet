@@ -4,6 +4,7 @@ const path       = require('path')
 const QRCode     = require('qrcode')
 const { createClient } = require('@supabase/supabase-js')
 const Stripe     = require('stripe')
+const Anthropic  = require('@anthropic-ai/sdk')
 
 // ── Validar variables de entorno ─────────────────────────────────────────
 const {
@@ -11,6 +12,7 @@ const {
   PORT = 3000, ALLOWED_ORIGIN = '*',
   ADMIN_SECRET, APP_URL = 'http://localhost:5173',
   STRIPE_SECRET_KEY, STRIPE_PRICE_ID, STRIPE_PRICE_ID_DM, STRIPE_PRICE_ID_SLOTS, STRIPE_WEBHOOK_SECRET,
+  ANTHROPIC_API_KEY,
 } = process.env
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -32,6 +34,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 
 // ── Stripe ────────────────────────────────────────────────────────────────
 const stripe = STRIPE_SECRET_KEY ? new Stripe(STRIPE_SECRET_KEY) : null
+
+// ── Anthropic ────────────────────────────────────────────────────────────
+const anthropic = ANTHROPIC_API_KEY ? new Anthropic.default({ apiKey: ANTHROPIC_API_KEY }) : null
+if (!ANTHROPIC_API_KEY) console.warn('⚠  ANTHROPIC_API_KEY no definido — World Lore desactivado')
 
 // ── Express ───────────────────────────────────────────────────────────────
 const app = express()
@@ -620,6 +626,164 @@ app.get('/api/stores/:code', async (req, res) => {
 
   if (error || !data) return res.status(404).json({ error: 'Tienda no encontrada' })
   res.json(data)
+})
+
+// ══════════════════════════════════════════════════════════════════
+//  WORLD LORE — AI entity extraction
+// ══════════════════════════════════════════════════════════════════
+
+const LORE_COOLDOWN_MS = 15 * 60 * 1000  // 15 minutes for manual trigger
+
+// Normalize a name for duplicate detection
+function normalizeName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9áéíóúàèìòùñü]/g, '').trim()
+}
+
+// Merge newly extracted entities into existing world lore
+function mergeEntities(existing = [], incoming = [], sessionId) {
+  const result = existing.map(e => ({ ...e, flags: e.flags || [] }))
+
+  for (const newEnt of incoming) {
+    const newNorm = normalizeName(newEnt.name)
+    const match = result.find(e => normalizeName(e.name) === newNorm)
+
+    if (match) {
+      // Update description if new one is longer/richer
+      if (newEnt.description && newEnt.description.length > (match.description?.length ?? 0)) {
+        match.description = newEnt.description
+      }
+      // Add session reference if not already there
+      if (sessionId != null && !match.sessions.includes(sessionId)) {
+        match.sessions.push(sessionId)
+      }
+    } else {
+      // New entity — assign next ID and default position
+      const maxId = result.reduce((m, e) => Math.max(m, e.id ?? 0), 0)
+      result.push({
+        id: maxId + 1,
+        name: newEnt.name,
+        kind: newEnt.kind ?? 'location',
+        description: newEnt.description ?? '',
+        sessions: sessionId != null ? [sessionId] : [],
+        x: 20 + Math.random() * 60,  // spread across canvas
+        y: 20 + Math.random() * 60,
+        flags: [],
+      })
+    }
+  }
+
+  return result
+}
+
+// POST /api/characters/:id/extract-lore
+// body: { sessionId?: number, manual?: boolean }
+//   - sessionId: if given, only analyze that session's notes
+//   - manual: if true, enforce cooldown
+app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
+  if (!anthropic) return res.status(503).json({ error: 'World Lore no configurado (falta ANTHROPIC_API_KEY)' })
+
+  const characterId = req.params.id
+  const { sessionId, manual = false } = req.body
+
+  // Load character
+  const { data: row, error: loadErr } = await supabase
+    .from('characters')
+    .select('data')
+    .eq('id', characterId)
+    .eq('owner_id', req.user.id)
+    .single()
+
+  if (loadErr || !row) return res.status(404).json({ error: 'Personaje no encontrado' })
+
+  const charData = row.data
+  const worldLore = charData.worldLore ?? { entities: [] }
+
+  // Cooldown check (only for manual trigger)
+  if (manual && worldLore.lastManualAnalysis) {
+    const elapsed = Date.now() - new Date(worldLore.lastManualAnalysis).getTime()
+    if (elapsed < LORE_COOLDOWN_MS) {
+      const remaining = Math.ceil((LORE_COOLDOWN_MS - elapsed) / 1000)
+      return res.status(429).json({ error: 'cooldown', remaining })
+    }
+  }
+
+  // Build notes text to analyze
+  const sessions = charData.sessions ?? []
+  let targetSessions = sessions
+  if (sessionId != null) {
+    targetSessions = sessions.filter(s => s.id === sessionId)
+  }
+
+  const notesText = targetSessions
+    .map(s => {
+      const entries = (s.entries ?? []).map(e => e.txt).join('\n')
+      return `[Session ${s.id} — ${s.name}]\n${entries}`
+    })
+    .join('\n\n')
+    .trim()
+
+  if (!notesText) {
+    return res.status(400).json({ error: 'No hay notas para analizar' })
+  }
+
+  // Prompt to Claude Haiku
+  const prompt = `You are an expert D&D lore extractor. Analyze these session notes and extract all notable entities.
+
+Return ONLY a valid JSON array (no markdown, no explanation) with this structure:
+[
+  { "name": "Entity Name", "kind": "city|location|npc|faction", "description": "brief 1-2 sentence description" }
+]
+
+Rules:
+- kind "city": cities, towns, villages, castles, kingdoms
+- kind "location": dungeons, forests, taverns, ruins, rivers, mountains, specific places
+- kind "npc": named characters (NPCs, not the player character)
+- kind "faction": guilds, armies, religions, organizations
+- Only include entities clearly mentioned in the notes
+- Use the original name as written in the notes
+- Descriptions should be factual (what was learned in the session)
+
+Session notes:
+${notesText}`
+
+  let extracted = []
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const text = response.content[0]?.text ?? '[]'
+    // Strip potential markdown code blocks
+    const clean = text.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
+    extracted = JSON.parse(clean)
+    if (!Array.isArray(extracted)) extracted = []
+  } catch (err) {
+    console.error('Anthropic error:', err.message)
+    return res.status(500).json({ error: 'Error al analizar con IA' })
+  }
+
+  // Merge into existing lore
+  const now = new Date().toISOString()
+  const mergedEntities = mergeEntities(worldLore.entities, extracted, sessionId ?? null)
+  const updatedLore = {
+    entities: mergedEntities,
+    lastAnalysis: now,
+    ...(manual ? { lastManualAnalysis: now } : {}),
+  }
+
+  // Save back
+  charData.worldLore = updatedLore
+  const { error: saveErr } = await supabase
+    .from('characters')
+    .update({ data: charData })
+    .eq('id', characterId)
+    .eq('owner_id', req.user.id)
+
+  if (saveErr) return res.status(500).json({ error: saveErr.message })
+
+  console.log(`🗺  Lore extracted: ${extracted.length} entities for ${characterId}`)
+  res.json({ worldLore: updatedLore, extracted: extracted.length })
 })
 
 // ── Health check ─────────────────────────────────────────────────

@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, nextTick } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
+import { useAuthStore } from '@/stores/auth'
 import type { SessionGroup, EventEntry } from '@/types/character'
-import { Plus, Trash2, Edit2, Check, X, SendHorizontal, CheckCircle2 } from 'lucide-vue-next'
+import { Plus, Trash2, Edit2, Check, X, SendHorizontal, CheckCircle2, Loader2, Globe } from 'lucide-vue-next'
 
 const charStore = useCharacterStore()
+const authStore = useAuthStore()
 const char = computed(() => charStore.activeCharacter!)
+const characterId = computed(() => charStore.currentCharacterId)
 function save() { charStore.scheduleAutoSave() }
+
+const extractingLore = ref(false)
 
 const selectedId   = ref<number | null>(null)
 const sidebarOpen  = ref(false)
@@ -98,7 +103,7 @@ function commitRename() {
 }
 
 // ── Finalizar sesión ──────────────────────────────────────────────
-function finalizeSession() {
+async function finalizeSession() {
   if (!selectedSession.value) return
   const s = selectedSession.value
   // Auto-add date to name if still default
@@ -111,6 +116,29 @@ function finalizeSession() {
   }
   s.finalized = true
   save()
+
+  // Trigger lore extraction (no cooldown on finalize)
+  if (characterId.value && s.entries.length > 0) {
+    extractingLore.value = true
+    try {
+      const res = await fetch(`/api/characters/${characterId.value}/extract-lore`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authStore.getToken()}`,
+        },
+        body: JSON.stringify({ sessionId: s.id }),
+      })
+      if (res.ok) {
+        const { worldLore } = await res.json()
+        if (char.value) char.value.worldLore = worldLore
+      }
+    } catch (_) {
+      // Lore extraction failure is non-fatal
+    } finally {
+      extractingLore.value = false
+    }
+  }
 }
 
 // ── Entries ───────────────────────────────────────────────────────
@@ -228,12 +256,17 @@ function fmtDate(iso: string) {
             <button
               v-if="!selectedSession.finalized"
               class="btn-finalize"
+              :disabled="extractingLore"
               @click="finalizeSession"
-              title="Mark session as finished"
+              title="Mark session as finished — also extracts World Lore"
             >
-              <Check :size="13" />
-              Finalizar sesión
+              <Loader2 v-if="extractingLore" :size="13" class="spin" />
+              <Check v-else :size="13" />
+              {{ extractingLore ? 'Analyzing…' : 'Finalizar sesión' }}
             </button>
+            <span v-if="extractingLore" class="lore-hint">
+              <Globe :size="11" /> Extracting world lore…
+            </span>
           </div>
 
           <!-- Chat messages -->
@@ -479,11 +512,25 @@ function fmtDate(iso: string) {
   flex-shrink: 0;
   transition: all var(--transition);
 }
-.btn-finalize:hover {
+.btn-finalize:hover:not(:disabled) {
   border-color: var(--gold-border);
   color: var(--gold);
   background: rgba(201,168,76,0.08);
 }
+.btn-finalize:disabled { opacity: 0.6; cursor: default; }
+
+.lore-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  color: var(--gold-dim);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:0.5} 50%{opacity:1} }
+
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Chat messages */
 .chat-messages {

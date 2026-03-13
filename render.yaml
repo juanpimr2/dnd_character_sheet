@@ -32,6 +32,10 @@ services:
       - key: ALLOWED_ORIGIN
         sync: false          # misma URL que APP_URL
 
+      # ── Anthropic (World Lore extraction) ─────────────────────────
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
       # ── Stripe (opcional — si no se ponen, pagos desactivados) ────
       - key: STRIPE_SECRET_KEY
         sync: false
