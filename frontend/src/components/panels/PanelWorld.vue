@@ -15,6 +15,12 @@ const decorations = computed<MapDecoration[]>(() => worldLore.value.decorations 
 
 function norm(s: string) { return s.toLowerCase().replace(/[^a-z0-9]/g, '') }
 
+// ── Icon helpers ──────────────────────────────────────────────────
+const GI = (n: string) => `/map-icons/gi/${n}.png`  // game-icons.net (white/transparent)
+
+// Is this a game-icon (white on transparent) vs a Kenney icon (colored)?
+function isGI(path: string) { return path.includes('/gi/') }
+
 // ── Icon palette data ──────────────────────────────────────────────
 const PALETTE_TERRAIN = [
   { icon: '/map-icons/loc-mountain.png',  label: 'Mountain'  },
@@ -28,13 +34,23 @@ const PALETTE_TERRAIN = [
   { icon: '/map-icons/loc-port.png',      label: 'Port'      },
   { icon: '/map-icons/loc-danger.png',    label: 'Danger'    },
 ]
-const PALETTE_MARKERS = [
-  { icon: '/map-icons/city.png',     label: 'City'     },
-  { icon: '/map-icons/location.png', label: 'Place'    },
-  { icon: '/map-icons/npc.png',      label: 'NPC'      },
-  { icon: '/map-icons/faction.png',  label: 'Faction'  },
+const PALETTE_CHARS = [
+  { icon: GI('person'),               label: 'Person'    },
+  { icon: GI('wizard-face'),          label: 'Mage'      },
+  { icon: GI('ankh'),                 label: 'Priest'    },
+  { icon: GI('battle-axe'),           label: 'Warrior'   },
+  { icon: GI('hood'),                 label: 'Rogue'     },
+  { icon: GI('crown'),                label: 'Noble'     },
+  { icon: GI('coins'),                label: 'Merchant'  },
+  { icon: GI('captain-hat-profile'),  label: 'Captain'   },
+  { icon: GI('flag-objective'),       label: 'Faction'   },
+  { icon: GI('scroll-unfurled'),      label: 'Scholar'   },
 ]
-const ALL_ICONS = [...PALETTE_TERRAIN, ...PALETTE_MARKERS]
+const PALETTE_PLACES = [
+  { icon: '/map-icons/city.png',      label: 'City'      },
+  { icon: GI('pin'),                  label: 'Location'  },
+]
+const ALL_ICONS = [...PALETTE_TERRAIN, ...PALETTE_CHARS, ...PALETTE_PLACES]
 
 // ── Icon selection (respects override) ────────────────────────────
 function iconFor(entity: WorldEntity): string {
@@ -42,35 +58,23 @@ function iconFor(entity: WorldEntity): string {
   if (entity.kind === 'city') return '/map-icons/city.png'
   if (entity.kind === 'npc') {
     const n = entity.name.toLowerCase()
-    // Mages → wizard's tower (iconic D&D trope, NOT temple)
-    if (/mage|wizard|mago|brujo|hechicero|sorcerer|witch|arcanist|arcano/.test(n)) return '/map-icons/loc-tower.png'
-    // Priests/clerics → temple (they minister in temples)
-    if (/priest|cleric|sacerdote|healer|cura|padre|bishop|ob[i]spo|monje|monk/.test(n)) return '/map-icons/loc-temple.png'
-    // Rogues/assassins → ruins (operate in shadows)
-    if (/rogue|thief|assassin|ladr[oó]n|asesino|spy|esp[ií]a|smuggler|contrab/.test(n)) return '/map-icons/loc-ruins.png'
-    // Sailors/pirates → port
-    if (/pirate|captain|sailor|pirata|marino|capit[aá]n|navegante/.test(n)) return '/map-icons/loc-port.png'
-    // Nobles/lords → city/castle (seat of power)
-    if (/lord|noble|king|queen|duke|count|rey|reina|duque|conde|baron|bar[oó]n|prince|princess/.test(n)) return '/map-icons/city.png'
-    // Merchants/innkeepers → tavern (commerce/trade)
-    if (/merchant|trader|inn|keeper|tendero|mercader|comerciante|tabernero/.test(n)) return '/map-icons/loc-tavern.png'
-    // Generic NPC: neutral location pin (doesn't imply any building)
-    return '/map-icons/location.png'
+    if (/mage|wizard|mago|brujo|hechicero|sorcerer|witch|arcanist|arcano/.test(n))    return GI('wizard-face')
+    if (/priest|cleric|sacerdote|cura|padre|bishop|obispo|monje|monk/.test(n))        return GI('ankh')
+    if (/rogue|thief|assassin|ladr[oó]n|asesino|spy|esp[ií]a|smuggler/.test(n))      return GI('hood')
+    if (/pirate|captain|sailor|pirata|marino|capit[aá]n|navegante/.test(n))           return GI('captain-hat-profile')
+    if (/lord|noble|king|queen|duke|count|rey|reina|duque|conde|baron|prince/.test(n)) return GI('crown')
+    if (/merchant|trader|tendero|mercader|comerciante|tabernero/.test(n))              return GI('coins')
+    if (/warrior|fighter|knight|guerrero|caballero|paladin|soldier|soldado/.test(n))  return GI('battle-axe')
+    return GI('person')  // generic NPC — neutral silhouette
   }
   if (entity.kind === 'faction') {
     const n = entity.name.toLowerCase()
-    // Religious orders → temple
-    if (/church|iglesia|holy|sagrado|orden|religion|cult|fe |faith|templo|dios|god/.test(n)) return '/map-icons/loc-temple.png'
-    // Trade/commerce → tavern (market, trading post)
-    if (/guild|gremio|commerce|comercio|merchant|trade|asamblea|assembly|market|mercado/.test(n)) return '/map-icons/loc-tavern.png'
-    // Military/guards → tower (fortress, barracks)
-    if (/army|ejér|militar|guard|guardia|legi[oó]n|soldier|soldado|fuerza/.test(n)) return '/map-icons/loc-tower.png'
-    // Noble houses/dynasties → city (castle, coat of arms)
-    if (/house|casa|noble|dynasty|familia|family|clan|linaje/.test(n)) return '/map-icons/city.png'
-    // Thieves/shadow guilds → ruins
-    if (/thiev|ladr|shadow|sombra|dark|oscur|secre|underground|subterr/.test(n)) return '/map-icons/loc-ruins.png'
-    // Generic faction: tower (any organization = power structure)
-    return '/map-icons/loc-tower.png'
+    if (/church|iglesia|holy|sagrado|orden|religion|cult|faith|dios|god/.test(n))         return '/map-icons/loc-temple.png'
+    if (/guild|gremio|commerce|comercio|merchant|trade|asamblea|assembly|market/.test(n)) return '/map-icons/loc-tavern.png'
+    if (/army|ejér|militar|guard|guardia|legi[oó]n|soldier|fuerza/.test(n))               return '/map-icons/loc-tower.png'
+    if (/house|casa|noble|dynasty|familia|family|clan|linaje/.test(n))                    return '/map-icons/city.png'
+    if (/thiev|ladr|shadow|sombra|dark|oscur|secre|underground/.test(n))                  return '/map-icons/loc-ruins.png'
+    return GI('flag-objective')  // generic faction — banner/flag
   }
   // kind === 'location'
   const n = entity.name.toLowerCase()
@@ -83,7 +87,7 @@ function iconFor(entity: WorldEntity): string {
   if (/monta[ñn]a|mountain|peak|cima/.test(n))                return '/map-icons/loc-mountain.png'
   if (/cementerio|grave|tomb|catacumb/.test(n))               return '/map-icons/loc-graveyard.png'
   if (/puerto|port|harbor|dock|muelle/.test(n))               return '/map-icons/loc-port.png'
-  return '/map-icons/location.png'
+  return GI('pin')  // generic location — map pin (not an airplane!)
 }
 
 // ── Recommended icons per entity kind (for picker) ────────────────
@@ -95,20 +99,23 @@ function recommendedForKind(kind: EntityKind) {
       { icon: '/map-icons/loc-temple.png',label: 'Capital' },
     ]
     case 'npc':      return [
-      { icon: '/map-icons/location.png',     label: 'Generic NPC'   },
-      { icon: '/map-icons/loc-tower.png',    label: 'Mage / Warrior'},
-      { icon: '/map-icons/loc-temple.png',   label: 'Priest/Cleric' },
-      { icon: '/map-icons/city.png',         label: 'Noble / Lord'  },
-      { icon: '/map-icons/loc-tavern.png',   label: 'Merchant'      },
-      { icon: '/map-icons/loc-ruins.png',    label: 'Rogue/Spy'     },
-      { icon: '/map-icons/loc-port.png',     label: 'Sailor/Pirate' },
+      { icon: GI('person'),              label: 'Generic NPC'   },
+      { icon: GI('wizard-face'),         label: 'Mage/Wizard'   },
+      { icon: GI('ankh'),                label: 'Priest/Cleric' },
+      { icon: GI('battle-axe'),          label: 'Warrior'       },
+      { icon: GI('hood'),                label: 'Rogue/Spy'     },
+      { icon: GI('crown'),               label: 'Noble/Lord'    },
+      { icon: GI('coins'),               label: 'Merchant'      },
+      { icon: GI('captain-hat-profile'), label: 'Captain/Sailor'},
+      { icon: GI('scroll-unfurled'),     label: 'Scholar'       },
     ]
     case 'faction':  return [
-      { icon: '/map-icons/loc-tower.png',    label: 'Guild / Org'   },
-      { icon: '/map-icons/loc-temple.png',   label: 'Religious Order'},
-      { icon: '/map-icons/loc-tavern.png',   label: 'Trade Assembly'},
-      { icon: '/map-icons/city.png',         label: 'Noble House'   },
-      { icon: '/map-icons/loc-ruins.png',    label: 'Thieves Guild' },
+      { icon: GI('flag-objective'),      label: 'Generic Org'   },
+      { icon: '/map-icons/loc-temple.png', label: 'Religious'   },
+      { icon: '/map-icons/loc-tavern.png', label: 'Trade/Guild' },
+      { icon: '/map-icons/city.png',       label: 'Noble House' },
+      { icon: '/map-icons/loc-tower.png',  label: 'Military'    },
+      { icon: '/map-icons/loc-ruins.png',  label: 'Thieves'     },
     ]
     case 'location': return PALETTE_TERRAIN
     default:         return ALL_ICONS
@@ -494,7 +501,7 @@ function fmtTime(iso?: string) {
             :style="{ paddingLeft: `calc(0.7rem + ${depth} * 0.85rem)` }"
             @click="navigateTo(entity)"
           >
-            <img :src="iconFor(entity)" class="sb-icon" :class="{ 'sb-icon-sm': depth > 0 }" />
+            <img :src="iconFor(entity)" :class="['sb-icon', { 'sb-icon-sm': depth > 0 }, isGI(iconFor(entity)) ? 'gi' : '']" />
             <span class="sb-name">{{ entity.name }}</span>
             <span v-if="hasChildren(entity)" class="sb-count">{{ childrenOf(entity).length }}</span>
             <span v-for="f in (entity.flags ?? []).slice(0,2)" :key="f.type" class="sb-flag" :style="{ background: flagColor(f.type) }" />
@@ -559,7 +566,7 @@ function fmtTime(iso?: string) {
               @click.stop="onEntityClick(entity)"
             >
               <div class="node-img-wrap" :class="{ selected: detailId === entity.id, drillable: hasChildren(entity) }">
-                <img :src="iconFor(entity)" class="node-img" :style="{ width: KIND_SIZE[entity.kind] + 'px', height: KIND_SIZE[entity.kind] + 'px' }" :alt="entity.name" />
+                <img :src="iconFor(entity)" :class="['node-img', isGI(iconFor(entity)) ? 'gi' : 'kenney']" :style="{ width: KIND_SIZE[entity.kind] + 'px', height: KIND_SIZE[entity.kind] + 'px' }" :alt="entity.name" />
                 <span v-if="hasChildren(entity)" class="child-badge">{{ childrenOf(entity).length }}</span>
               </div>
               <div v-if="entity.flags?.length" class="node-flags">
@@ -597,7 +604,7 @@ function fmtTime(iso?: string) {
             <!-- Parent node — top center -->
             <div class="node-wrap" style="left:50%;top:16%" @click.stop="openDetail(navStack[navStack.length-1])">
               <div class="node-img-wrap" :class="{ selected: detailId === navStack[navStack.length-1].id }">
-                <img :src="iconFor(navStack[navStack.length-1])" class="node-img node-center-img" :alt="navStack[navStack.length-1].name" />
+                <img :src="iconFor(navStack[navStack.length-1])" :class="['node-img node-center-img', isGI(iconFor(navStack[navStack.length-1])) ? 'gi' : 'kenney']" :alt="navStack[navStack.length-1].name" />
               </div>
               <span class="node-label node-label-lg">{{ navStack[navStack.length-1].name }}</span>
             </div>
@@ -610,7 +617,7 @@ function fmtTime(iso?: string) {
               @click.stop="onEntityClick(child)"
             >
               <div class="node-img-wrap" :class="{ selected: detailId === child.id, drillable: hasChildren(child) }">
-                <img :src="iconFor(child)" class="node-img" :style="{ width: KIND_SIZE[child.kind] + 'px', height: KIND_SIZE[child.kind] + 'px' }" :alt="child.name" />
+                <img :src="iconFor(child)" :class="['node-img', isGI(iconFor(child)) ? 'gi' : 'kenney']" :style="{ width: KIND_SIZE[child.kind] + 'px', height: KIND_SIZE[child.kind] + 'px' }" :alt="child.name" />
                 <span v-if="hasChildren(child)" class="child-badge">{{ childrenOf(child).length }}</span>
               </div>
               <div v-if="child.flags?.length" class="node-flags">
@@ -653,7 +660,7 @@ function fmtTime(iso?: string) {
       <!-- ── Detail panel ── -->
       <aside v-if="detail" class="detail-panel">
         <div class="detail-header">
-          <img :src="iconFor(detail)" class="detail-icon" />
+          <img :src="iconFor(detail)" :class="['detail-icon', isGI(iconFor(detail)) ? 'gi' : '']" />
           <button class="btn-icon" @click="closeDetail" title="Close"><X :size="14" /></button>
         </div>
 
@@ -707,8 +714,7 @@ function fmtTime(iso?: string) {
           <div class="icon-pick-grid">
             <button
               v-for="item in recommendedForKind(detail.kind)" :key="item.icon"
-              class="icon-pick-btn"
-              :class="{ active: (detail.iconOverride ?? iconFor(detail)) === item.icon }"
+              :class="['icon-pick-btn', isGI(item.icon) ? 'gi' : '', { active: (detail.iconOverride ?? iconFor(detail)) === item.icon }]"
               :title="item.label"
               @click="applyIconOverride(item.icon)"
             >
@@ -719,8 +725,7 @@ function fmtTime(iso?: string) {
           <div class="icon-pick-grid">
             <button
               v-for="item in ALL_ICONS" :key="item.icon + '_all'"
-              class="icon-pick-btn"
-              :class="{ active: (detail.iconOverride ?? iconFor(detail)) === item.icon }"
+              :class="['icon-pick-btn', isGI(item.icon) ? 'gi' : '', { active: (detail.iconOverride ?? iconFor(detail)) === item.icon }]"
               :title="item.label"
               @click="applyIconOverride(item.icon)"
             >
@@ -848,7 +853,15 @@ function fmtTime(iso?: string) {
 .sb-item:hover { background: rgba(201,168,76,.06); }
 .sb-item.active { background: rgba(201,168,76,.1); border-left-color: var(--gold); }
 
-.sb-icon { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
+.sb-icon {
+  width: 20px; height: 20px; object-fit: contain; flex-shrink: 0;
+  /* Kenney colored icons → invert to warm white so they show on dark bg */
+  filter: brightness(0) invert(0.88) sepia(0.15);
+}
+.sb-icon.gi {
+  /* GI icons are already white — just slight gold tint */
+  filter: sepia(0.35) hue-rotate(15deg) brightness(1.05) opacity(0.88);
+}
 .sb-icon-sm { width: 15px; height: 15px; }
 .sb-name { font-size: .73rem; color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-item.active .sb-name { color: var(--gold); }
@@ -948,7 +961,10 @@ function fmtTime(iso?: string) {
   box-shadow: 0 0 10px rgba(201,168,76,.5);
 }
 .node-img-wrap.drillable { cursor: zoom-in; }
-.node-img { object-fit: contain; filter: drop-shadow(0 2px 3px rgba(40,20,0,.45)); }
+/* Canvas icons — Kenney (colored): warm drop-shadow; GI (white): invert to dark sepia */
+.node-img { object-fit: contain; }
+.node-img.kenney { filter: drop-shadow(0 2px 3px rgba(40,20,0,.45)); }
+.node-img.gi     { filter: invert(1) sepia(1) saturate(2) hue-rotate(350deg) brightness(0.55) drop-shadow(0 2px 3px rgba(40,20,0,.4)); }
 .node-center-img { width: 68px !important; height: 68px !important; }
 
 .child-badge {
@@ -1017,7 +1033,11 @@ function fmtTime(iso?: string) {
   padding: .65rem; overflow-y: auto;
 }
 .detail-header { display: flex; align-items: center; justify-content: space-between; }
-.detail-icon { width: 22px; height: 22px; object-fit: contain; }
+.detail-icon {
+  width: 22px; height: 22px; object-fit: contain;
+  filter: brightness(0) invert(0.88) sepia(0.15);
+}
+.detail-icon.gi { filter: sepia(0.35) hue-rotate(15deg) brightness(1.05) opacity(0.88); }
 
 .detail-name-input {
   background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm);
@@ -1060,7 +1080,12 @@ function fmtTime(iso?: string) {
   background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm);
   cursor: pointer; transition: all var(--transition);
 }
-.icon-pick-btn img { width: 18px; height: 18px; object-fit: contain; }
+.icon-pick-btn img {
+  width: 18px; height: 18px; object-fit: contain;
+  filter: brightness(0) invert(0.85) sepia(0.1);
+}
+.icon-pick-btn.gi img { filter: sepia(0.3) hue-rotate(15deg) brightness(1.0) opacity(0.88); }
+.icon-pick-btn.active img { filter: none; }
 .icon-pick-btn:hover { border-color: var(--gold-border); }
 .icon-pick-btn.active { border-color: var(--gold); background: rgba(201,168,76,.15); }
 
