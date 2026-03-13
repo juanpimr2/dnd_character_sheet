@@ -648,24 +648,24 @@ function mergeEntities(existing = [], incoming = [], sessionId) {
     const match = result.find(e => normalizeName(e.name) === newNorm)
 
     if (match) {
-      // Update description if new one is longer/richer
       if (newEnt.description && newEnt.description.length > (match.description?.length ?? 0)) {
         match.description = newEnt.description
       }
-      // Add session reference if not already there
+      // Inherit parent if newly discovered
+      if (newEnt.parent && !match.parent) match.parent = newEnt.parent
       if (sessionId != null && !match.sessions.includes(sessionId)) {
         match.sessions.push(sessionId)
       }
     } else {
-      // New entity — assign next ID and default position
       const maxId = result.reduce((m, e) => Math.max(m, e.id ?? 0), 0)
       result.push({
         id: maxId + 1,
         name: newEnt.name,
         kind: newEnt.kind ?? 'location',
         description: newEnt.description ?? '',
+        parent: newEnt.parent ?? undefined,
         sessions: sessionId != null ? [sessionId] : [],
-        x: 20 + Math.random() * 60,  // spread across canvas
+        x: 20 + Math.random() * 60,
         y: 20 + Math.random() * 60,
         flags: [],
       })
@@ -731,17 +731,26 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
 
 Return ONLY a valid JSON array (no markdown, no explanation) with this structure:
 [
-  { "name": "Entity Name", "kind": "city|location|npc|faction", "description": "brief 1-2 sentence description" }
+  { "name": "Entity Name", "kind": "city|location|npc|faction", "description": "brief 1-2 sentence description", "parent": null }
 ]
 
-Rules:
-- kind "city": cities, towns, villages, castles, kingdoms
-- kind "location": dungeons, forests, taverns, ruins, rivers, mountains, specific places
-- kind "npc": named characters (NPCs, not the player character)
-- kind "faction": guilds, armies, religions, organizations
+Kind rules:
+- "city": cities, towns, villages, castles, kingdoms, settlements
+- "location": dungeons, taverns, ruins, forests, mountains, rivers, specific buildings or places
+- "npc": named characters that are NOT the player character
+- "faction": guilds, armies, religions, noble houses, organizations
+
+Parent rules (IMPORTANT for hierarchy):
+- Cities: parent = null (always top-level)
+- Locations: if clearly inside a city mentioned in the notes, parent = that city's exact name; if in the wilderness, parent = null
+- NPCs: if clearly associated with or living in a specific city, parent = that city's exact name; otherwise null
+- Factions: if based in a specific city, parent = that city's exact name; otherwise null
+
+Other rules:
 - Only include entities clearly mentioned in the notes
 - Use the original name as written in the notes
 - Descriptions should be factual (what was learned in the session)
+- Always include the "parent" field (null if no parent)
 
 Session notes:
 ${notesText}`

@@ -131,6 +131,7 @@ export interface WorldEntity {
   name: string
   kind: EntityKind
   description: string
+  parent?: string        // name of parent city/location (if sub-entity)
   sessions: number[]     // session IDs that mention this entity
   x: number              // canvas position (%)
   y: number
