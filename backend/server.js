@@ -747,8 +747,9 @@ Parent rules (IMPORTANT for hierarchy):
 - Factions: if based in a specific city, parent = that city's exact name; otherwise null
 
 Other rules:
+- CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)
+- If the same entity appears under slightly different names, use the first/most common form
 - Only include entities clearly mentioned in the notes
-- Use the original name as written in the notes
 - Descriptions should be factual (what was learned in the session)
 - Always include the "parent" field (null if no parent)
 

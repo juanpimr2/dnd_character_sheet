@@ -53,6 +53,17 @@ function radialPos(idx: number, total: number) {
 }
 
 // ── Manual analysis ───────────────────────────────────────────────
+// ── Reset lore ────────────────────────────────────────────────────
+function resetLore() {
+  if (!confirm('Clear all world entities? Press Analyze notes afterwards to rebuild from scratch.')) return
+  if (char.value) {
+    char.value.worldLore = { entities: [] }
+    if (viewMode.value === 'city') drillOut()
+    detailId.value = null
+    charStore.scheduleAutoSave()
+  }
+}
+
 const analyzing    = ref(false)
 const analyzeError = ref('')
 const cooldownSecs = ref(0)
@@ -167,6 +178,9 @@ function deleteEntity(id: number) {
       <h2 class="panel-title">World Lore</h2>
       <div class="header-right">
         <span class="last-analysis">Last analysis: {{ fmtTime(worldLore.lastAnalysis) }}</span>
+        <button v-if="entities.length > 0" class="btn-reset" @click="resetLore" title="Clear all entities and rebuild">
+          ↺ Reset lore
+        </button>
         <button class="btn-analyze" :disabled="analyzing || cooldownSecs > 0" @click="analyzeNotes">
           <Loader2 v-if="analyzing" :size="13" class="spin" />
           <Globe v-else :size="13" />
@@ -192,9 +206,58 @@ function deleteEntity(id: number) {
       <!-- ── Parchment canvas ── -->
       <div ref="canvasRef" class="world-canvas" @click.self="closeDetail">
 
-        <!-- Decorations -->
+        <!-- Parchment overlays -->
         <div class="parchment-vignette" />
         <div class="parchment-frame" />
+
+        <!-- Terrain decorations (mountains, forests, water, compass rose) -->
+        <svg class="terrain-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+          <!-- Water — top-left corner -->
+          <g opacity="0.22" fill="none" stroke="rgba(40,90,160,1)" stroke-width="0.55" stroke-linecap="round">
+            <path d="M2,6  Q4,4  6,6  Q8,8  10,6"/>
+            <path d="M2,9  Q4,7  6,9  Q8,11 10,9"/>
+            <path d="M2,12 Q4,10 6,12 Q8,14 10,12"/>
+            <path d="M4,15 Q6,13 8,15 Q10,17 12,15"/>
+          </g>
+          <!-- Mountain range — upper-right -->
+          <g opacity="0.20">
+            <path d="M72,26 L77,14 L82,26 Z" fill="rgba(110,65,20,0.15)" stroke="rgba(90,50,15,1)" stroke-width="0.5" stroke-linejoin="round"/>
+            <path d="M79,26 L85,10 L91,26 Z" fill="rgba(110,65,20,0.18)" stroke="rgba(90,50,15,1)" stroke-width="0.5" stroke-linejoin="round"/>
+            <path d="M87,26 L92,16 L97,26 Z" fill="rgba(110,65,20,0.15)" stroke="rgba(90,50,15,1)" stroke-width="0.5" stroke-linejoin="round"/>
+            <!-- Snow caps -->
+            <path d="M77,14 L79,19 L75,19 Z" fill="rgba(235,225,205,0.55)" stroke="none"/>
+            <path d="M85,10 L87,16 L83,16 Z" fill="rgba(235,225,205,0.6)"  stroke="none"/>
+            <path d="M92,16 L94,20 L90,20 Z" fill="rgba(235,225,205,0.5)"  stroke="none"/>
+          </g>
+          <!-- Forest — lower-left -->
+          <g opacity="0.18" stroke="rgba(45,80,25,1)" stroke-width="0.45">
+            <circle cx="7"  cy="78" r="3.5" fill="rgba(45,80,25,0.18)"/>
+            <circle cx="12" cy="75" r="3.0" fill="rgba(45,80,25,0.15)"/>
+            <circle cx="5"  cy="73" r="2.5" fill="rgba(45,80,25,0.14)"/>
+            <circle cx="15" cy="79" r="2.8" fill="rgba(45,80,25,0.16)"/>
+            <circle cx="10" cy="82" r="3.2" fill="rgba(45,80,25,0.18)"/>
+            <circle cx="17" cy="74" r="2.2" fill="rgba(45,80,25,0.12)"/>
+          </g>
+          <!-- Rolling hills — bottom-right -->
+          <g opacity="0.12" fill="rgba(100,75,30,0.2)" stroke="rgba(100,75,30,1)" stroke-width="0.4">
+            <path d="M80,88 Q85,82 90,88 Q95,82 100,88"/>
+            <path d="M85,92 Q90,86 95,92 Q98,88 100,92"/>
+          </g>
+          <!-- Compass rose — bottom-right corner -->
+          <g transform="translate(92,87)">
+            <circle cx="0" cy="0" r="5.5" fill="rgba(237,224,186,0.6)" stroke="rgba(90,50,15,0.35)" stroke-width="0.5"/>
+            <!-- N (dark) -->
+            <path d="M0,-5 L1.2,-1.5 L0,-2.5 L-1.2,-1.5 Z" fill="rgba(70,35,5,0.75)"/>
+            <!-- S -->
+            <path d="M0,5 L-1.2,1.5 L0,2.5 L1.2,1.5 Z" fill="rgba(70,35,5,0.35)"/>
+            <!-- E -->
+            <path d="M5,0 L1.5,-1.2 L2.5,0 L1.5,1.2 Z" fill="rgba(70,35,5,0.35)"/>
+            <!-- W -->
+            <path d="M-5,0 L-1.5,1.2 L-2.5,0 L-1.5,-1.2 Z" fill="rgba(70,35,5,0.35)"/>
+            <circle cx="0" cy="0" r="1" fill="rgba(70,35,5,0.5)"/>
+            <text x="0" y="-6.5" text-anchor="middle" font-size="3.2" font-weight="900" fill="rgba(70,35,5,0.65)" font-family="serif">N</text>
+          </g>
+        </svg>
 
         <!-- Map breadcrumb -->
         <div class="map-nav">
@@ -202,12 +265,6 @@ function deleteEntity(id: number) {
             <ChevronLeft :size="11" /> World
           </button>
           <span class="map-title-text">{{ viewMode === 'world' ? 'World Map' : drillCity?.name }}</span>
-        </div>
-
-        <!-- Compass rose -->
-        <div class="compass">
-          <span class="compass-needle">↑</span>
-          <span class="compass-n">N</span>
         </div>
 
         <!-- Legend (world view) -->
@@ -362,6 +419,14 @@ function deleteEntity(id: number) {
 .header-right  { display: flex; align-items: center; gap: .75rem; }
 .last-analysis { font-size: .68rem; color: var(--text-muted); }
 
+.btn-reset {
+  display: flex; align-items: center; gap: .25rem;
+  background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text-muted); font-family: inherit; font-size: .72rem; font-weight: 600;
+  padding: .28rem .55rem; cursor: pointer; transition: all var(--transition);
+}
+.btn-reset:hover { border-color: rgba(220,50,50,.4); color: var(--red-light); }
+
 .btn-analyze {
   display: flex; align-items: center; gap: .3rem;
   background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md);
@@ -395,6 +460,12 @@ function deleteEntity(id: number) {
   box-shadow: inset 0 0 70px rgba(80,40,10,.14);
 }
 
+/* Terrain SVG layer */
+.terrain-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 1;
+}
+
 /* Vignette overlay */
 .parchment-vignette {
   position: absolute; inset: 0; pointer-events: none; z-index: 1;
@@ -424,14 +495,6 @@ function deleteEntity(id: number) {
 }
 .btn-back:hover { background: rgba(70,35,5,.16); }
 
-/* ── Compass ── */
-.compass {
-  position: absolute; bottom: .7rem; right: .8rem; z-index: 5;
-  display: flex; flex-direction: column; align-items: center;
-  opacity: .4; line-height: 1;
-}
-.compass-needle { font-size: 1rem; color: rgba(70,35,5,.8); }
-.compass-n      { font-size: .58rem; font-weight: 900; color: rgba(70,35,5,.8); letter-spacing: .1em; }
 
 /* ── Legend ── */
 .legend {
