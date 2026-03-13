@@ -740,15 +740,18 @@ Kind rules:
 - "npc": named characters that are NOT the player character
 - "faction": guilds, armies, religions, noble houses, organizations
 
-Parent rules (IMPORTANT for hierarchy):
+Parent rules (IMPORTANT — hierarchy can be multiple levels deep):
 - Cities: parent = null (always top-level)
-- Locations: if clearly inside a city mentioned in the notes, parent = that city's exact name; if in the wilderness, parent = null
-- NPCs: if clearly associated with or living in a specific city, parent = that city's exact name; otherwise null
-- Factions: if based in a specific city, parent = that city's exact name; otherwise null
+- Locations: if clearly inside a city, parent = that city's exact name; if in the wilderness, parent = null
+- NPCs: FIRST check if they belong to a specific location/building/house → parent = that location's exact name. Only use the city as parent if no specific location is mentioned. EXAMPLE: "Dimitri Rakarov de la Casa Rakarov en Sigil" → parent: "Casa Rakarov" (NOT "Sigil")
+- Factions/organizations: parent = the city they operate in (NOT a location, factions are city-level)
+- The result can be multi-level: city → location → npc (e.g. Sigil → Casa Rakarov → Dimitri Rakarov)
 
 Other rules:
 - CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)
-- CRITICAL: If only ONE city is mentioned across all notes, ALL other entities (NPCs, locations, factions) must have parent = that city's name unless clearly located elsewhere
+- CRITICAL: If only ONE city is mentioned across all notes, ALL non-city entities must default to having that city (or one of its locations) as parent
+- Factions and noble houses (Casa X, House X) are kind="faction", not kind="location"
+- A noble house IS a faction (organization), even if they also have a physical building
 - If the same entity appears under slightly different names, use the first/most common form
 - Only include entities clearly mentioned in the notes
 - Descriptions should be factual (what was learned in the session)

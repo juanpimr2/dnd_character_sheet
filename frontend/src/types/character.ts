@@ -131,15 +131,26 @@ export interface WorldEntity {
   name: string
   kind: EntityKind
   description: string
-  parent?: string        // name of parent city/location (if sub-entity)
+  parent?: string        // name of parent entity (supports multi-level hierarchy)
   sessions: number[]     // session IDs that mention this entity
-  x: number              // canvas position (%)
+  x: number              // canvas position (%) — used only in world/parent view
   y: number
   flags: LoreFlag[]
+  iconOverride?: string  // user-selected icon path (overrides auto-detection)
+}
+
+export interface MapDecoration {
+  id: number
+  icon: string           // '/map-icons/...'
+  x: number             // % on canvas
+  y: number
+  size?: number          // px, default 36
+  scope: string | null   // null = world view, entity name = shown in that entity's drill-down
 }
 
 export interface WorldLore {
   entities: WorldEntity[]
+  decorations?: MapDecoration[]
   lastAnalysis?: string  // ISO timestamp of last AI analysis
   lastManualAnalysis?: string  // ISO timestamp of last manual-triggered analysis
 }
