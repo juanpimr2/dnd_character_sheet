@@ -12,6 +12,7 @@ const characterId = computed(() => charStore.currentCharacterId)
 function save() { charStore.scheduleAutoSave() }
 
 const extractingLore = ref(false)
+const loreError      = ref('')
 
 const selectedId   = ref<number | null>(null)
 const sidebarOpen  = ref(false)
@@ -120,6 +121,7 @@ async function finalizeSession() {
   // Trigger lore extraction (no cooldown on finalize)
   if (characterId.value && s.entries.length > 0) {
     extractingLore.value = true
+    loreError.value = ''
     try {
       const res = await fetch(`/api/characters/${characterId.value}/extract-lore`, {
         method: 'POST',
@@ -129,12 +131,16 @@ async function finalizeSession() {
         },
         body: JSON.stringify({ sessionId: s.id }),
       })
+      const json = await res.json()
       if (res.ok) {
-        const { worldLore } = await res.json()
-        if (char.value) char.value.worldLore = worldLore
+        if (char.value) char.value.worldLore = json.worldLore
+      } else {
+        loreError.value = `Lore: ${json.error ?? res.status}`
+        console.error('extract-lore error:', json)
       }
-    } catch (_) {
-      // Lore extraction failure is non-fatal
+    } catch (e) {
+      loreError.value = 'Lore: network error'
+      console.error('extract-lore fetch failed:', e)
     } finally {
       extractingLore.value = false
     }
@@ -267,6 +273,7 @@ function fmtDate(iso: string) {
             <span v-if="extractingLore" class="lore-hint">
               <Globe :size="11" /> Extracting world lore…
             </span>
+            <span v-if="loreError" class="lore-error">{{ loreError }}</span>
           </div>
 
           <!-- Chat messages -->
@@ -518,6 +525,11 @@ function fmtDate(iso: string) {
   background: rgba(201,168,76,0.08);
 }
 .btn-finalize:disabled { opacity: 0.6; cursor: default; }
+
+.lore-error {
+  font-size: 0.65rem;
+  color: var(--red-light, #f87171);
+}
 
 .lore-hint {
   display: flex;

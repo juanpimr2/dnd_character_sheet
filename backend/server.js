@@ -748,6 +748,7 @@ Parent rules (IMPORTANT for hierarchy):
 
 Other rules:
 - CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)
+- CRITICAL: If only ONE city is mentioned across all notes, ALL other entities (NPCs, locations, factions) must have parent = that city's name unless clearly located elsewhere
 - If the same entity appears under slightly different names, use the first/most common form
 - Only include entities clearly mentioned in the notes
 - Descriptions should be factual (what was learned in the session)
