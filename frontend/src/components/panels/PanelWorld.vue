@@ -39,9 +39,25 @@ const ALL_ICONS = [...PALETTE_TERRAIN, ...PALETTE_MARKERS]
 // ── Icon selection (respects override) ────────────────────────────
 function iconFor(entity: WorldEntity): string {
   if (entity.iconOverride) return entity.iconOverride
-  if (entity.kind === 'city')    return '/map-icons/city.png'
-  if (entity.kind === 'npc')     return '/map-icons/npc.png'
-  if (entity.kind === 'faction') return '/map-icons/faction.png'
+  if (entity.kind === 'city') return '/map-icons/city.png'
+  if (entity.kind === 'npc') {
+    const n = entity.name.toLowerCase()
+    if (/mage|wizard|mago|brujo|hechicero|sorcerer|witch|arcanist/.test(n)) return '/map-icons/loc-temple.png'
+    if (/priest|cleric|sacerdote|healer|cura|padre|bishop/.test(n))         return '/map-icons/loc-temple.png'
+    if (/rogue|thief|assassin|ladr[oó]n|asesino|spy|smuggler/.test(n))      return '/map-icons/loc-ruins.png'
+    if (/pirate|captain|smuggler|sailor|pirata|marino/.test(n))             return '/map-icons/loc-port.png'
+    return '/map-icons/loc-tower.png'  // noble/lord/warrior/generic character
+  }
+  if (entity.kind === 'faction') {
+    const n = entity.name.toLowerCase()
+    if (/guild|gremio|commerce|comercio|merchant|trade|merced/.test(n)) return '/map-icons/loc-tavern.png'
+    if (/church|iglesia|holy|sagrado|order|orden|religion|cult/.test(n)) return '/map-icons/loc-temple.png'
+    if (/army|militar|guard|guardia|legión|legion|soldiers/.test(n))     return '/map-icons/loc-tower.png'
+    if (/house|casa|noble|dynasty|familia|family/.test(n))               return '/map-icons/city.png'
+    if (/thieves|thiefs|ladr|shadows|shadow|dark|oscuro/.test(n))        return '/map-icons/loc-ruins.png'
+    return '/map-icons/loc-temple.png'  // default: organized group/order
+  }
+  // kind === 'location'
   const n = entity.name.toLowerCase()
   if (/cueva|cave|dungeon|mine|cavern|mina/.test(n))          return '/map-icons/loc-cave.png'
   if (/bosque|forest|wood|grove|arboleda/.test(n))            return '/map-icons/loc-forest.png'
@@ -49,10 +65,38 @@ function iconFor(entity: WorldEntity): string {
   if (/templo|iglesia|temple|church|shrine|catedral/.test(n)) return '/map-icons/loc-temple.png'
   if (/torre|tower|keep|fortaleza/.test(n))                   return '/map-icons/loc-tower.png'
   if (/taberna|tavern|inn|posada/.test(n))                    return '/map-icons/loc-tavern.png'
-  if (/montaña|mountain|peak|cima/.test(n))                   return '/map-icons/loc-mountain.png'
+  if (/monta[ñn]a|mountain|peak|cima/.test(n))                return '/map-icons/loc-mountain.png'
   if (/cementerio|grave|tomb|catacumb/.test(n))               return '/map-icons/loc-graveyard.png'
   if (/puerto|port|harbor|dock|muelle/.test(n))               return '/map-icons/loc-port.png'
   return '/map-icons/location.png'
+}
+
+// ── Recommended icons per entity kind (for picker) ────────────────
+function recommendedForKind(kind: EntityKind) {
+  switch (kind) {
+    case 'city':     return [
+      { icon: '/map-icons/city.png',      label: 'City' },
+      { icon: '/map-icons/loc-tower.png', label: 'Keep' },
+      { icon: '/map-icons/loc-temple.png',label: 'Capital' },
+    ]
+    case 'npc':      return [
+      { icon: '/map-icons/loc-tower.png',    label: 'Noble/Warrior' },
+      { icon: '/map-icons/loc-temple.png',   label: 'Priest/Mage' },
+      { icon: '/map-icons/loc-tavern.png',   label: 'Commoner' },
+      { icon: '/map-icons/loc-ruins.png',    label: 'Rogue' },
+      { icon: '/map-icons/loc-port.png',     label: 'Sailor' },
+      { icon: '/map-icons/loc-cave.png',     label: 'Outlaw' },
+    ]
+    case 'faction':  return [
+      { icon: '/map-icons/loc-temple.png',   label: 'Order/Cult' },
+      { icon: '/map-icons/loc-tower.png',    label: 'Guild/Army' },
+      { icon: '/map-icons/loc-tavern.png',   label: 'Trade' },
+      { icon: '/map-icons/city.png',         label: 'Noble House' },
+      { icon: '/map-icons/loc-ruins.png',    label: 'Thieves' },
+    ]
+    case 'location': return PALETTE_TERRAIN
+    default:         return ALL_ICONS
+  }
 }
 
 const KIND_SIZE: Record<EntityKind, number> = { city: 56, location: 42, npc: 38, faction: 38 }
@@ -82,11 +126,19 @@ function drillToDepth(depth: number) {
   navStack.value = navStack.value.slice(0, depth); detailId.value = null
 }
 
-function radialPos(idx: number, total: number) {
-  const r     = total <= 3 ? 32 : total <= 6 ? 35 : 37
-  const angle = (idx / total) * 2 * Math.PI - Math.PI / 2
-  return { x: 50 + r * Math.cos(angle), y: 50 + r * Math.sin(angle) }
+// ── Tree layout (top-down, org-chart style) ───────────────────────
+// Parent node renders at top-center (50%, 16%), children spread horizontally below
+function treePos(idx: number, total: number): { x: number; y: number } {
+  if (total <= 1) return { x: 50, y: 74 }
+  // Spread children evenly. Max step 17%, min when many children
+  const step    = Math.min(17, 74 / (total - 1))
+  const span    = step * (total - 1)
+  const startX  = 50 - span / 2
+  return { x: Math.max(8, Math.min(92, startX + idx * step)), y: 74 }
 }
+// x of leftmost and rightmost child (for the horizontal bus line)
+function busLeft(total: number)  { return treePos(0, total).x }
+function busRight(total: number) { return treePos(total - 1, total).x }
 
 // Navigate to an entity from anywhere (e.g., sidebar click)
 function pathTo(entity: WorldEntity): WorldEntity[] {
@@ -501,32 +553,44 @@ function fmtTime(iso?: string) {
             </div>
           </div>
 
-          <!-- ══ DRILL-DOWN VIEW ══ -->
+          <!-- ══ DRILL-DOWN VIEW (top-down tree layout) ══ -->
           <div v-else :key="navStack[navStack.length-1].id" class="map-layer">
-            <!-- SVG connection lines -->
+            <!-- SVG flowchart lines: trunk → bus → branches -->
             <svg class="connections-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <!-- Vertical trunk from parent down to bus -->
+              <line
+                x1="50" y1="23" x2="50" y2="44"
+                stroke="rgba(100,60,15,0.4)" stroke-width="0.6" stroke-dasharray="2,1.5"
+              />
+              <!-- Horizontal bus across all children (skip if single child) -->
+              <line
+                v-if="visibleNodes.length > 1"
+                :x1="busLeft(visibleNodes.length)" y1="44"
+                :x2="busRight(visibleNodes.length)" y2="44"
+                stroke="rgba(100,60,15,0.4)" stroke-width="0.6" stroke-dasharray="2,1.5"
+              />
+              <!-- Vertical branch from bus down to each child -->
               <line
                 v-for="(child, i) in visibleNodes" :key="child.id"
-                x1="50" y1="50"
-                :x2="radialPos(i, visibleNodes.length).x"
-                :y2="radialPos(i, visibleNodes.length).y"
-                stroke="rgba(100,60,15,0.35)" stroke-width="0.5" stroke-dasharray="2,1.5"
+                :x1="treePos(i, visibleNodes.length).x" y1="44"
+                :x2="treePos(i, visibleNodes.length).x" y2="67"
+                stroke="rgba(100,60,15,0.4)" stroke-width="0.6" stroke-dasharray="2,1.5"
               />
             </svg>
 
-            <!-- Center node (current parent) -->
-            <div class="node-wrap" style="left:50%;top:50%" @click.stop="openDetail(navStack[navStack.length-1])">
+            <!-- Parent node — top center -->
+            <div class="node-wrap" style="left:50%;top:16%" @click.stop="openDetail(navStack[navStack.length-1])">
               <div class="node-img-wrap" :class="{ selected: detailId === navStack[navStack.length-1].id }">
                 <img :src="iconFor(navStack[navStack.length-1])" class="node-img node-center-img" :alt="navStack[navStack.length-1].name" />
               </div>
               <span class="node-label node-label-lg">{{ navStack[navStack.length-1].name }}</span>
             </div>
 
-            <!-- Child nodes -->
+            <!-- Child nodes — spread horizontally below -->
             <div
               v-for="(child, i) in visibleNodes" :key="child.id"
               class="node-wrap"
-              :style="{ left: radialPos(i, visibleNodes.length).x + '%', top: radialPos(i, visibleNodes.length).y + '%' }"
+              :style="{ left: treePos(i, visibleNodes.length).x + '%', top: treePos(i, visibleNodes.length).y + '%' }"
               @click.stop="onEntityClick(child)"
             >
               <div class="node-img-wrap" :class="{ selected: detailId === child.id, drillable: hasChildren(child) }">
@@ -620,12 +684,13 @@ function fmtTime(iso?: string) {
           </select>
         </div>
 
-        <!-- Icon override (edit mode) -->
-        <div v-if="editMode" class="detail-section">
-          <div class="section-label">Change icon</div>
+        <!-- Icon override — always visible, organized by kind -->
+        <div class="detail-section">
+          <div class="section-label">Icon</div>
+          <div class="icon-pick-sublabel">Recommended for {{ detail.kind }}</div>
           <div class="icon-pick-grid">
             <button
-              v-for="item in ALL_ICONS" :key="item.icon"
+              v-for="item in recommendedForKind(detail.kind)" :key="item.icon"
               class="icon-pick-btn"
               :class="{ active: (detail.iconOverride ?? iconFor(detail)) === item.icon }"
               :title="item.label"
@@ -634,7 +699,19 @@ function fmtTime(iso?: string) {
               <img :src="item.icon" />
             </button>
           </div>
-          <button v-if="detail.iconOverride" class="btn-reset-icon" @click="clearIconOverride">Reset to auto</button>
+          <div class="icon-pick-sublabel" style="margin-top:.3rem">All icons</div>
+          <div class="icon-pick-grid">
+            <button
+              v-for="item in ALL_ICONS" :key="item.icon + '_all'"
+              class="icon-pick-btn"
+              :class="{ active: (detail.iconOverride ?? iconFor(detail)) === item.icon }"
+              :title="item.label"
+              @click="applyIconOverride(item.icon)"
+            >
+              <img :src="item.icon" />
+            </button>
+          </div>
+          <button v-if="detail.iconOverride" class="btn-reset-icon" @click="clearIconOverride">↺ Reset to auto</button>
         </div>
 
         <!-- Sessions -->
@@ -971,10 +1048,13 @@ function fmtTime(iso?: string) {
 .icon-pick-btn:hover { border-color: var(--gold-border); }
 .icon-pick-btn.active { border-color: var(--gold); background: rgba(201,168,76,.15); }
 
+.icon-pick-sublabel { font-size: .58rem; color: var(--text-muted); font-style: italic; margin-bottom: .1rem; }
+
 .btn-reset-icon {
   font-size: .65rem; padding: .15rem .4rem; background: transparent;
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   color: var(--text-muted); cursor: pointer; font-family: inherit; transition: all var(--transition);
+  margin-top: .2rem;
 }
 .btn-reset-icon:hover { border-color: var(--gold-border); color: var(--gold-dim); }
 

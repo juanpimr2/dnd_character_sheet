@@ -756,6 +756,7 @@ Other rules:
 - Only include entities clearly mentioned in the notes
 - Descriptions should be factual (what was learned in the session)
 - Always include the "parent" field (null if no parent)
+- CRITICAL: Write ALL descriptions in the SAME LANGUAGE as the session notes. If notes are in Spanish, write in Spanish. Never change the language of descriptions or names.
 
 Session notes:
 ${notesText}`
