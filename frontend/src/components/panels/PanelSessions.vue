@@ -2,37 +2,40 @@
 import { computed, ref, onMounted, nextTick } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import type { SessionGroup, EventEntry } from '@/types/character'
-import { Plus, ChevronUp, ChevronDown, Trash2, Edit2, Check, X } from 'lucide-vue-next'
+import { Plus, Trash2, Edit2, Check, X, SendHorizontal, CheckCircle2 } from 'lucide-vue-next'
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
-
 function save() { charStore.scheduleAutoSave() }
 
-const selectedId = ref<number | null>(null)
-const sidebarOpen = ref(false)
+const selectedId   = ref<number | null>(null)
+const sidebarOpen  = ref(false)
 const newEntryText = ref('')
-const renamingId = ref<number | null>(null)
-const renameText = ref('')
+const renamingId   = ref<number | null>(null)
+const renameText   = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
+const chatRef        = ref<HTMLDivElement | null>(null)
+const textareaRef    = ref<HTMLTextAreaElement | null>(null)
 
-// Auto-migrate events → sessions[0] and ensure sessions array exists
+// ── Init ──────────────────────────────────────────────────────────
 onMounted(() => {
   if (!char.value) return
-  if (!Array.isArray(char.value.sessions)) {
-    char.value.sessions = []
-  }
+  if (!Array.isArray(char.value.sessions)) char.value.sessions = []
+  // Migrate legacy events
   if (char.value.sessions.length === 0 && char.value.events?.length > 0) {
     char.value.sessions = [{
-      id: 1,
-      name: 'Session 1',
+      id: 1, name: 'Session 1',
       date: new Date().toISOString().slice(0, 10),
       entries: [...char.value.events],
     }]
     save()
   }
   if (char.value.sessions.length > 0 && selectedId.value === null) {
-    selectedId.value = char.value.sessions[char.value.sessions.length - 1].id
+    // Select last non-finalized, or last overall
+    const active = char.value.sessions.filter(s => !s.finalized)
+    selectedId.value = active.length > 0
+      ? active[active.length - 1].id
+      : char.value.sessions[char.value.sessions.length - 1].id
   }
 })
 
@@ -40,6 +43,7 @@ const selectedSession = computed<SessionGroup | null>(() =>
   char.value?.sessions?.find(s => s.id === selectedId.value) ?? null
 )
 
+// ── Session CRUD ──────────────────────────────────────────────────
 function selectSession(id: number) {
   selectedId.value = id
   sidebarOpen.value = false
@@ -51,12 +55,11 @@ function nextId(): number {
 }
 
 function createSession() {
-  const today = new Date().toISOString().slice(0, 10)
   const n = (char.value.sessions?.length ?? 0) + 1
   const session: SessionGroup = {
     id: nextId(),
     name: `Session ${n}`,
-    date: today,
+    date: new Date().toISOString().slice(0, 10),
     entries: [],
   }
   if (!Array.isArray(char.value.sessions)) char.value.sessions = []
@@ -78,15 +81,6 @@ function deleteSession(id: number) {
   save()
 }
 
-function moveSession(id: number, dir: -1 | 1) {
-  const sessions = char.value.sessions
-  const idx = sessions.findIndex(s => s.id === id)
-  const target = idx + dir
-  if (target < 0 || target >= sessions.length) return
-  ;[sessions[idx], sessions[target]] = [sessions[target], sessions[idx]]
-  save()
-}
-
 function startRename(session: SessionGroup) {
   renamingId.value = session.id
   renameText.value = session.name
@@ -103,31 +97,61 @@ function commitRename() {
   renamingId.value = null
 }
 
-function cancelRename() {
-  renamingId.value = null
+// ── Finalizar sesión ──────────────────────────────────────────────
+function finalizeSession() {
+  if (!selectedSession.value) return
+  const s = selectedSession.value
+  // Auto-add date to name if still default
+  if (/^Session \d+$/.test(s.name)) {
+    const d = new Date()
+    const dd = d.getDate().toString().padStart(2, '0')
+    const mm = (d.getMonth() + 1).toString().padStart(2, '0')
+    const yy = d.getFullYear().toString().slice(2)
+    s.name = `${s.name} — ${dd}/${mm}/${yy}`
+  }
+  s.finalized = true
+  save()
 }
 
-function addEntry() {
+// ── Entries ───────────────────────────────────────────────────────
+async function addEntry() {
   if (!selectedSession.value || !newEntryText.value.trim()) return
+  if (selectedSession.value.finalized) return
+
   const now = new Date()
-  const t = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0')
+  const t = now.getHours().toString().padStart(2, '0') + ':' +
+            now.getMinutes().toString().padStart(2, '0')
+
   const entry: EventEntry = {
-    id: Date.now(),
+    id:  Date.now(),
     t,
     txt: newEntryText.value.trim(),
   }
-  selectedSession.value.entries.unshift(entry)
+  selectedSession.value.entries.push(entry)   // push → oldest first (chat order)
   newEntryText.value = ''
   save()
+
+  await nextTick()
+  if (chatRef.value) chatRef.value.scrollTop = chatRef.value.scrollHeight
+  textareaRef.value?.focus()
 }
 
 function removeEntry(entryId: number) {
   if (!selectedSession.value) return
   const idx = selectedSession.value.entries.findIndex(e => e.id === entryId)
-  if (idx !== -1) {
-    selectedSession.value.entries.splice(idx, 1)
-    save()
+  if (idx !== -1) { selectedSession.value.entries.splice(idx, 1); save() }
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    addEntry()
   }
+}
+
+function fmtDate(iso: string) {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y.slice(2)}`
 }
 </script>
 
@@ -137,7 +161,7 @@ function removeEntry(entryId: number) {
 
     <div class="sessions-layout">
 
-      <!-- ── Sidebar (session list) ── -->
+      <!-- ── Sidebar ─────────────────────────────────────────────── -->
       <aside class="sessions-sidebar" :class="{ open: sidebarOpen }">
         <div class="sidebar-header">
           <span class="sidebar-title">Sessions</span>
@@ -148,103 +172,113 @@ function removeEntry(entryId: number) {
 
         <ul class="session-list">
           <li
-            v-for="(session, idx) in char.sessions"
+            v-for="session in [...char.sessions].reverse()"
             :key="session.id"
             class="session-item"
-            :class="{ active: selectedId === session.id }"
+            :class="{ active: selectedId === session.id, finalized: session.finalized }"
+            @click="selectSession(session.id)"
           >
-            <div class="session-item-main" @click="selectSession(session.id)">
+            <div class="session-item-main">
               <template v-if="renamingId === session.id">
                 <input
                   ref="renameInputRef"
                   v-model="renameText"
                   class="rename-input"
                   @keydown.enter="commitRename"
-                  @keydown.escape="cancelRename"
+                  @keydown.escape="renamingId = null"
                   @blur="commitRename"
                   @click.stop
                 />
               </template>
-              <span v-else class="session-name">{{ session.name }}</span>
+              <template v-else>
+                <div class="session-name-row">
+                  <CheckCircle2 v-if="session.finalized" :size="11" class="finalized-icon" />
+                  <span class="session-name">{{ session.name }}</span>
+                </div>
+                <span class="session-date">{{ fmtDate(session.date) }} · {{ session.entries.length }} entries</span>
+              </template>
             </div>
-            <div class="session-item-actions">
-              <button @click.stop="startRename(session)" title="Rename" class="icon-btn">
-                <Edit2 :size="11" />
-              </button>
-              <button @click.stop="moveSession(session.id, -1)" :disabled="idx === 0" title="Move up" class="icon-btn">
-                <ChevronUp :size="11" />
-              </button>
-              <button @click.stop="moveSession(session.id, 1)" :disabled="idx === char.sessions.length - 1" title="Move down" class="icon-btn">
-                <ChevronDown :size="11" />
-              </button>
-              <button @click.stop="deleteSession(session.id)" title="Delete" class="icon-btn icon-btn-del">
-                <Trash2 :size="11" />
-              </button>
+            <div class="session-item-actions" @click.stop>
+              <button @click="startRename(session)" title="Rename" class="icon-btn"><Edit2 :size="11" /></button>
+              <button @click="deleteSession(session.id)" title="Delete" class="icon-btn icon-btn-del"><Trash2 :size="11" /></button>
             </div>
           </li>
         </ul>
 
         <div v-if="char.sessions.length === 0" class="sidebar-empty">
-          No sessions.<br>Create a new one.
+          No sessions.<br>Press + to start one.
         </div>
       </aside>
 
-      <!-- ── Mobile sidebar toggle ── -->
+      <!-- ── Mobile toggle ───────────────────────────────────────── -->
       <button class="sidebar-toggle" @click="sidebarOpen = !sidebarOpen">
         {{ sidebarOpen ? '✕ Close' : '☰ Sessions' }}
       </button>
 
-      <!-- ── Main area ── -->
+      <!-- ── Main chat area ──────────────────────────────────────── -->
       <div class="sessions-main">
         <template v-if="selectedSession">
-          <!-- Session header -->
-          <div class="session-header">
-            <div class="session-title-row">
-              <h3 class="session-title">{{ selectedSession.name }}</h3>
-              <input
-                type="date"
-                v-model="selectedSession.date"
-                @change="save"
-                class="date-input"
-              />
-            </div>
-          </div>
 
-          <!-- New entry form -->
-          <div class="entry-form">
-            <textarea
-              v-model="newEntryText"
-              placeholder="Add new entry…"
-              class="entry-textarea"
-              rows="2"
-              @keydown.ctrl.enter="addEntry"
-            ></textarea>
-            <button class="btn-outline btn-add-entry" @click="addEntry" :disabled="!newEntryText.trim()">
-              Add
+          <!-- Chat header -->
+          <div class="chat-header">
+            <div class="chat-title-wrap">
+              <span class="chat-title">{{ selectedSession.name }}</span>
+              <span v-if="selectedSession.finalized" class="finalized-badge">Finalizada</span>
+            </div>
+            <button
+              v-if="!selectedSession.finalized"
+              class="btn-finalize"
+              @click="finalizeSession"
+              title="Mark session as finished"
+            >
+              <Check :size="13" />
+              Finalizar sesión
             </button>
           </div>
 
-          <!-- Entries list -->
-          <ul class="entries-list">
-            <li
+          <!-- Chat messages -->
+          <div class="chat-messages" ref="chatRef">
+            <div v-if="selectedSession.entries.length === 0" class="chat-empty">
+              No entries yet — type your first note below.
+            </div>
+            <div
               v-for="entry in selectedSession.entries"
               :key="entry.id"
-              class="entry-item"
+              class="chat-entry"
             >
               <span class="entry-time">{{ entry.t }}</span>
               <span class="entry-text">{{ entry.txt }}</span>
-              <button class="btn-del-entry" @click="removeEntry(entry.id)" title="Remove entry">
-                <X :size="12" />
+              <button class="btn-del-entry" @click="removeEntry(entry.id)" title="Remove">
+                <X :size="11" />
               </button>
-            </li>
-            <li v-if="selectedSession.entries.length === 0" class="entries-empty">
-              No entries in this session.
-            </li>
-          </ul>
+            </div>
+          </div>
+
+          <!-- Chat input -->
+          <div class="chat-input-wrap" :class="{ disabled: selectedSession.finalized }">
+            <textarea
+              ref="textareaRef"
+              v-model="newEntryText"
+              :placeholder="selectedSession.finalized ? 'Session finalized — start a new one with +' : 'Take a note… (Enter to send, Shift+Enter for newline)'"
+              :disabled="selectedSession.finalized"
+              class="chat-textarea"
+              rows="2"
+              @keydown="onKeydown"
+            />
+            <button
+              class="btn-send"
+              :disabled="!newEntryText.trim() || selectedSession.finalized"
+              @click="addEntry"
+              title="Send (Enter)"
+            >
+              <SendHorizontal :size="18" />
+            </button>
+          </div>
+
         </template>
 
         <div v-else class="no-session">
-          <span>Select or create a session to get started.</span>
+          <p>Press <strong>+</strong> in the sidebar to start a new session.</p>
         </div>
       </div>
 
@@ -253,18 +287,16 @@ function removeEntry(entryId: number) {
 </template>
 
 <style scoped>
-.sessions-panel {
-  min-height: 420px;
-}
+.sessions-panel { min-height: 480px; }
 
 .sessions-layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 0;
+  grid-template-columns: 210px 1fr;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   overflow: hidden;
   position: relative;
+  height: 480px;
 }
 
 /* ── Sidebar ── */
@@ -273,19 +305,20 @@ function removeEntry(entryId: number) {
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  min-height: 380px;
+  overflow: hidden;
 }
 
 .sidebar-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 0.75rem;
+  padding: 0.55rem 0.75rem;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 .sidebar-title {
-  font-size: 0.65rem;
+  font-size: 0.63rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -303,46 +336,46 @@ function removeEntry(entryId: number) {
   align-items: center;
   transition: all var(--transition);
 }
-.btn-new-session:hover {
-  background: var(--gold-border);
-}
+.btn-new-session:hover { background: var(--gold-border); }
 
 .session-list {
   list-style: none;
   flex: 1;
   overflow-y: auto;
-  padding: 0.3rem 0;
+  padding: 0.25rem 0;
 }
 
 .session-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.25rem;
-  padding: 0.35rem 0.5rem 0.35rem 0.75rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.75rem;
   cursor: pointer;
   border-left: 3px solid transparent;
   transition: all var(--transition);
 }
-.session-item:hover { background: rgba(201,168,76,0.06); }
+.session-item:hover { background: rgba(201,168,76,0.05); }
 .session-item.active {
   background: rgba(201,168,76,0.08);
   border-left-color: var(--gold);
 }
+.session-item.finalized { opacity: 0.65; }
+.session-item.finalized.active { opacity: 1; }
 
-.session-item-main {
-  flex: 1;
-  min-width: 0;
-}
+.session-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
+
+.session-name-row { display: flex; align-items: center; gap: 0.3rem; }
+.finalized-icon { color: var(--gold-dim); flex-shrink: 0; }
 
 .session-name {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  display: block;
 }
 .session-item.active .session-name { color: var(--gold); font-weight: 600; }
+.session-date { font-size: 0.65rem; color: var(--text-muted); }
 
 .rename-input {
   background: var(--bg-input);
@@ -350,7 +383,7 @@ function removeEntry(entryId: number) {
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   padding: 0.1rem 0.3rem;
   width: 100%;
   outline: none;
@@ -361,11 +394,10 @@ function removeEntry(entryId: number) {
   gap: 1px;
   opacity: 0;
   transition: opacity var(--transition);
+  flex-shrink: 0;
 }
 .session-item:hover .session-item-actions,
-.session-item.active .session-item-actions {
-  opacity: 1;
-}
+.session-item.active .session-item-actions { opacity: 1; }
 
 .icon-btn {
   background: transparent;
@@ -379,7 +411,6 @@ function removeEntry(entryId: number) {
   transition: color var(--transition);
 }
 .icon-btn:hover { color: var(--gold); }
-.icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .icon-btn-del:hover { color: var(--red-light); }
 
 .sidebar-empty {
@@ -387,116 +418,120 @@ function removeEntry(entryId: number) {
   color: var(--text-muted);
   font-size: 0.75rem;
   padding: 2rem 1rem;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
-/* ── Main area ── */
+/* ── Main chat ── */
 .sessions-main {
   display: flex;
   flex-direction: column;
-  padding: 0.85rem;
-  gap: 0.75rem;
+  overflow: hidden;
   background: var(--bg-card);
 }
 
-.session-header {
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.6rem;
-}
-
-.session-title-row {
+/* Chat header */
+.chat-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 0.75rem;
 }
 
-.session-title {
-  font-family: var(--font-title);
-  font-size: 1rem;
+.chat-title-wrap { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.chat-title {
+  font-size: 0.88rem;
   font-weight: 600;
   color: var(--gold);
-}
-
-.date-input {
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: 0.78rem;
-  padding: 0.2rem 0.4rem;
-  outline: none;
-  color-scheme: dark;
-}
-.date-input:focus { border-color: var(--gold-dim); }
-
-/* ── Entry form ── */
-.entry-form {
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-end;
-}
-
-.entry-textarea {
-  flex: 1;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 0.85rem;
-  padding: 0.45rem 0.6rem;
-  outline: none;
-  resize: vertical;
-  min-height: 52px;
-  transition: border-color var(--transition);
-}
-.entry-textarea:focus { border-color: var(--gold-dim); }
-
-.btn-add-entry {
-  padding: 0.4rem 0.9rem;
-  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+.finalized-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold-dim);
+  background: rgba(201,168,76,0.1);
+  border: 1px solid var(--gold-border);
+  border-radius: 20px;
+  padding: 0.1rem 0.45rem;
   flex-shrink: 0;
 }
 
-/* ── Entries list ── */
-.entries-list {
-  list-style: none;
+.btn-finalize {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  overflow-y: auto;
-  max-height: 320px;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.btn-finalize:hover {
+  border-color: var(--gold-border);
+  color: var(--gold);
+  background: rgba(201,168,76,0.08);
 }
 
-.entry-item {
+/* Chat messages */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.chat-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: auto;
+}
+
+.chat-entry {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  background: var(--bg-elevated);
-  border: 1px solid rgba(201,168,76,0.1);
+  padding: 0.4rem 0.55rem;
   border-radius: var(--radius-sm);
-  padding: 0.4rem 0.6rem;
+  background: var(--bg-elevated);
+  border: 1px solid transparent;
   transition: border-color var(--transition);
 }
-.entry-item:hover { border-color: var(--border); }
+.chat-entry:hover {
+  border-color: var(--border);
+}
 
 .entry-time {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--gold-dim);
   font-weight: 600;
   white-space: nowrap;
-  margin-top: 0.1rem;
+  margin-top: 0.15rem;
   flex-shrink: 0;
+  font-family: 'Courier New', monospace;
 }
 
 .entry-text {
   flex: 1;
-  font-size: 0.83rem;
+  font-size: 0.84rem;
   color: var(--text-secondary);
-  line-height: 1.45;
+  line-height: 1.5;
+  white-space: pre-wrap;
   word-break: break-word;
 }
 
@@ -511,20 +546,59 @@ function removeEntry(entryId: number) {
   align-items: center;
   flex-shrink: 0;
   margin-top: 0.1rem;
-  transition: color var(--transition);
   opacity: 0;
   transition: opacity var(--transition), color var(--transition);
 }
-.entry-item:hover .btn-del-entry { opacity: 1; }
+.chat-entry:hover .btn-del-entry { opacity: 1; }
 .btn-del-entry:hover { color: var(--red-light); }
 
-.entries-empty {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  padding: 1.5rem;
+/* Chat input */
+.chat-input-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex-shrink: 0;
 }
+.chat-input-wrap.disabled { opacity: 0.5; }
 
+.chat-textarea {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  padding: 0.45rem 0.6rem;
+  outline: none;
+  resize: none;
+  transition: border-color var(--transition);
+}
+.chat-textarea:focus { border-color: var(--gold-dim); }
+.chat-textarea::placeholder { color: var(--text-muted); opacity: 0.6; font-size: 0.8rem; }
+.chat-textarea:disabled { cursor: not-allowed; }
+
+.btn-send {
+  background: rgba(201,168,76,0.12);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-md);
+  color: var(--gold);
+  cursor: pointer;
+  padding: 0.45rem 0.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.btn-send:hover:not(:disabled) { background: rgba(201,168,76,0.22); }
+.btn-send:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* No session */
 .no-session {
   display: flex;
   align-items: center;
@@ -533,9 +607,11 @@ function removeEntry(entryId: number) {
   color: var(--text-muted);
   font-size: 0.85rem;
   padding: 3rem;
+  text-align: center;
 }
+.no-session strong { color: var(--gold); }
 
-/* ── Mobile sidebar toggle ── */
+/* ── Mobile ── */
 .sidebar-toggle {
   display: none;
   background: var(--bg-elevated);
@@ -555,31 +631,18 @@ function removeEntry(entryId: number) {
 }
 
 @media (max-width: 640px) {
-  .sessions-layout {
-    grid-template-columns: 1fr;
-  }
-
+  .sessions-layout { grid-template-columns: 1fr; }
   .sessions-sidebar {
     display: none;
     position: absolute;
-    left: 0;
-    top: 0;
+    left: 0; top: 0;
     width: 240px;
     height: 100%;
     z-index: 20;
     box-shadow: 4px 0 16px rgba(0,0,0,0.5);
   }
-
-  .sessions-sidebar.open {
-    display: flex;
-  }
-
-  .sidebar-toggle {
-    display: block;
-  }
-
-  .sessions-main {
-    padding-top: 2.8rem;
-  }
+  .sessions-sidebar.open { display: flex; }
+  .sidebar-toggle { display: block; }
+  .sessions-main { padding-top: 0; }
 }
 </style>

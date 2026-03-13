@@ -34,13 +34,19 @@ export interface AbilityBreakdowns {
   cha: BonusEntry[]
 }
 
+export type AttackRole = 'primary' | 'offhand_light' | 'offhand' | 'extra' | 'manual'
+
 export interface AttackEntry {
   weapon: string
-  bonus: string
+  bonus: string       // manual bonus text (used when role = 'manual' or undefined)
   damage: string
   crit: string
-  type: string
+  type: string        // damage type: C / P / S / B
   notes: string
+  // Auto-calc fields (optional — absent = legacy manual entry)
+  role?: AttackRole
+  stat?: 'str' | 'dex'  // attack stat
+  enhancement?: number   // weapon enhancement bonus
 }
 
 export interface SkillEntry {
@@ -98,6 +104,7 @@ export interface SessionGroup {
   name: string       // "Sesión 1", "La Cueva del Dragón", etc.
   date: string       // "2026-03-02"
   entries: EventEntry[]
+  finalized?: boolean
 }
 
 /** Resumen para tarjetas en la pantalla de selección de personaje */
@@ -143,6 +150,7 @@ export interface Character {
   bab: number
   speed: number
   init: { bonus: number; stat: string }
+  twfFeat?: 'none' | 'twf' | 'itwf' | 'gtwf'  // Two-Weapon Fighting progression
 
   // Tiradas de salvación
   saves: {
@@ -154,6 +162,7 @@ export interface Character {
   // Bonus breakdowns
   bonuses: {
     ac: BonusEntry[]
+    acQuick?: BonusEntry[]      // temp in-session AC bonuses (same pattern as saves.quick)
     fort: BonusEntry[]
     ref: BonusEntry[]
     will: BonusEntry[]
@@ -172,5 +181,5 @@ export interface Character {
   events: EventEntry[]
   sessions: SessionGroup[]
   customBreakdowns: Array<{ name: string; bonuses: BonusEntry[] }>
-  spellcasting?: SpellcastingBlock
+  spellcasting?: SpellcastingBlock | SpellcastingBlock[]  // array desde v2; objeto legacy migrado en PanelSpells
 }

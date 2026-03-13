@@ -120,6 +120,20 @@ data/                     JSON históricos de la era vanilla JS (archivo)
 - Saves calculados: base + mod(stat) + bonuses específicos + saveGeneral filtrado
 - Tipos: armor, shield, deflection, dodge, natural, enhancement, insight, luck, sacred, profane, size, alchemical, morale, resistance, untyped
 
+## Reglas de documentación
+
+Cada vez que se haga un cambio relevante, actualizar:
+
+1. **`QUICKREF.local.md`** — si cambia alguna URL, servicio, script o MCP
+2. **`SECRETS.local.md`** — si se añade, cambia o elimina una clave o token
+3. **`CLAUDE.md` (sección Pendiente)** — marcar como completado lo que se termine, añadir lo nuevo
+4. **Memoria del proyecto** — si cambia el estado general del proyecto (nuevo plan, decisión importante)
+
+Reglas:
+- No crear documentación nueva salvo que el usuario lo pida explícitamente
+- No duplicar info entre archivos — `SECRETS` para claves, `QUICKREF` para operativa
+- Los `.local.md` nunca se suben al repo (están en `.gitignore`)
+
 ### Pendiente
 
 - [ ] 2FA con TOTP (Supabase MFA)

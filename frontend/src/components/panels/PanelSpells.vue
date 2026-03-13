@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import type { SpellEntry, SpellcastingBlock, SpellSchool } from '@/types/character'
 import type { AbilityScores } from '@/types/character'
-import { Plus, Trash2, RotateCcw, Wand2, Info } from 'lucide-vue-next'
+import { Plus, Trash2, RotateCcw, Wand2, Info, X } from 'lucide-vue-next'
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
@@ -11,24 +11,52 @@ function save() { charStore.scheduleAutoSave() }
 
 const mod = (s: number) => Math.floor((s - 10) / 2)
 
-// ── Default spellcasting block ─────────────────────────────────────
-const DEFAULT_SPELLCASTING: SpellcastingBlock = {
-  spellClass: '',
-  type: 'prepared',
-  stat: 'int',
-  casterLevel: 1,
-  concentrationBonus: 0,
-  slotsPerDay: Array(10).fill(0),
-  slotsUsed:   Array(10).fill(0),
-  spells: [],
+// ── Default block ──────────────────────────────────────────────────
+function makeBlock(): SpellcastingBlock {
+  return {
+    spellClass: '',
+    type: 'prepared',
+    stat: 'int',
+    casterLevel: 1,
+    concentrationBonus: 0,
+    slotsPerDay: Array(10).fill(0),
+    slotsUsed:   Array(10).fill(0),
+    spells: [],
+  }
 }
 
-const sc = computed<SpellcastingBlock>(() => {
-  if (!char.value.spellcasting) {
-    char.value.spellcasting = { ...DEFAULT_SPELLCASTING, slotsPerDay: Array(10).fill(0), slotsUsed: Array(10).fill(0), spells: [] }
+// ── Normalize spellcasting to always be SpellcastingBlock[] ───────
+// Old data may have a single object; we migrate it silently on load.
+function ensureBlocks(): SpellcastingBlock[] {
+  const raw = char.value.spellcasting
+  if (!raw) {
+    char.value.spellcasting = [makeBlock()]
+  } else if (!Array.isArray(raw)) {
+    char.value.spellcasting = [raw as SpellcastingBlock]
   }
-  return char.value.spellcasting!
-})
+  return char.value.spellcasting as SpellcastingBlock[]
+}
+
+const scBlocks = computed<SpellcastingBlock[]>(() => ensureBlocks())
+
+// ── Active tab ─────────────────────────────────────────────────────
+const activeIdx = ref(0)
+const sc = computed<SpellcastingBlock>(() =>
+  scBlocks.value[Math.min(activeIdx.value, scBlocks.value.length - 1)]
+)
+
+function addBlock() {
+  scBlocks.value.push(makeBlock())
+  activeIdx.value = scBlocks.value.length - 1
+  save()
+}
+
+function removeBlock(i: number) {
+  if (scBlocks.value.length <= 1) return
+  scBlocks.value.splice(i, 1)
+  if (activeIdx.value >= scBlocks.value.length) activeIdx.value = scBlocks.value.length - 1
+  save()
+}
 
 // ── Ability modifier ───────────────────────────────────────────────
 const abilityMod = computed(() => {
@@ -36,10 +64,7 @@ const abilityMod = computed(() => {
   return mod(char.value.stats?.[stat] ?? 10)
 })
 
-// ── Bonus spells per day (D&D 3.5 SRD table) ──────────────────────
-// For ability modifier M, bonus slots at spell level N:
-//   if M >= N: floor((M - N) / 4) + 1, else 0
-// Only applies to levels 1–9 (no bonus cantrips)
+// ── Bonus spells per day (D&D 3.5 SRD) ───────────────────────────
 function bonusSlots(level: number): number {
   if (level === 0) return 0
   const m = abilityMod.value
@@ -49,18 +74,13 @@ function bonusSlots(level: number): number {
 
 const totalSlots = (level: number) => (sc.value.slotsPerDay[level] ?? 0) + bonusSlots(level)
 const remaining  = (level: number) => Math.max(0, totalSlots(level) - (sc.value.slotsUsed[level] ?? 0))
+const spellDC    = (level: number) => 10 + level + abilityMod.value
 
-// ── Spell save DC ──────────────────────────────────────────────────
-// DC = 10 + spell level + ability modifier
-const spellDC = (level: number) => 10 + level + abilityMod.value
-
-// ── Concentration ──────────────────────────────────────────────────
-// Check = 1d20 + CL + ability mod + misc bonus  (vs DC 10 + damage taken)
 const concentrationBonus = computed(() =>
   sc.value.casterLevel + abilityMod.value + (sc.value.concentrationBonus ?? 0)
 )
 
-// ── Slots used controls ────────────────────────────────────────────
+// ── Slot controls ──────────────────────────────────────────────────
 function useSlot(level: number) {
   const used = sc.value.slotsUsed[level] ?? 0
   if (used >= totalSlots(level)) return
@@ -75,18 +95,17 @@ function recoverSlot(level: number) {
 }
 function resetDay() {
   sc.value.slotsUsed = Array(10).fill(0)
-  // Also reset prepared counts for prepared casters
   if (sc.value.type === 'prepared') {
     for (const sp of sc.value.spells) sp.prepared = 0
   }
   save()
 }
 
-// ── Active spell levels (levels with slots or spells) ─────────────
+// ── Active levels ──────────────────────────────────────────────────
 const activeLevels = computed(() => {
-  const levelsWithSlots  = sc.value.slotsPerDay.map((v, i) => v > 0 || bonusSlots(i) > 0 ? i : -1).filter(i => i >= 0)
-  const levelsWithSpells = [...new Set(sc.value.spells.map(s => s.level))]
-  return [...new Set([...levelsWithSlots, ...levelsWithSpells])].sort((a, b) => a - b)
+  const withSlots  = sc.value.slotsPerDay.map((v, i) => v > 0 || bonusSlots(i) > 0 ? i : -1).filter(i => i >= 0)
+  const withSpells = [...new Set(sc.value.spells.map(s => s.level))]
+  return [...new Set([...withSlots, ...withSpells])].sort((a, b) => a - b)
 })
 
 // ── Add spell ──────────────────────────────────────────────────────
@@ -94,19 +113,16 @@ const newSpell = ref<{ name: string; level: number; school: SpellSchool; notes: 
   name: '', level: 1, school: '', notes: '',
 })
 const showAddForm = ref(false)
-const addingToLevel = ref<number | null>(null)
 
 function openAddForm(level?: number) {
   newSpell.value = { name: '', level: level ?? 1, school: '', notes: '' }
-  addingToLevel.value = level ?? null
   showAddForm.value = true
 }
 
 function addSpell() {
   if (!newSpell.value.name.trim()) return
-  const id = Date.now()
   sc.value.spells.push({
-    id,
+    id: Date.now(),
     name:     newSpell.value.name.trim(),
     level:    newSpell.value.level,
     school:   newSpell.value.school,
@@ -123,7 +139,6 @@ function removeSpell(id: number) {
   save()
 }
 
-// ── Prepared caster: toggle prepared slots ─────────────────────────
 function incPrepared(sp: SpellEntry) {
   const preparedAtLevel = sc.value.spells.filter(s => s.level === sp.level).reduce((a, s) => a + (s.prepared ?? 0), 0)
   if (preparedAtLevel >= totalSlots(sp.level)) return
@@ -136,7 +151,6 @@ function decPrepared(sp: SpellEntry) {
   save()
 }
 
-// ── Spells grouped by level ────────────────────────────────────────
 function spellsAtLevel(level: number): SpellEntry[] {
   return sc.value.spells.filter(s => s.level === level)
 }
@@ -147,7 +161,6 @@ const SCHOOL_COLORS: Record<string, string> = {
   Evoc: '#d07e6e', Illus: '#8ed0a8', Necro: '#a0a0a0', Trans: '#7ed0a0', Univ: '#c9a84c',
 }
 const schoolColor = (school: string) => SCHOOL_COLORS[school] ?? '#888'
-
 const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th']
 </script>
 
@@ -158,7 +171,27 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       Spells
     </h2>
 
-    <!-- ── Config ───────────────────────────────────────────────── -->
+    <!-- ── Class tabs ──────────────────────────────────────────────── -->
+    <div class="class-tabs">
+      <button
+        v-for="(block, i) in scBlocks" :key="i"
+        :class="['tab', { active: i === activeIdx }]"
+        @click="activeIdx = i; showAddForm = false"
+      >
+        {{ block.spellClass || 'New class' }}
+        <span
+          v-if="scBlocks.length > 1"
+          class="tab-close"
+          @click.stop="removeBlock(i)"
+          title="Remove this spellcasting class"
+        ><X :size="11" /></span>
+      </button>
+      <button class="tab tab-add" @click="addBlock" title="Add spellcasting class">
+        <Plus :size="13" />
+      </button>
+    </div>
+
+    <!-- ── Config ─────────────────────────────────────────────────── -->
     <div class="config-bar">
       <div class="config-field config-field--wide">
         <label>Spellcasting class</label>
@@ -167,10 +200,8 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       <div class="config-field">
         <label>Type</label>
         <div class="toggle-group">
-          <button :class="['toggle-btn', { active: sc.type === 'prepared' }]"
-            @click="sc.type = 'prepared'; save()">Prepared</button>
-          <button :class="['toggle-btn', { active: sc.type === 'spontaneous' }]"
-            @click="sc.type = 'spontaneous'; save()">Spontaneous</button>
+          <button :class="['toggle-btn', { active: sc.type === 'prepared' }]"   @click="sc.type = 'prepared'; save()">Prepared</button>
+          <button :class="['toggle-btn', { active: sc.type === 'spontaneous' }]" @click="sc.type = 'spontaneous'; save()">Spontaneous</button>
         </div>
       </div>
       <div class="config-field">
@@ -193,7 +224,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       </div>
     </div>
 
-    <!-- ── Quick stats ───────────────────────────────────────────── -->
+    <!-- ── Quick stats ────────────────────────────────────────────── -->
     <div class="quick-stats">
       <div class="stat-chip">
         <span class="stat-chip-label">{{ sc.stat.toUpperCase() }} mod</span>
@@ -212,7 +243,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       </div>
     </div>
 
-    <!-- ── Slots table ───────────────────────────────────────────── -->
+    <!-- ── Slots table ────────────────────────────────────────────── -->
     <div class="section-header">
       <h3 class="section-label">Spells per day</h3>
       <button class="btn-reset" @click="resetDay" title="New day — reset all slots and prepared spells">
@@ -225,20 +256,19 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       <div v-for="lvl in [0,1,2,3,4,5,6,7,8,9]" :key="lvl" class="slot-row">
         <div class="slot-level">{{ LEVEL_NAMES[lvl] }}</div>
 
-        <!-- Base input -->
         <div class="slot-base">
           <label class="slot-sublabel">Base</label>
-          <input type="number" class="slot-input"
-            v-model.number="sc.slotsPerDay[lvl]" min="0" max="20" @change="save" />
+          <input
+            type="number" class="slot-input no-spin"
+            v-model.number="sc.slotsPerDay[lvl]" min="0" max="20" @change="save"
+          />
         </div>
 
-        <!-- Bonus (auto) -->
         <div class="slot-bonus" :class="{ 'slot-bonus--zero': bonusSlots(lvl) === 0 }">
           <label class="slot-sublabel">Bonus</label>
           <span class="slot-bonus-val">{{ bonusSlots(lvl) > 0 ? '+' + bonusSlots(lvl) : '—' }}</span>
         </div>
 
-        <!-- Dot tracker -->
         <div class="slot-tracker">
           <label class="slot-sublabel">Used</label>
           <div class="dots">
@@ -257,7 +287,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       </div>
     </div>
 
-    <!-- ── Spell list ────────────────────────────────────────────── -->
+    <!-- ── Spell list ─────────────────────────────────────────────── -->
     <div class="section-header" style="margin-top: 1.75rem">
       <h3 class="section-label">Spell list</h3>
       <button class="btn-add" @click="openAddForm()">
@@ -265,7 +295,6 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       </button>
     </div>
 
-    <!-- Add spell form -->
     <div v-if="showAddForm" class="add-form">
       <div class="add-form-row">
         <div class="add-field add-field--wide">
@@ -295,7 +324,6 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       </div>
     </div>
 
-    <!-- Spells by level -->
     <template v-if="sc.spells.length > 0">
       <div v-for="lvl in [...new Set(sc.spells.map(s => s.level))].sort((a,b)=>a-b)" :key="lvl" class="level-group">
         <div class="level-group-header">
@@ -308,23 +336,14 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 
         <div class="spell-list">
           <div v-for="sp in spellsAtLevel(lvl)" :key="sp.id" class="spell-row">
-
-            <!-- School dot -->
-            <span class="school-dot" :style="{ background: schoolColor(sp.school) }"
-              :title="sp.school || 'No school'" />
-
-            <!-- Name + notes -->
+            <span class="school-dot" :style="{ background: schoolColor(sp.school) }" :title="sp.school || 'No school'" />
             <div class="spell-info">
               <span class="spell-name">{{ sp.name }}</span>
               <span v-if="sp.notes" class="spell-notes">{{ sp.notes }}</span>
             </div>
-
-            <!-- School chip -->
             <span v-if="sp.school" class="school-chip" :style="{ color: schoolColor(sp.school), borderColor: schoolColor(sp.school) + '44' }">
               {{ sp.school }}
             </span>
-
-            <!-- Prepared tracker (prepared casters only) -->
             <template v-if="sc.type === 'prepared'">
               <div class="prepared-tracker" :title="`${sp.prepared} prepared`">
                 <button class="prep-btn" @click="decPrepared(sp)" :disabled="!sp.prepared">−</button>
@@ -333,7 +352,6 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
                 <span class="prep-label">prep</span>
               </div>
             </template>
-
             <button class="btn-remove" @click="removeSpell(sp.id)" title="Remove spell">
               <Trash2 :size="12" />
             </button>
@@ -350,7 +368,6 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       </button>
     </div>
 
-    <!-- Legend -->
     <div class="legend">
       <Info :size="11" />
       <span>Bonus slots auto-calculated from {{ sc.stat.toUpperCase() }} modifier (D&amp;D 3.5 SRD). Click dots to track usage. Click a used dot to recover.</span>
@@ -372,6 +389,55 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
   margin: 0;
 }
 
+/* ── Class tabs ────────────────────────────────────────────────── */
+.class-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.tab:hover { color: var(--text-primary); border-color: var(--gold-border); }
+.tab.active {
+  background: rgba(201,168,76,0.10);
+  border-color: var(--gold-border);
+  border-bottom-color: transparent;
+  color: var(--gold);
+  margin-bottom: -1px;
+}
+.tab-close {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  border-radius: 50%;
+  padding: 1px;
+  transition: color var(--transition);
+}
+.tab-close:hover { color: var(--red-light, #e87070); }
+.tab-add {
+  background: transparent;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  padding: 0.3rem 0.5rem;
+}
+.tab-add:hover { border-color: var(--gold-border); color: var(--gold); }
+
 /* ── Config bar ────────────────────────────────────────────────── */
 .config-bar {
   display: flex;
@@ -384,11 +450,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
   padding: 0.9rem 1rem;
 }
 
-.config-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
+.config-field { display: flex; flex-direction: column; gap: 0.3rem; }
 .config-field--wide { flex: 1; min-width: 140px; }
 .config-field--sm   { width: 70px; }
 
@@ -433,12 +495,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 }
 
 /* ── Quick stats ───────────────────────────────────────────────── */
-.quick-stats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.65rem;
-}
+.quick-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 0.65rem; }
 
 .stat-chip {
   display: flex;
@@ -452,12 +509,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 .stat-chip-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
 .stat-chip-value { font-size: 1rem; font-weight: 700; color: var(--gold); }
 
-.dc-row {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  flex-wrap: wrap;
-}
+.dc-row { display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
 .dc-label { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 0.2rem; }
 .dc-chip {
   display: flex;
@@ -473,12 +525,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 .dc-val { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
 
 /* ── Section header ────────────────────────────────────────────── */
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
+.section-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .section-label {
   font-size: 0.72rem;
   font-weight: 700;
@@ -541,11 +588,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 .slot-row:last-child { border-bottom: none; }
 .slot-row:hover { background: rgba(255,255,255,0.02); }
 
-.slot-level {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
+.slot-level { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
 
 .slot-sublabel {
   display: block;
@@ -571,25 +614,19 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 }
 .slot-input:focus { border-color: var(--gold-border); }
 
+/* Quitar flechas del input numérico */
+.no-spin::-webkit-inner-spin-button,
+.no-spin::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.no-spin { -moz-appearance: textfield; appearance: textfield; }
+
 .slot-bonus { display: flex; flex-direction: column; }
-.slot-bonus-val {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--gold);
-}
+.slot-bonus-val { font-size: 0.85rem; font-weight: 600; color: var(--gold); }
 .slot-bonus--zero .slot-bonus-val { color: var(--text-muted); font-weight: 400; }
 
 .slot-tracker { display: flex; flex-direction: column; }
-.dots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-  min-height: 20px;
-}
+.dots { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-height: 20px; }
 .dot {
-  width: 14px;
-  height: 14px;
+  width: 14px; height: 14px;
   border-radius: 50%;
   border: 1.5px solid var(--gold-border);
   background: transparent;
@@ -603,12 +640,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 .dot--used:hover { background: rgba(201,168,76,0.5); }
 .no-slots { font-size: 0.75rem; color: var(--text-muted); }
 
-.slot-remaining {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-align: right;
-}
+.slot-remaining { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-align: right; }
 .remaining--empty { color: var(--red-light); }
 
 /* ── Add form ──────────────────────────────────────────────────── */
@@ -668,21 +700,8 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 
 /* ── Level groups ──────────────────────────────────────────────── */
 .level-group { display: flex; flex-direction: column; gap: 0.3rem; }
-
-.level-group-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.3rem 0;
-  border-bottom: 1px solid var(--border);
-}
-.level-group-name {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-secondary);
-}
+.level-group-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
+.level-group-name { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-secondary); }
 .level-group-dc {
   font-size: 0.68rem;
   color: var(--text-muted);
@@ -717,35 +736,11 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 .spell-row:last-child { border-bottom: none; }
 .spell-row:hover { background: rgba(255,255,255,0.02); border-radius: var(--radius-sm); }
 
-.school-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  opacity: 0.8;
-}
+.school-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; opacity: 0.8; }
 
-.spell-info {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-.spell-name {
-  font-size: 0.85rem;
-  color: var(--text-primary);
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.spell-notes {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.spell-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.spell-name { font-size: 0.85rem; color: var(--text-primary); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.spell-notes { font-size: 0.72rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .school-chip {
   font-size: 0.65rem;
@@ -758,18 +753,10 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 }
 
 /* ── Prepared tracker ──────────────────────────────────────────── */
-.prepared-tracker {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex-shrink: 0;
-}
+.prepared-tracker { display: flex; align-items: center; gap: 0.25rem; flex-shrink: 0; }
 .prep-btn {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 20px; height: 20px;
+  display: flex; align-items: center; justify-content: center;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -782,13 +769,7 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
 }
 .prep-btn:hover:not(:disabled) { border-color: var(--gold-border); color: var(--gold); }
 .prep-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-.prep-count {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  min-width: 16px;
-  text-align: center;
-}
+.prep-count { font-size: 0.82rem; font-weight: 700; color: var(--text-primary); min-width: 16px; text-align: center; }
 .prep-label { font-size: 0.62rem; color: var(--text-muted); }
 
 .btn-remove {

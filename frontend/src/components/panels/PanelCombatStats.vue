@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, watch, ref } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import type { AbilityScores } from '@/types/character'
 import {
@@ -7,8 +7,8 @@ import {
   filterToTouch,
   filterToFlat,
   AC_BONUS_TYPES,
+  bonusTypeLabel,
 } from '@/composables/useBonusCalc'
-import BonusBreakdown from '@/components/BonusBreakdown.vue'
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
@@ -23,15 +23,51 @@ const acStatMod = computed(() => {
   return mod(char.value.stats?.[stat] ?? 10)
 })
 
+// Combina bonuses permanentes (breakdowns) + temporales (acQuick) para cálculo
+const allAcBonuses = computed(() => [
+  ...(char.value.bonuses?.ac ?? []),
+  ...(char.value.bonuses?.acQuick ?? []),
+])
+
 const acNormal = computed(() =>
-  10 + acStatMod.value + calculateApplicableBonuses(char.value.bonuses?.ac ?? [])
+  10 + acStatMod.value + calculateApplicableBonuses(allAcBonuses.value)
 )
 const acTouch = computed(() =>
-  10 + acStatMod.value + calculateApplicableBonuses(filterToTouch(char.value.bonuses?.ac ?? []))
+  10 + acStatMod.value + calculateApplicableBonuses(filterToTouch(allAcBonuses.value))
 )
 const acFlat = computed(() =>
-  10 + calculateApplicableBonuses(filterToFlat(char.value.bonuses?.ac ?? []))
+  10 + calculateApplicableBonuses(filterToFlat(allAcBonuses.value))
 )
+
+// ── AC Temp bonuses ───────────────────────────────────────────────────────────
+const addingAcQuick = ref(false)
+const newAcQuick = ref({ n: '', v: 2, t: 'dodge' })
+
+function addAcQuick() {
+  if (!newAcQuick.value.n.trim()) return
+  if (!char.value.bonuses.acQuick) char.value.bonuses.acQuick = []
+  char.value.bonuses.acQuick.push({
+    n: newAcQuick.value.n.trim(),
+    v: newAcQuick.value.v,
+    t: newAcQuick.value.t,
+    activable: true,
+    active: true,
+  })
+  newAcQuick.value = { n: '', v: 2, t: 'dodge' }
+  addingAcQuick.value = false
+  save()
+}
+
+function toggleAcQuick(i: number) {
+  const b = char.value.bonuses.acQuick![i]
+  b.active = !b.active
+  save()
+}
+
+function removeAcQuick(i: number) {
+  char.value.bonuses.acQuick!.splice(i, 1)
+  save()
+}
 
 // Mantener char.ac sincronizado con el valor calculado
 watch(acNormal, v => { char.value.ac = v })
@@ -136,15 +172,39 @@ function applyDamage(delta: number) {
           <span class="computed-note">{{ fmt(acStatMod) }}</span>
         </div>
 
-        <!-- Desglose de bonificadores -->
-        <details class="breakdown-wrap">
-          <summary class="breakdown-toggle">AC Bonuses</summary>
-          <BonusBreakdown
-            :bonuses="char.bonuses.ac"
-            :bonus-types="AC_BONUS_TYPES"
-            @change="save"
-          />
-        </details>
+        <!-- Temp bonuses (in-session) -->
+        <div class="temp-section">
+          <div class="temp-header">
+            <span class="temp-label">Temp Bonuses</span>
+            <button class="btn-add-temp" @click="addingAcQuick = !addingAcQuick">
+              {{ addingAcQuick ? '✕ Cancel' : '+ Add' }}
+            </button>
+          </div>
+
+          <div
+            v-for="(b, i) in (char.bonuses.acQuick ?? [])" :key="i"
+            class="quick-row" :class="{ inactive: b.active === false }"
+          >
+            <button class="quick-toggle" @click="toggleAcQuick(i)" :title="b.active !== false ? 'Deactivate' : 'Activate'">
+              {{ b.active !== false ? '●' : '○' }}
+            </button>
+            <span class="quick-name">{{ b.n }}</span>
+            <span class="quick-val">{{ b.v >= 0 ? '+' : '' }}{{ b.v }}</span>
+            <span class="quick-type">{{ bonusTypeLabel(b.t) }}</span>
+            <button class="quick-del" @click="removeAcQuick(i)" title="Remove">✕</button>
+          </div>
+
+          <div v-if="addingAcQuick" class="quick-add-form">
+            <input v-model="newAcQuick.n" placeholder="Source (e.g. Shield of Faith)" class="qa-input" @keydown.enter="addAcQuick" />
+            <input type="number" v-model.number="newAcQuick.v" class="qa-val" @keydown.enter="addAcQuick" />
+            <select v-model="newAcQuick.t" class="qa-type">
+              <option v-for="t in AC_BONUS_TYPES" :key="t" :value="t">{{ bonusTypeLabel(t) }}</option>
+            </select>
+            <button class="btn-confirm-add" @click="addAcQuick">Add</button>
+          </div>
+        </div>
+
+        <p class="ac-note">Permanent bonuses (armor, feats…) → Breakdowns panel › AC tab.</p>
       </div>
 
       <!-- Iniciativa Block -->
@@ -408,28 +468,116 @@ function applyDamage(delta: number) {
   color: var(--text-muted);
 }
 
-/* ── Desglose colapsable ── */
-.breakdown-wrap {
-  margin-top: 0.2rem;
+/* ── AC Temp bonuses ── */
+.temp-section {
   border-top: 1px dashed var(--border);
-  padding-top: 0.35rem;
+  padding-top: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
-.breakdown-toggle {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--gold-dim);
-  cursor: pointer;
+.temp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.temp-label {
+  font-size: 0.62rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  list-style: none;
-  outline: none;
-  user-select: none;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
 }
-.breakdown-toggle::-webkit-details-marker { display: none; }
-.breakdown-toggle::before { content: '▶ '; font-size: 0.55rem; }
-details[open] .breakdown-toggle::before { content: '▼ '; }
-
-details[open] > .breakdown-toggle { margin-bottom: 0.35rem; }
+.btn-add-temp {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--gold-dim);
+  font-family: inherit;
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-add-temp:hover { border-color: var(--gold-dim); color: var(--gold-light); }
+.quick-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+}
+.quick-row.inactive { opacity: 0.45; }
+.quick-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--gold);
+  font-size: 0.6rem;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.quick-name { flex: 1; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quick-val { font-weight: 700; color: var(--text-primary); min-width: 24px; text-align: right; flex-shrink: 0; }
+.quick-type { font-size: 0.6rem; color: var(--text-muted); flex-shrink: 0; }
+.quick-del {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color var(--transition);
+}
+.quick-del:hover { color: var(--red-light, #e87070); }
+.quick-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.qa-input, .qa-val, .qa-type {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.4rem;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.qa-input::placeholder { color: var(--text-muted); opacity: 0.55; }
+.qa-input:focus, .qa-val:focus, .qa-type:focus { border-color: var(--gold-dim); }
+.qa-val { width: 70px; }
+.btn-confirm-add {
+  background: rgba(201,168,76,0.12);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-sm);
+  color: var(--gold-light);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.28rem 0.5rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  align-self: flex-end;
+}
+.btn-confirm-add:hover { background: rgba(201,168,76,0.22); }
+.ac-note {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0;
+  padding-top: 0.2rem;
+}
 
 @media (max-width: 600px) {
   .combat-grid { grid-template-columns: 1fr 1fr; }
