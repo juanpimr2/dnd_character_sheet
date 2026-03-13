@@ -42,20 +42,35 @@ function iconFor(entity: WorldEntity): string {
   if (entity.kind === 'city') return '/map-icons/city.png'
   if (entity.kind === 'npc') {
     const n = entity.name.toLowerCase()
-    if (/mage|wizard|mago|brujo|hechicero|sorcerer|witch|arcanist/.test(n)) return '/map-icons/loc-temple.png'
-    if (/priest|cleric|sacerdote|healer|cura|padre|bishop/.test(n))         return '/map-icons/loc-temple.png'
-    if (/rogue|thief|assassin|ladr[oó]n|asesino|spy|smuggler/.test(n))      return '/map-icons/loc-ruins.png'
-    if (/pirate|captain|smuggler|sailor|pirata|marino/.test(n))             return '/map-icons/loc-port.png'
-    return '/map-icons/loc-tower.png'  // noble/lord/warrior/generic character
+    // Mages → wizard's tower (iconic D&D trope, NOT temple)
+    if (/mage|wizard|mago|brujo|hechicero|sorcerer|witch|arcanist|arcano/.test(n)) return '/map-icons/loc-tower.png'
+    // Priests/clerics → temple (they minister in temples)
+    if (/priest|cleric|sacerdote|healer|cura|padre|bishop|ob[i]spo|monje|monk/.test(n)) return '/map-icons/loc-temple.png'
+    // Rogues/assassins → ruins (operate in shadows)
+    if (/rogue|thief|assassin|ladr[oó]n|asesino|spy|esp[ií]a|smuggler|contrab/.test(n)) return '/map-icons/loc-ruins.png'
+    // Sailors/pirates → port
+    if (/pirate|captain|sailor|pirata|marino|capit[aá]n|navegante/.test(n)) return '/map-icons/loc-port.png'
+    // Nobles/lords → city/castle (seat of power)
+    if (/lord|noble|king|queen|duke|count|rey|reina|duque|conde|baron|bar[oó]n|prince|princess/.test(n)) return '/map-icons/city.png'
+    // Merchants/innkeepers → tavern (commerce/trade)
+    if (/merchant|trader|inn|keeper|tendero|mercader|comerciante|tabernero/.test(n)) return '/map-icons/loc-tavern.png'
+    // Generic NPC: neutral location pin (doesn't imply any building)
+    return '/map-icons/location.png'
   }
   if (entity.kind === 'faction') {
     const n = entity.name.toLowerCase()
-    if (/guild|gremio|commerce|comercio|merchant|trade|merced/.test(n)) return '/map-icons/loc-tavern.png'
-    if (/church|iglesia|holy|sagrado|order|orden|religion|cult/.test(n)) return '/map-icons/loc-temple.png'
-    if (/army|militar|guard|guardia|legión|legion|soldiers/.test(n))     return '/map-icons/loc-tower.png'
-    if (/house|casa|noble|dynasty|familia|family/.test(n))               return '/map-icons/city.png'
-    if (/thieves|thiefs|ladr|shadows|shadow|dark|oscuro/.test(n))        return '/map-icons/loc-ruins.png'
-    return '/map-icons/loc-temple.png'  // default: organized group/order
+    // Religious orders → temple
+    if (/church|iglesia|holy|sagrado|orden|religion|cult|fe |faith|templo|dios|god/.test(n)) return '/map-icons/loc-temple.png'
+    // Trade/commerce → tavern (market, trading post)
+    if (/guild|gremio|commerce|comercio|merchant|trade|asamblea|assembly|market|mercado/.test(n)) return '/map-icons/loc-tavern.png'
+    // Military/guards → tower (fortress, barracks)
+    if (/army|ejér|militar|guard|guardia|legi[oó]n|soldier|soldado|fuerza/.test(n)) return '/map-icons/loc-tower.png'
+    // Noble houses/dynasties → city (castle, coat of arms)
+    if (/house|casa|noble|dynasty|familia|family|clan|linaje/.test(n)) return '/map-icons/city.png'
+    // Thieves/shadow guilds → ruins
+    if (/thiev|ladr|shadow|sombra|dark|oscur|secre|underground|subterr/.test(n)) return '/map-icons/loc-ruins.png'
+    // Generic faction: tower (any organization = power structure)
+    return '/map-icons/loc-tower.png'
   }
   // kind === 'location'
   const n = entity.name.toLowerCase()
@@ -80,19 +95,20 @@ function recommendedForKind(kind: EntityKind) {
       { icon: '/map-icons/loc-temple.png',label: 'Capital' },
     ]
     case 'npc':      return [
-      { icon: '/map-icons/loc-tower.png',    label: 'Noble/Warrior' },
-      { icon: '/map-icons/loc-temple.png',   label: 'Priest/Mage' },
-      { icon: '/map-icons/loc-tavern.png',   label: 'Commoner' },
-      { icon: '/map-icons/loc-ruins.png',    label: 'Rogue' },
-      { icon: '/map-icons/loc-port.png',     label: 'Sailor' },
-      { icon: '/map-icons/loc-cave.png',     label: 'Outlaw' },
+      { icon: '/map-icons/location.png',     label: 'Generic NPC'   },
+      { icon: '/map-icons/loc-tower.png',    label: 'Mage / Warrior'},
+      { icon: '/map-icons/loc-temple.png',   label: 'Priest/Cleric' },
+      { icon: '/map-icons/city.png',         label: 'Noble / Lord'  },
+      { icon: '/map-icons/loc-tavern.png',   label: 'Merchant'      },
+      { icon: '/map-icons/loc-ruins.png',    label: 'Rogue/Spy'     },
+      { icon: '/map-icons/loc-port.png',     label: 'Sailor/Pirate' },
     ]
     case 'faction':  return [
-      { icon: '/map-icons/loc-temple.png',   label: 'Order/Cult' },
-      { icon: '/map-icons/loc-tower.png',    label: 'Guild/Army' },
-      { icon: '/map-icons/loc-tavern.png',   label: 'Trade' },
-      { icon: '/map-icons/city.png',         label: 'Noble House' },
-      { icon: '/map-icons/loc-ruins.png',    label: 'Thieves' },
+      { icon: '/map-icons/loc-tower.png',    label: 'Guild / Org'   },
+      { icon: '/map-icons/loc-temple.png',   label: 'Religious Order'},
+      { icon: '/map-icons/loc-tavern.png',   label: 'Trade Assembly'},
+      { icon: '/map-icons/city.png',         label: 'Noble House'   },
+      { icon: '/map-icons/loc-ruins.png',    label: 'Thieves Guild' },
     ]
     case 'location': return PALETTE_TERRAIN
     default:         return ALL_ICONS
