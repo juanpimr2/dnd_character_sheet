@@ -157,6 +157,7 @@ export interface WorldLore {
   decorations?: MapDecoration[]
   lastAnalysis?: string  // ISO timestamp of last AI analysis
   lastManualAnalysis?: string  // ISO timestamp of last manual-triggered analysis
+  mapBg?: string         // URL of custom map background image
 }
 
 /** Estado completo del personaje (mapeado desde el JSON del backend) */

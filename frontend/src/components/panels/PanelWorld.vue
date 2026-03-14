@@ -39,6 +39,7 @@ const PALETTE_CHARS = [
   { icon: GI('wizard-face'),          label: 'Mage'      },
   { icon: GI('ankh'),                 label: 'Priest'    },
   { icon: GI('battle-axe'),           label: 'Warrior'   },
+  { icon: GI('crossed-swords'),       label: 'Fighter'   },
   { icon: GI('hood'),                 label: 'Rogue'     },
   { icon: GI('crown'),                label: 'Noble'     },
   { icon: GI('coins'),                label: 'Merchant'  },
@@ -103,6 +104,7 @@ function recommendedForKind(kind: EntityKind) {
       { icon: GI('wizard-face'),         label: 'Mage/Wizard'   },
       { icon: GI('ankh'),                label: 'Priest/Cleric' },
       { icon: GI('battle-axe'),          label: 'Warrior'       },
+      { icon: GI('crossed-swords'),      label: 'Fighter'       },
       { icon: GI('hood'),                label: 'Rogue/Spy'     },
       { icon: GI('crown'),               label: 'Noble/Lord'    },
       { icon: GI('coins'),               label: 'Merchant'      },
@@ -215,7 +217,8 @@ const pendingIcon = ref<string | null>(null)
 
 function toggleEdit() {
   editMode.value = !editMode.value
-  if (!editMode.value) pendingIcon.value = null
+  if (!editMode.value) { pendingIcon.value = null }
+  else { mapBgInput.value = worldLore.value.mapBg ?? '' }
 }
 function selectPalette(icon: string) {
   pendingIcon.value = pendingIcon.value === icon ? null : icon
@@ -409,6 +412,25 @@ function toggleKind(kind: EntityKind) {
   hiddenKinds.value = s
 }
 
+// ── Grid ──────────────────────────────────────────────────────────
+const showGrid = ref(false)
+const gridSize = ref<'fine' | 'normal' | 'coarse'>('normal')
+const GRID_SIZES = { fine: '5%', normal: '6.25%', coarse: '10%' } as const
+
+// ── Map background ────────────────────────────────────────────────
+const mapBgInput = ref('')
+function applyMapBg() {
+  const url = mapBgInput.value.trim()
+  if (!char.value) return
+  const wl = char.value.worldLore ??= { entities: [] }
+  wl.mapBg = url || undefined
+  charStore.scheduleAutoSave()
+}
+function clearMapBg() {
+  mapBgInput.value = ''
+  if (char.value?.worldLore) { char.value.worldLore.mapBg = undefined; charStore.scheduleAutoSave() }
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────
 const sidebarOpen = ref(true)
 
@@ -538,16 +560,40 @@ function fmtTime(iso?: string) {
         class="world-canvas"
         :class="{ 'edit-cursor': editMode && pendingIcon }"
       >
+        <!-- Custom map background image -->
+        <div
+          v-if="worldLore.mapBg"
+          class="map-bg"
+          :style="{ backgroundImage: `url('${worldLore.mapBg}')` }"
+        />
+
+        <!-- Grid overlay -->
+        <div
+          v-if="showGrid"
+          class="grid-overlay"
+          :style="{ backgroundSize: `${GRID_SIZES[gridSize]} ${GRID_SIZES[gridSize]}` }"
+        />
+
         <!-- Compass -->
         <img src="/map-icons/compass.png" class="map-compass" alt="" />
 
-        <!-- Kind visibility filters -->
+        <!-- Kind visibility filters + grid toggle -->
         <div class="map-filters">
           <button
             v-for="k in (['city','location','faction','npc'] as EntityKind[])" :key="k"
             class="filter-btn" :class="{ hidden: hiddenKinds.has(k) }"
             @click="toggleKind(k)" :title="hiddenKinds.has(k) ? `Show ${k}s` : `Hide ${k}s`"
           >{{ { city:'🏙', location:'📍', faction:'⚔️', npc:'👤' }[k] }}</button>
+          <!-- Grid toggle -->
+          <button class="filter-btn" :class="{ active: showGrid }" @click="showGrid = !showGrid" title="Toggle grid">▦</button>
+          <!-- Grid size (visible when grid is on) -->
+          <template v-if="showGrid">
+            <button
+              v-for="sz in (['fine','normal','coarse'] as const)" :key="sz"
+              class="filter-btn grid-sz" :class="{ active: gridSize === sz }"
+              @click="gridSize = sz" :title="`Grid: ${sz}`"
+            >{{ { fine:'S', normal:'M', coarse:'L' }[sz] }}</button>
+          </template>
         </div>
 
         <!-- Breadcrumb nav -->
@@ -680,6 +726,18 @@ function fmtTime(iso?: string) {
             </div>
             <div v-if="pendingIcon" class="toolbar-hint">Click map to place</div>
             <div v-else class="toolbar-hint">Select an icon above</div>
+            <!-- Map background section -->
+            <div class="toolbar-section-label" style="margin-top:.2rem">Map image</div>
+            <input
+              v-model="mapBgInput"
+              class="toolbar-bg-input"
+              type="url"
+              placeholder="Paste image URL…"
+              @blur="applyMapBg"
+              @keydown.enter.prevent="applyMapBg"
+            />
+            <div v-if="worldLore.mapBg" class="toolbar-hint" style="color:rgba(120,200,120,.7)">✓ Custom map active</div>
+            <button v-if="worldLore.mapBg" class="toolbar-clear-btn" @click="clearMapBg">✕ Remove map</button>
           </div>
         </Transition>
       </div>
@@ -924,6 +982,20 @@ function fmtTime(iso?: string) {
   box-shadow: inset 0 0 60px rgba(30,15,0,.25);
 }
 
+/* Custom map background */
+.map-bg {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+}
+
+/* Grid overlay */
+.grid-overlay {
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(80,50,10,.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(80,50,10,.16) 1px, transparent 1px);
+}
+
 /* Compass */
 .map-compass {
   position: absolute; bottom: .6rem; right: .7rem;
@@ -945,6 +1017,8 @@ function fmtTime(iso?: string) {
 }
 .filter-btn:hover { border-color: rgba(201,168,76,.5); background: rgba(14,8,2,.85); }
 .filter-btn.hidden { opacity: .35; filter: grayscale(1); border-style: dashed; }
+.filter-btn.active { border-color: rgba(201,168,76,.7); background: rgba(201,168,76,.18); color: rgba(201,168,76,.95); }
+.grid-sz { font-size: .6rem; font-weight: 700; color: rgba(201,168,76,.7); font-family: inherit; letter-spacing: .02em; }
 
 /* Breadcrumb nav */
 .map-nav {
@@ -1066,6 +1140,24 @@ function fmtTime(iso?: string) {
 .palette-btn.active .palette-img { filter: none; }
 .palette-btn:hover .palette-img { filter: none; }
 .toolbar-hint { font-size: .6rem; color: rgba(201,168,76,.6); text-align: center; line-height: 1.3; padding: .1rem 0; }
+
+.toolbar-bg-input {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.15);
+  border-radius: var(--radius-sm); color: rgba(220,200,160,.9);
+  font-family: inherit; font-size: .62rem; padding: .25rem .35rem;
+  outline: none; transition: border-color var(--transition);
+}
+.toolbar-bg-input::placeholder { color: rgba(201,168,76,.35); }
+.toolbar-bg-input:focus { border-color: rgba(201,168,76,.5); }
+
+.toolbar-clear-btn {
+  font-size: .6rem; padding: .18rem .4rem; background: transparent;
+  border: 1px solid rgba(220,80,80,.35); border-radius: var(--radius-sm);
+  color: rgba(220,100,100,.7); cursor: pointer; font-family: inherit;
+  transition: all var(--transition); width: 100%;
+}
+.toolbar-clear-btn:hover { border-color: rgba(220,80,80,.7); color: rgba(220,100,100,1); background: rgba(220,80,80,.08); }
 
 /* Toolbar transition */
 .toolbar-enter-active { transition: opacity .2s ease, transform .2s ease; }
