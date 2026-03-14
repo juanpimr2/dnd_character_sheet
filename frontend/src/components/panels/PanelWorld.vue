@@ -129,9 +129,10 @@ const navStack = ref<WorldEntity[]>([])
 const currentParent = computed<WorldEntity | null>(() => navStack.value[navStack.value.length - 1] ?? null)
 
 const visibleNodes = computed<WorldEntity[]>(() => {
-  if (!currentParent.value) return entities.value.filter(e => !e.parent)
+  const kindOk = (e: WorldEntity) => !hiddenKinds.value.has(e.kind)
+  if (!currentParent.value) return entities.value.filter(e => !e.parent && kindOk(e))
   const pn = norm(currentParent.value.name)
-  return entities.value.filter(e => e.parent && norm(e.parent) === pn)
+  return entities.value.filter(e => e.parent && norm(e.parent) === pn && kindOk(e))
 })
 
 function childrenOf(entity: WorldEntity): WorldEntity[] {
@@ -400,6 +401,14 @@ function toggleFlag(entity: WorldEntity, type: LoreFlag['type']) {
 }
 function hasFlag(entity: WorldEntity, type: LoreFlag['type']) { return entity.flags?.some(f => f.type === type) ?? false }
 
+// ── Kind visibility filter ────────────────────────────────────────
+const hiddenKinds = ref<Set<EntityKind>>(new Set())
+function toggleKind(kind: EntityKind) {
+  const s = new Set(hiddenKinds.value)
+  s.has(kind) ? s.delete(kind) : s.add(kind)
+  hiddenKinds.value = s
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────
 const sidebarOpen = ref(true)
 
@@ -532,6 +541,15 @@ function fmtTime(iso?: string) {
         <!-- Compass -->
         <img src="/map-icons/compass.png" class="map-compass" alt="" />
 
+        <!-- Kind visibility filters -->
+        <div class="map-filters">
+          <button
+            v-for="k in (['city','location','faction','npc'] as EntityKind[])" :key="k"
+            class="filter-btn" :class="{ hidden: hiddenKinds.has(k) }"
+            @click="toggleKind(k)" :title="hiddenKinds.has(k) ? `Show ${k}s` : `Hide ${k}s`"
+          >{{ { city:'🏙', location:'📍', faction:'⚔️', npc:'👤' }[k] }}</button>
+        </div>
+
         <!-- Breadcrumb nav -->
         <div class="map-nav">
           <button class="btn-crumb" @click="drillToDepth(0)">World</button>
@@ -551,7 +569,7 @@ function fmtTime(iso?: string) {
           @mousedown="startDragDeco($event, deco)"
         >
           <img :src="deco.icon" class="deco-img" :alt="deco.icon" />
-          <button v-if="editMode" class="deco-del" @click.stop="deleteDecoration(deco.id)"><X :size="9" /></button>
+          <button v-if="editMode" class="deco-del" @mousedown.stop @click.stop="deleteDecoration(deco.id)"><X :size="9" /></button>
         </div>
 
         <!-- ══ WORLD VIEW ══ -->
@@ -705,15 +723,22 @@ function fmtTime(iso?: string) {
 
         <!-- Parent assignment -->
         <div class="detail-section">
-          <div class="section-label">Belongs to</div>
+          <div class="section-label">
+            Belongs to
+            <span v-if="detail.kind === 'npc' && !detail.parent" class="parent-warn" title="NPCs without a parent appear on the root map and can clutter it. Assign a location or city.">⚠ unassigned</span>
+          </div>
           <select
             :value="detail.parent ?? ''"
             @change="assignParent(($event.target as HTMLSelectElement).value)"
             class="parent-select"
+            :class="{ 'parent-warn-select': detail.kind === 'npc' && !detail.parent }"
           >
-            <option value="">— top-level —</option>
+            <option value="">— top-level (no parent) —</option>
             <option v-for="opt in parentOptions" :key="opt.id" :value="opt.name">{{ opt.name }}</option>
           </select>
+          <div v-if="detail.parent" class="parent-current">
+            📍 {{ detail.parent }}
+          </div>
         </div>
 
         <!-- Icon override — always visible, organized by kind -->
@@ -906,6 +931,21 @@ function fmtTime(iso?: string) {
   z-index: 5; opacity: .75; pointer-events: none;
 }
 
+/* Kind visibility filters */
+.map-filters {
+  position: absolute; bottom: .6rem; left: .6rem;
+  display: flex; gap: .25rem; z-index: 7;
+}
+.filter-btn {
+  width: 26px; height: 26px; border-radius: var(--radius-sm);
+  background: rgba(14,8,2,.7); border: 1px solid rgba(60,30,5,.3);
+  font-size: .85rem; cursor: pointer; transition: all var(--transition);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.filter-btn:hover { border-color: rgba(201,168,76,.5); background: rgba(14,8,2,.85); }
+.filter-btn.hidden { opacity: .35; filter: grayscale(1); border-style: dashed; }
+
 /* Breadcrumb nav */
 .map-nav {
   position: absolute; top: .55rem; left: 50%; transform: translateX(-50%);
@@ -924,10 +964,10 @@ function fmtTime(iso?: string) {
   color: rgba(60,30,5,.75); text-shadow: 0 1px 3px rgba(240,220,170,.8);
 }
 
-/* Decorations */
+/* Decorations — z-index 6 = above map-layer (4) so clicks reach them */
 .deco-wrap {
   position: absolute; transform: translate(-50%, -50%);
-  z-index: 3; pointer-events: auto;
+  z-index: 6; pointer-events: auto;
 }
 .deco-wrap.draggable { cursor: grab; }
 .deco-wrap.draggable:active { cursor: grabbing; }
@@ -1080,6 +1120,16 @@ function fmtTime(iso?: string) {
   padding: .18rem .35rem; cursor: pointer; width: 100%;
 }
 .parent-select:focus { outline: none; border-color: var(--gold-dim); }
+.parent-select.parent-warn-select { border-color: rgba(200,140,30,.5); }
+.parent-warn {
+  font-size: .6rem; color: rgba(200,140,30,.9); font-weight: 600;
+  text-transform: none; letter-spacing: 0; margin-left: .3rem;
+}
+.parent-current {
+  font-size: .65rem; color: var(--gold-dim);
+  padding: .15rem .3rem; background: rgba(201,168,76,.06);
+  border-radius: var(--radius-sm); border: 1px solid var(--gold-border);
+}
 
 /* Icon override picker */
 .icon-pick-grid { display: flex; flex-wrap: wrap; gap: .22rem; }

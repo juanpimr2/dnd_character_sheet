@@ -35,6 +35,15 @@ const ABILITIES: { key: keyof AbilityScores; label: string; abbr: string }[] = [
   { key: 'cha', label: 'Charisma',     abbr: 'CHA' },
 ]
 
+// Banner: show when character is fresh (all stats at 10, no breakdowns set)
+const isNewCharacter = computed(() => {
+  const stats = char.value.stats
+  const bds   = char.value.abilityBreakdowns
+  const allDefault = ABILITIES.every(ab => (stats[ab.key] ?? 10) === 10)
+  const noBreakdowns = ABILITIES.every(ab => !(bds?.[ab.key]?.length))
+  return allDefault && noBreakdowns
+})
+
 // Tooltip toggle
 const openTooltip = ref<keyof AbilityScores | null>(null)
 
@@ -52,6 +61,19 @@ onUnmounted(() => document.removeEventListener('click', closeTooltips))
 <template>
   <section v-if="char" class="panel">
     <h2 class="panel-title">Ability Scores</h2>
+
+    <!-- New character banner -->
+    <Transition name="banner">
+      <div v-if="isNewCharacter" class="new-char-banner">
+        <span class="banner-icon">🎲</span>
+        <span class="banner-text">
+          New character? Set your ability scores in
+          <button class="banner-link" @click="emit('goToBreakdowns')">Breakdowns → Ability Scores</button>
+          to track racial bonuses, items and level-ups automatically.
+        </span>
+      </div>
+    </Transition>
+
     <div class="ability-grid">
       <div v-for="ab in ABILITIES" :key="ab.key" class="ability-box" :class="{ locked: hasBreakdown(ab.key) }" :title="ab.label">
         <div class="ab-label">{{ ab.abbr }}</div>
@@ -200,6 +222,46 @@ section.panel { overflow: visible; }
   transition: color var(--transition);
 }
 .tooltip-link:hover { color: var(--gold); }
+
+/* ── New character banner ── */
+.new-char-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.75rem;
+  background: linear-gradient(135deg, rgba(136,85,208,0.12), rgba(201,168,76,0.08));
+  border: 1px solid var(--gold-border);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.banner-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.banner-text { flex: 1; }
+.banner-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--gold-light);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition);
+}
+.banner-link:hover { color: var(--gold-bright); }
+
+.banner-enter-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.banner-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
+.banner-enter-from   { opacity: 0; transform: translateY(-6px); }
+.banner-leave-to     { opacity: 0; transform: translateY(-6px); }
 
 @media (max-width: 500px) {
   .ability-grid { grid-template-columns: repeat(3, 1fr); }
