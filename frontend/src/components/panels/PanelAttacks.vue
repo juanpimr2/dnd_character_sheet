@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import { calculateApplicableBonuses } from '@/composables/useBonusCalc'
 import type { AttackEntry, AttackRole } from '@/types/character'
+import InfoTip from '@/components/InfoTip.vue'
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
@@ -103,9 +104,26 @@ const fullAttackSummary = computed(() => {
 function addAttack() {
   char.value.attacks.push({
     weapon: '', role: 'primary', stat: 'str', enhancement: 0,
-    bonus: '', damage: '', crit: '20/×2', type: '', notes: '',
+    bonus: '', damage: '', crit: '', critRange: 20, critMult: 2,
+    range: 'melee', type: '', notes: '',
   })
   save()
+}
+
+function onRangeChange(atk: AttackEntry) {
+  // Only suggest default stat — don't overwrite if user already changed it
+  if (atk.range === 'ranged' && !atk.stat) atk.stat = 'dex'
+  if (atk.range === 'melee'  && !atk.stat) atk.stat = 'str'
+  save()
+}
+
+function fmtCrit(atk: AttackEntry): string {
+  if (atk.critRange != null || atk.critMult != null) {
+    const r = atk.critRange ?? 20
+    const m = atk.critMult  ?? 2
+    return (r < 20 ? `${r}–20` : '20') + `/×${m}`
+  }
+  return atk.crit || '20/×2'
 }
 
 function removeAttack(i: number) {
@@ -137,7 +155,16 @@ const TWF_LABELS = [
     <div class="panel-header">
       <h2 class="panel-title">Attacks</h2>
       <div class="header-controls">
-        <label class="twf-label">TWF</label>
+        <label class="twf-label">
+          TWF
+          <InfoTip title="Two-Weapon Fighting" wide>
+            When attacking with a weapon in each hand, both attacks suffer penalties.<br><br>
+            <strong>Without TWF feat:</strong> Primary −6 / Off-hand −10 (−4/−8 if off-hand is light).<br>
+            <strong>TWF feat:</strong> −2/−2 (light off-hand) or −4/−4.<br>
+            <strong>Improved TWF:</strong> adds a second off-hand attack at −5.<br>
+            <strong>Greater TWF:</strong> adds a third off-hand attack at −10.
+          </InfoTip>
+        </label>
         <select
           :value="char.twfFeat ?? 'none'"
           @change="char.twfFeat = ($event.target as HTMLSelectElement).value as any; save()"
@@ -157,28 +184,56 @@ const TWF_LABELS = [
 
         <!-- Row 1: config + calculated bonus -->
         <div class="atk-row1">
+          <!-- Melee / Ranged badge -->
+          <button
+            class="range-toggle"
+            :class="(atk.range ?? 'melee') === 'melee' ? 'melee' : 'ranged'"
+            @click="atk.range = (atk.range ?? 'melee') === 'melee' ? 'ranged' : 'melee'; onRangeChange(atk)"
+            :title="(atk.range ?? 'melee') === 'melee' ? 'Melee — click to switch to Ranged' : 'Ranged — click to switch to Melee'"
+          >{{ (atk.range ?? 'melee') === 'melee' ? '⚔' : '🏹' }}</button>
+
           <input
             type="text" v-model="atk.weapon" @change="save"
             placeholder="Weapon name" class="inp inp-weapon"
           />
 
-          <select v-model="atk.role" @change="save" class="inp inp-role">
-            <option v-for="(label, val) in ROLE_LABELS" :key="val" :value="val">
-              {{ label }}
-            </option>
-          </select>
+          <div class="role-wrap">
+            <select v-model="atk.role" @change="save" class="inp inp-role">
+              <option v-for="(label, val) in ROLE_LABELS" :key="val" :value="val">
+                {{ label }}
+              </option>
+            </select>
+            <InfoTip title="Attack role" wide>
+              <strong>Primary:</strong> main hand. Gets full iterative attacks (BAB 6 → +6/+1, etc.).<br>
+              <strong>Off-hand (light):</strong> light weapon in second hand — lower TWF penalty.<br>
+              <strong>Off-hand:</strong> non-light weapon in second hand — higher TWF penalty.<br>
+              <strong>Extra (haste…):</strong> bonus attack at highest BAB (Haste, Speed weapon, Flurry).<br>
+              <strong>Manual:</strong> enter the bonus string directly — no auto-calculation.
+            </InfoTip>
+          </div>
 
           <template v-if="(atk.role ?? 'manual') !== 'manual'">
-            <select v-model="atk.stat" @change="save" class="inp inp-stat">
-              <option value="str">STR</option>
-              <option value="dex">DEX</option>
-            </select>
+            <div class="stat-wrap">
+              <select v-model="atk.stat" @change="save" class="inp inp-stat">
+                <option value="str">STR</option>
+                <option value="dex">DEX</option>
+              </select>
+              <InfoTip title="Attack stat">
+                Stat used for the attack roll modifier.<br><br>
+                <strong>STR:</strong> melee weapons, thrown weapons, composite bows.<br>
+                <strong>DEX:</strong> ranged weapons (bow, crossbow, sling), or with Weapon Finesse feat for light melee weapons.
+              </InfoTip>
+            </div>
             <div class="enh-wrap">
               <span class="enh-prefix">+</span>
               <input
                 type="number" v-model.number="atk.enhancement" @change="save"
-                min="0" max="10" class="inp inp-enh" title="Enhancement bonus"
+                min="0" max="10" class="inp inp-enh"
               />
+              <InfoTip title="Enhancement bonus">
+                The magical +N of the weapon (e.g. a +2 sword has enhancement 2).<br><br>
+                Applies to both attack rolls and damage rolls. Does not stack with other enhancement bonuses on the same weapon.
+              </InfoTip>
             </div>
           </template>
           <template v-else>
@@ -211,12 +266,54 @@ const TWF_LABELS = [
         <div class="atk-row2">
           <label class="detail-label">Damage</label>
           <input type="text" v-model="atk.damage" @change="save" placeholder="1d8+STR" class="inp inp-detail" />
-          <label class="detail-label">Crit</label>
-          <input type="text" v-model="atk.crit"   @change="save" placeholder="20/×2"   class="inp inp-crit" />
-          <label class="detail-label">Type</label>
-          <input type="text" v-model="atk.type"   @change="save" placeholder="S/P/B"   class="inp inp-type" />
+
+          <!-- Crit: structured fields -->
+          <label class="detail-label">
+            Crit
+            <InfoTip title="Critical hits">
+              <strong>Threat range:</strong> the die result that threatens a critical (e.g. 19 means 19–20). Confirm with a second attack roll.<br><br>
+              <strong>Multiplier (×):</strong> damage is multiplied on a confirmed critical.<br>
+              ×2 = most weapons · ×3 = bows, axes · ×4 = scythes, some feats.<br><br>
+              Keen / Improved Critical doubles the threat range.
+            </InfoTip>
+          </label>
+          <div class="crit-wrap">
+            <input
+              type="number" min="15" max="20"
+              :value="atk.critRange ?? 20"
+              @change="atk.critRange = +($event.target as HTMLInputElement).value; save()"
+              class="inp inp-crit-range"
+            />
+            <span class="crit-sep">–20/×</span>
+            <input
+              type="number" min="2" max="5"
+              :value="atk.critMult ?? 2"
+              @change="atk.critMult = +($event.target as HTMLInputElement).value; save()"
+              class="inp inp-crit-mult"
+            />
+            <span class="crit-preview">{{ fmtCrit(atk) }}</span>
+          </div>
+
+          <label class="detail-label">
+            Dmg type
+            <InfoTip title="Damage type" wide>
+              The physical nature of the damage. Relevant when a creature has <strong>Damage Reduction (DR)</strong> that only applies to certain types.<br><br>
+              <strong>S</strong> — Slashing (swords, axes, claws)<br>
+              <strong>P</strong> — Piercing (arrows, spears, fangs)<br>
+              <strong>B</strong> — Bludgeoning (maces, hammers, fists)<br><br>
+              Some weapons deal more than one type (e.g. <em>S or P</em>). Write exactly what applies — it's used as a reference note, not calculated automatically.
+            </InfoTip>
+          </label>
+          <input type="text" v-model="atk.type" @change="save" placeholder="S / P / B" class="inp inp-type" />
+
+          <!-- Range increment — ranged only -->
+          <template v-if="(atk.range ?? 'melee') === 'ranged'">
+            <label class="detail-label">Range inc.</label>
+            <input type="text" v-model="atk.rangeInc" @change="save" placeholder="30 ft" class="inp inp-detail" />
+          </template>
+
           <label class="detail-label">Notes</label>
-          <input type="text" v-model="atk.notes"  @change="save" placeholder="Notes…"  class="inp inp-notes" />
+          <input type="text" v-model="atk.notes" @change="save" placeholder="Notes…" class="inp inp-notes" />
         </div>
 
       </div>
@@ -294,9 +391,56 @@ const TWF_LABELS = [
 }
 .inp:focus { border-color: var(--gold-dim); }
 
+/* ── Range toggle ── */
+.range-toggle {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.18rem 0.35rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  color: var(--text-muted);
+}
+.range-toggle.melee  { border-color: rgba(180, 80, 80, 0.4); }
+.range-toggle.ranged { border-color: rgba(80, 140, 200, 0.4); }
+.range-toggle:hover  { background: var(--bg-elevated); }
+
+/* ── Crit fields ── */
+.crit-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.crit-sep {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding: 0 1px;
+}
+.crit-preview {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--gold-dim);
+  white-space: nowrap;
+  margin-left: 4px;
+}
+.inp-crit-range { width: 42px; text-align: center; }
+.inp-crit-mult  { width: 36px; text-align: center; }
+
+.role-wrap,
+.stat-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
 .inp-weapon       { flex: 1 1 120px; min-width: 100px; }
-.inp-role         { flex: 0 0 auto; min-width: 130px; cursor: pointer; }
-.inp-stat         { flex: 0 0 auto; width: 72px; cursor: pointer; }
+.inp-role         { min-width: 130px; cursor: pointer; }
+.inp-stat         { width: 72px; cursor: pointer; }
 .enh-wrap         { display: flex; align-items: center; gap: 2px; }
 .enh-prefix       { font-size: 0.8rem; color: var(--text-muted); }
 .inp-enh          { width: 44px; text-align: center; }

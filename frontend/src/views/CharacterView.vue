@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue'
+import { onMounted, computed, ref, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore }      from '@/stores/auth'
 import { useCharacterStore } from '@/stores/characters'
@@ -33,6 +33,15 @@ const char        = computed(() => charStore.activeCharacter)
 
 type Tab = 'ficha' | 'habilidades' | 'combate' | 'equipo' | 'feats' | 'hechizos' | 'sesiones' | 'mundo' | 'desgloces'
 const activeTab = ref<Tab>('ficha')
+
+const panelBreakdownsRef = ref<{ setSubTab: (t: string) => void } | null>(null)
+
+function goToBreakdowns(subtab?: string) {
+  activeTab.value = 'desgloces'
+  if (subtab && panelBreakdownsRef.value) {
+    panelBreakdownsRef.value.setSubTab(subtab)
+  }
+}
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: 'ficha',       label: 'Sheet',      icon: ScrollText  },
@@ -144,9 +153,9 @@ async function exportCurrent(): Promise<void> {
         ═══════════════════════════════════ -->
         <div v-show="activeTab === 'ficha'" class="tab-content">
           <PanelIdentity />
-          <PanelAbilityScores @go-to-breakdowns="activeTab = 'desgloces'" />
-          <PanelCombatStats />
-          <PanelSaves @go-to-breakdowns="activeTab = 'desgloces'" />
+          <PanelAbilityScores @go-to-breakdowns="goToBreakdowns()" />
+          <PanelCombatStats @go-to-breakdowns="goToBreakdowns($event)" />
+          <PanelSaves @go-to-breakdowns="goToBreakdowns()" />
           <PanelAbilities />
           <PanelLanguages />
         </div>
@@ -205,7 +214,7 @@ async function exportCurrent(): Promise<void> {
              TAB: DESGLOCES
         ═══════════════════════════════════ -->
         <div v-show="activeTab === 'desgloces'" class="tab-content">
-          <PanelBreakdowns />
+          <PanelBreakdowns ref="panelBreakdownsRef" />
         </div>
 
       </template>

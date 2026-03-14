@@ -40,9 +40,13 @@ export interface AttackEntry {
   weapon: string
   bonus: string       // manual bonus text (used when role = 'manual' or undefined)
   damage: string
-  crit: string
+  crit: string        // legacy free-text crit (e.g. "19-20/×2") — used as fallback
+  critRange?: number  // lowest threat number: 20 = only 20, 19 = 19-20, 18 = 18-20
+  critMult?: number   // critical multiplier: 2, 3, 4, 5
   type: string        // damage type: C / P / S / B
   notes: string
+  range?: 'melee' | 'ranged'   // attack type (absent = legacy, treat as melee)
+  rangeInc?: string            // range increment text, ranged only (e.g. "110 ft")
   // Auto-calc fields (optional — absent = legacy manual entry)
   role?: AttackRole
   stat?: 'str' | 'dex'  // attack stat
@@ -189,6 +193,8 @@ export interface Character {
   speed: number
   init: { bonus: number; stat: string }
   twfFeat?: 'none' | 'twf' | 'itwf' | 'gtwf'  // Two-Weapon Fighting progression
+  cmbMisc?: number   // misc bonus to CMB (feats, size mods, etc.)
+  cmdMisc?: number   // misc bonus to CMD
 
   // Tiradas de salvación
   saves: {

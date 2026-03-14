@@ -641,10 +641,20 @@ function fmtTime(iso?: string) {
                 <img :src="item.icon" class="palette-img" />
               </button>
             </div>
-            <div class="toolbar-section-label">Markers</div>
+            <div class="toolbar-section-label">Characters</div>
             <div class="toolbar-grid">
               <button
-                v-for="item in PALETTE_MARKERS" :key="item.icon"
+                v-for="item in PALETTE_CHARS" :key="item.icon"
+                class="palette-btn" :class="{ active: pendingIcon === item.icon }"
+                :title="item.label" @click="selectPalette(item.icon)"
+              >
+                <img :src="item.icon" class="palette-img" />
+              </button>
+            </div>
+            <div class="toolbar-section-label">Places</div>
+            <div class="toolbar-grid">
+              <button
+                v-for="item in PALETTE_PLACES" :key="item.icon"
                 class="palette-btn" :class="{ active: pendingIcon === item.icon }"
                 :title="item.label" @click="selectPalette(item.icon)"
               >

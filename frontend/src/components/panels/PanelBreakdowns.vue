@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, defineExpose } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import BonusBreakdown from '@/components/BonusBreakdown.vue'
 import {
   calculateApplicableBonuses,
+  filterToTouch,
+  filterToFlat,
   ABILITY_BONUS_TYPES,
   AC_BONUS_TYPES,
   SAVE_BONUS_TYPES,
@@ -32,13 +34,39 @@ const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
 function save() { charStore.scheduleAutoSave() }
 
-type SubTab = 'stats' | 'combat' | 'saves' | 'custom'
+type SubTab = 'stats' | 'ac' | 'combat' | 'saves' | 'custom'
 const activeSubTab = ref<SubTab>('stats')
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: 'stats',  label: 'Ability Scores' },
-  { id: 'combat', label: 'Combat' },
-  { id: 'saves',  label: 'Saves' },
-  { id: 'custom', label: 'Custom' },
+  { id: 'ac',     label: 'Armor Class'    },
+  { id: 'combat', label: 'Attacks'        },
+  { id: 'saves',  label: 'Saves'          },
+  { id: 'custom', label: 'Custom'         },
+]
+
+// ── AC computed (for display in AC tab) ───────────────────────────
+const allAcBonuses = computed(() => [
+  ...(char.value.bonuses?.ac      ?? []),
+  ...(char.value.bonuses?.acQuick ?? []),
+])
+const acStatMod = computed(() => {
+  const stat = (char.value.acStat ?? 'dex') as keyof AbilityScores
+  return Math.floor(((char.value.stats?.[stat] ?? 10) - 10) / 2)
+})
+const fmt = (n: number) => (n >= 0 ? '+' : '') + n
+const acNormal = computed(() => 10 + acStatMod.value + calculateApplicableBonuses(allAcBonuses.value))
+const acTouch  = computed(() => 10 + acStatMod.value + calculateApplicableBonuses(filterToTouch(allAcBonuses.value)))
+const acFlat   = computed(() => 10 + calculateApplicableBonuses(filterToFlat(allAcBonuses.value)))
+
+const AC_TYPE_REF = [
+  { type: 'Armor',       applies: 'Full AC  ·  Flat-Footed',         note: 'Physical armor. Pierced by Touch attacks.' },
+  { type: 'Shield',      applies: 'Full AC  ·  Flat-Footed',         note: 'Shields. Pierced by Touch attacks.' },
+  { type: 'Natural',     applies: 'Full AC  ·  Flat-Footed',         note: 'Natural armor (scales, skin). Pierced by Touch attacks.' },
+  { type: 'Deflection',  applies: 'Full AC  ·  Touch  ·  Flat-Footed', note: 'Magical deflection (Ring of Protection). Applies to all three.' },
+  { type: 'Dodge',       applies: 'Full AC  ·  Touch only',           note: 'Lost when Flat-Footed (surprised, denied DEX).' },
+  { type: 'Enhancement', applies: 'Full AC  ·  Flat-Footed',         note: 'Enhances armor/shield bonus. Pierced by Touch attacks.' },
+  { type: 'Size',        applies: 'Full AC  ·  Touch  ·  Flat-Footed', note: 'Creature size modifier. Applies everywhere.' },
+  { type: 'Untyped',     applies: 'Full AC  ·  Flat-Footed',         note: 'Generic stacking bonus. Pierced by Touch attacks.' },
 ]
 
 const ABILITIES: { key: keyof AbilityScores; label: string; abbr: string }[] = [
@@ -81,7 +109,6 @@ function onStatChange(key: keyof AbilityScores) {
 }
 
 const mod = (s: number) => Math.floor((s - 10) / 2)
-const fmt = (n: number) => (n >= 0 ? '+' : '') + n
 
 // Custom breakdowns
 const newCustomName = ref('')
@@ -100,6 +127,8 @@ function removeCustomBreakdown(i: number) {
 }
 
 const ALL_BONUS_TYPES = [...new Set([...ABILITY_BONUS_TYPES, ...AC_BONUS_TYPES, ...SAVE_BONUS_TYPES, ...ATTACK_BONUS_TYPES])]
+
+defineExpose({ setSubTab: (t: SubTab) => { activeSubTab.value = t } })
 </script>
 
 <template>
@@ -151,11 +180,60 @@ const ALL_BONUS_TYPES = [...new Set([...ABILITY_BONUS_TYPES, ...AC_BONUS_TYPES, 
       </div>
     </div>
 
-    <!-- ══ COMBAT ══ -->
-    <div v-if="activeSubTab === 'combat'" class="sub-content">
-      <h3 class="sub-title">Armor Class</h3>
+    <!-- ══ ARMOR CLASS ══ -->
+    <div v-if="activeSubTab === 'ac'" class="sub-content">
+
+      <!-- Live AC totals (read-only, synced with Combat panel) -->
+      <div class="ac-totals">
+        <div class="act-val">
+          <span class="act-num">{{ acNormal }}</span>
+          <span class="act-lbl">AC</span>
+        </div>
+        <div class="act-val">
+          <span class="act-num">{{ acTouch }}</span>
+          <span class="act-lbl">Touch AC</span>
+        </div>
+        <div class="act-val">
+          <span class="act-num">{{ acFlat }}</span>
+          <span class="act-lbl">Flat-Footed</span>
+        </div>
+        <div class="act-stat">
+          <span class="act-stat-key">{{ (char.acStat ?? 'DEX').toUpperCase() }}</span>
+          <span class="act-stat-mod">{{ fmt(acStatMod) }}</span>
+          <span class="act-stat-note">stat → Combat panel</span>
+        </div>
+      </div>
+
+      <p class="hint">
+        Add <strong>permanent</strong> AC bonuses here: armor, shields, natural armor, feats (Dodge), magical items (Ring of Protection, Amulet of Natural Armor).<br>
+        <strong>Temporary</strong> in-session bonuses (Shield of Faith, Barkskin, Blur) → <em>Combat panel › Temp Bonuses</em>.<br>
+        The stat modifier (DEX by default) is configured in the <em>Combat panel</em>.
+      </p>
+
+      <!-- Bonus type reference -->
+      <div class="ac-type-ref">
+        <div class="atr-header">
+          <span class="atr-col-type">Bonus type</span>
+          <span class="atr-col-applies">Applies to</span>
+          <span class="atr-col-note">Note</span>
+        </div>
+        <div v-for="t in AC_TYPE_REF" :key="t.type" class="atr-row">
+          <span class="atr-type">{{ t.type }}</span>
+          <span class="atr-applies">{{ t.applies }}</span>
+          <span class="atr-note">{{ t.note }}</span>
+        </div>
+      </div>
+
       <BonusBreakdown :bonuses="char.bonuses.ac" :bonusTypes="AC_BONUS_TYPES" @change="save" />
-      <h3 class="sub-title">Attacks</h3>
+    </div>
+
+    <!-- ══ ATTACKS ══ -->
+    <div v-if="activeSubTab === 'combat'" class="sub-content">
+      <p class="hint">
+        Add permanent attack roll bonuses here: Weapon Focus, morale bonuses, insight bonuses, class features.<br>
+        Weapon enhancement bonuses and per-weapon modifiers → <em>Combat tab › Attacks panel</em>.<br>
+        AC bonuses → <em>Armor Class tab</em> above.
+      </p>
       <BonusBreakdown :bonuses="char.bonuses.attack" :bonusTypes="ATTACK_BONUS_TYPES" @change="save" />
     </div>
 
@@ -475,4 +553,109 @@ const ALL_BONUS_TYPES = [...new Set([...ABILITY_BONUS_TYPES, ...AC_BONUS_TYPES, 
 }
 .custom-input:focus { border-color: var(--arcane); }
 .custom-input::placeholder { color: var(--text-muted); opacity: 0.55; }
+
+/* ── AC totals display ── */
+.ac-totals {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-md);
+}
+.act-val {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+.act-num {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--gold-light);
+  line-height: 1;
+}
+.act-lbl {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.act-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+  margin-left: auto;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--border);
+}
+.act-stat-key {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+.act-stat-mod {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+.act-stat-note {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* ── AC bonus type reference table ── */
+.ac-type-ref {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-size: 0.72rem;
+}
+.atr-header {
+  display: grid;
+  grid-template-columns: 90px 1fr 1.6fr;
+  gap: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  background: rgba(201,168,76,0.08);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+.atr-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 1.6fr;
+  gap: 0.5rem;
+  padding: 0.3rem 0.6rem;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border);
+  align-items: start;
+}
+.atr-row:hover { background: rgba(201,168,76,0.04); }
+.atr-type {
+  font-weight: 700;
+  color: var(--gold-dim);
+}
+.atr-applies {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+}
+.atr-note {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-style: italic;
+}
 </style>

@@ -24,3 +24,7 @@ Thumbs.db
 # Archivo local de secretos (NUNCA subir)
 SECRETS.local.md
 QUICKREF.local.md
+
+# Personal data / test files
+*.local.json
+Seshed*.json

@@ -2,6 +2,7 @@
 import { computed, watch, ref } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import type { AbilityScores } from '@/types/character'
+import InfoTip from '@/components/InfoTip.vue'
 import {
   calculateApplicableBonuses,
   filterToTouch,
@@ -9,6 +10,8 @@ import {
   AC_BONUS_TYPES,
   bonusTypeLabel,
 } from '@/composables/useBonusCalc'
+
+const emit = defineEmits<{ (e: 'go-to-breakdowns', subtab?: string): void }>()
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
@@ -91,6 +94,11 @@ const initTotal = computed(() => {
   return mod(char.value.stats?.[stat] ?? 10) + (char.value.init?.bonus ?? 0)
 })
 
+const strMod = computed(() => mod(char.value.stats?.str ?? 10))
+const dexMod = computed(() => mod(char.value.stats?.dex ?? 10))
+const cmbTotal = computed(() => char.value.bab + strMod.value + (char.value.cmbMisc ?? 0))
+const cmdTotal = computed(() => 10 + char.value.bab + strMod.value + dexMod.value + (char.value.cmdMisc ?? 0))
+
 const STATS = ['str','dex','con','int','wis','cha'] as const
 
 function applyDamage(delta: number) {
@@ -165,7 +173,16 @@ function applyDamage(delta: number) {
 
         <!-- Stat base -->
         <div class="sub-field">
-          <label>Stat base</label>
+          <label>
+            Stat mod
+            <InfoTip title="AC stat modifier" wide>
+              The ability score added to your AC. Default is DEX.<br><br>
+              <strong>DEX:</strong> most characters — lost when Flat-Footed or denied DEX bonus.<br>
+              <strong>WIS:</strong> Monk (Wisdom to AC class feature).<br>
+              <strong>CHA:</strong> Paladin (Divine Grace), some archetypes.<br><br>
+              Change this only if a class feature explicitly replaces DEX.
+            </InfoTip>
+          </label>
           <select v-model="char.acStat" @change="save">
             <option v-for="s in STATS" :key="s" :value="s">{{ s.toUpperCase() }}</option>
           </select>
@@ -204,12 +221,23 @@ function applyDamage(delta: number) {
           </div>
         </div>
 
-        <p class="ac-note">Permanent bonuses (armor, feats…) → Breakdowns panel › AC tab.</p>
+        <p class="ac-note">
+          Stat mod applies to Full AC &amp; Touch AC (lost when Flat-Footed).<br>
+          Armor, shield, feats, magic items →
+          <button class="ac-note-link" @click="emit('go-to-breakdowns', 'ac')">Breakdowns › Armor Class</button>.
+        </p>
       </div>
 
       <!-- Iniciativa Block -->
       <div class="block">
-        <div class="block-label">Initiative</div>
+        <div class="block-label">
+          Initiative
+          <InfoTip title="Initiative">
+            Rolled at the start of combat to determine turn order.<br><br>
+            <strong>Formula:</strong> d20 + DEX mod + misc bonuses.<br><br>
+            Some feats and class features add bonuses (Improved Initiative +4, Reactionary trait +2, Halfling racial +1…).
+          </InfoTip>
+        </div>
         <div class="init-total">{{ fmt(initTotal) }}</div>
         <div class="sub-field">
           <label>Stat</label>
@@ -225,8 +253,53 @@ function applyDamage(delta: number) {
 
       <!-- BAB + Velocidad -->
       <div class="block">
-        <div class="block-label">BAB</div>
+        <div class="block-label">
+          BAB
+          <InfoTip title="Base Attack Bonus" wide>
+            Increases with class and level. Each class progresses differently:<br><br>
+            <strong>Full BAB (Fighter, Ranger…):</strong> +1 per level.<br>
+            <strong>¾ BAB (Cleric, Rogue…):</strong> +3 per 4 levels.<br>
+            <strong>½ BAB (Wizard, Sorcerer…):</strong> +1 per 2 levels.<br><br>
+            At BAB +6 you get a second attack at −5, at +11 a third at −10, etc.
+          </InfoTip>
+        </div>
         <input type="number" class="block-input big" v-model.number="char.bab" @change="save" />
+      </div>
+
+      <!-- CMB -->
+      <div class="block">
+        <div class="block-label">
+          CMB
+          <InfoTip title="Combat Maneuver Bonus" wide>
+            Used to perform special attacks: Grapple, Trip, Disarm, Bull Rush, Sunder, Overrun, Reposition.<br><br>
+            <strong>Formula:</strong> BAB + STR mod + size mod + misc.<br><br>
+            Roll d20 + CMB vs. opponent's CMD. Some maneuvers use DEX instead of STR (e.g. Disarm with a ranged weapon).
+          </InfoTip>
+        </div>
+        <div class="cmb-total">{{ fmt(cmbTotal) }}</div>
+        <div class="cmb-hint">BAB {{ char.bab }} + STR {{ fmt(strMod) }}</div>
+        <div class="sub-field">
+          <label>Misc</label>
+          <input type="number" v-model.number="char.cmbMisc" @change="save" class="cmb-misc-input" />
+        </div>
+      </div>
+
+      <!-- CMD -->
+      <div class="block">
+        <div class="block-label">
+          CMD
+          <InfoTip title="Combat Maneuver Defense" wide>
+            Passive score opponents must beat to perform a maneuver against you.<br><br>
+            <strong>Formula:</strong> 10 + BAB + STR mod + DEX mod + size mod + misc.<br><br>
+            Unlike AC, CMD is not affected by armor bonuses. Feats like Improved Grapple give +4 CMD vs. that specific maneuver.
+          </InfoTip>
+        </div>
+        <div class="cmb-total">{{ cmdTotal }}</div>
+        <div class="cmb-hint">10 + BAB {{ char.bab }} + STR {{ fmt(strMod) }} + DEX {{ fmt(dexMod) }}</div>
+        <div class="sub-field">
+          <label>Misc</label>
+          <input type="number" v-model.number="char.cmdMisc" @change="save" class="cmb-misc-input" />
+        </div>
       </div>
 
       <div class="block">
@@ -576,8 +649,53 @@ function applyDamage(delta: number) {
   color: var(--text-muted);
   text-align: center;
   margin: 0;
-  padding-top: 0.2rem;
+  padding: 0.3rem 0.5rem;
+  line-height: 1.5;
+  background: rgba(201,168,76,0.05);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-sm);
 }
+.ac-note strong { color: var(--gold-dim); }
+.ac-note-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: inherit;
+  color: var(--gold-dim);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition);
+}
+.ac-note-link:hover { color: var(--gold-light); }
+
+/* ── CMB / CMD ── */
+.cmb-total {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-align: center;
+}
+.cmb-hint {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+.cmb-misc-input {
+  width: 60px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.4rem;
+  outline: none;
+  text-align: center;
+}
+.cmb-misc-input:focus { border-color: var(--gold-dim); }
 
 @media (max-width: 600px) {
   .combat-grid { grid-template-columns: 1fr 1fr; }

@@ -4,6 +4,17 @@
    Regla 70/20/10. Inspirado en MtG + ilustraciones D&D high fantasy.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ── Quitar flechas de inputs numéricos en todos los navegadores ── */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
