@@ -528,7 +528,6 @@ function fmtTime(iso?: string) {
         ref="canvasRef"
         class="world-canvas"
         :class="{ 'edit-cursor': editMode && pendingIcon }"
-        @click.self="onCanvasClick"
       >
         <!-- Compass -->
         <img src="/map-icons/compass.png" class="map-compass" alt="" />
@@ -557,7 +556,7 @@ function fmtTime(iso?: string) {
 
         <!-- ══ WORLD VIEW ══ -->
         <Transition name="view" mode="out-in">
-          <div v-if="navStack.length === 0" key="world" class="map-layer">
+          <div v-if="navStack.length === 0" key="world" class="map-layer" @click.self="onCanvasClick">
             <div
               v-for="entity in visibleNodes" :key="entity.id"
               class="node-wrap"
@@ -577,7 +576,7 @@ function fmtTime(iso?: string) {
           </div>
 
           <!-- ══ DRILL-DOWN VIEW (top-down tree layout) ══ -->
-          <div v-else :key="navStack[navStack.length-1].id" class="map-layer">
+          <div v-else :key="navStack[navStack.length-1].id" class="map-layer" @click.self="onCanvasClick">
             <!-- SVG flowchart lines: trunk → bus → branches -->
             <svg class="connections-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
               <!-- Vertical trunk from parent down to bus -->
