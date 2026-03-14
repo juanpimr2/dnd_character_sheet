@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
+import { FORMAT_LIST } from '@/composables/useFormat'
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
@@ -75,6 +76,17 @@ const portraitInput = ref<HTMLInputElement | null>(null)
             <label>Deity</label>
             <input type="text" v-model="char.deity" @change="save" placeholder="e.g. Iomedae" />
           </div>
+          <div class="field">
+            <label>Ruleset</label>
+            <div class="format-selector">
+              <button
+                v-for="f in FORMAT_LIST" :key="f.id"
+                :class="['fmt-btn', { active: (char.format ?? 'pf1e') === f.id }]"
+                :title="f.desc"
+                @click="char.format = f.id; save()"
+              >{{ f.shortLabel }}</button>
+            </div>
+          </div>
           <div class="field field-sm">
             <label>Height</label>
             <input type="text" v-model="char.height" @change="save" placeholder="e.g. 5'10&quot;" />
@@ -139,6 +151,21 @@ const portraitInput = ref<HTMLInputElement | null>(null)
 .field-sm  { flex: 0 0 80px; }
 .field-xp  { flex: 0 0 100px; }
 .field-lg  { flex: 2; }
+
+.format-selector { display: flex; gap: 2px; }
+.fmt-btn {
+  flex: 1; padding: 0.38rem 0.3rem;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-muted);
+  font-family: inherit; font-size: 0.72rem; font-weight: 700;
+  cursor: pointer; transition: all var(--transition); white-space: nowrap;
+}
+.fmt-btn:hover { border-color: var(--gold-border); color: var(--text-secondary); }
+.fmt-btn.active {
+  background: rgba(201,168,76,0.12);
+  border-color: var(--gold);
+  color: var(--gold);
+}
 
 .field label {
   font-size: 0.7rem;

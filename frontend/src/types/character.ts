@@ -160,6 +160,8 @@ export interface WorldLore {
   mapBg?: string         // URL of custom map background image
 }
 
+export type GameFormat = 'pf1e' | 'dnd35' | 'dnd5e'
+
 /** Estado completo del personaje (mapeado desde el JSON del backend) */
 export interface Character {
   // Identidad
@@ -169,6 +171,7 @@ export interface Character {
   level: number
   xp?: number
   alignment: string
+  format?: GameFormat   // ruleset: 'pf1e' | 'dnd35' | 'dnd5e' (default pf1e)
   deity: string
   height: string
   portrait: string | null

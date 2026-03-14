@@ -10,11 +10,13 @@ import {
   AC_BONUS_TYPES,
   bonusTypeLabel,
 } from '@/composables/useBonusCalc'
+import { useFormat } from '@/composables/useFormat'
 
 const emit = defineEmits<{ (e: 'go-to-breakdowns', subtab?: string): void }>()
 
 const charStore = useCharacterStore()
 const char = computed(() => charStore.activeCharacter!)
+const { rules } = useFormat(() => char.value?.format)
 
 function save() { charStore.scheduleAutoSave() }
 
@@ -266,8 +268,8 @@ function applyDamage(delta: number) {
         <input type="number" class="block-input big" v-model.number="char.bab" @change="save" />
       </div>
 
-      <!-- CMB -->
-      <div class="block">
+      <!-- CMB (PF1e / 3.5e only) -->
+      <div v-if="rules.hasCMB" class="block">
         <div class="block-label">
           CMB
           <InfoTip title="Combat Maneuver Bonus" wide>
@@ -284,8 +286,8 @@ function applyDamage(delta: number) {
         </div>
       </div>
 
-      <!-- CMD -->
-      <div class="block">
+      <!-- CMD (PF1e / 3.5e only) -->
+      <div v-if="rules.hasCMB" class="block">
         <div class="block-label">
           CMD
           <InfoTip title="Combat Maneuver Defense" wide>

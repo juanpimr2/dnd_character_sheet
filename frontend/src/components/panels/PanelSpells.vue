@@ -80,6 +80,14 @@ const concentrationBonus = computed(() =>
   sc.value.casterLevel + abilityMod.value + (sc.value.concentrationBonus ?? 0)
 )
 
+// Touch attack bonus: BAB + DEX mod (ranged touch — rays, etc.)
+// Melee touch uses BAB + STR mod but ranged is more common for offensive spells
+const touchAttackBonus = computed(() => {
+  const bab = char.value.bab ?? 0
+  const dex = Math.floor(((char.value.stats?.dex ?? 10) - 10) / 2)
+  return bab + dex
+})
+
 // ── Slot controls ──────────────────────────────────────────────────
 function useSlot(level: number) {
   const used = sc.value.slotsUsed[level] ?? 0
@@ -233,6 +241,10 @@ const LEVEL_NAMES = ['Cantrips', '1st', '2nd', '3rd', '4th', '5th', '6th', '7th'
       <div class="stat-chip">
         <span class="stat-chip-label">Concentration</span>
         <span class="stat-chip-value">{{ concentrationBonus >= 0 ? '+' : '' }}{{ concentrationBonus }}</span>
+      </div>
+      <div class="stat-chip" title="Ranged touch attack: BAB + DEX mod (rays, ranged touch spells)">
+        <span class="stat-chip-label">Touch Atk</span>
+        <span class="stat-chip-value">{{ touchAttackBonus >= 0 ? '+' : '' }}{{ touchAttackBonus }}</span>
       </div>
       <div class="dc-row">
         <span class="dc-label">Spell DCs:</span>
