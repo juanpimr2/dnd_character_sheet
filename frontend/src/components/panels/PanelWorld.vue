@@ -18,8 +18,13 @@ function norm(s: string) { return s.toLowerCase().replace(/[^a-z0-9]/g, '') }
 // ── Icon helpers ──────────────────────────────────────────────────
 const GI = (n: string) => `/map-icons/gi/${n}.png`  // game-icons.net (white/transparent)
 
-// Is this a game-icon (white on transparent) vs a Kenney icon (colored)?
-function isGI(path: string) { return path.includes('/gi/') }
+// SVG data URI helper for inline dungeon icons (white on transparent, 32×32)
+function DS(body: string): string {
+  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">${body}</svg>`)}`
+}
+
+// Is this a white-on-transparent icon? (GI files or inline SVG data URIs)
+function isGI(path: string) { return path.includes('/gi/') || path.startsWith('data:') }
 
 // ── Icon palette data ──────────────────────────────────────────────
 const PALETTE_TERRAIN = [
@@ -51,7 +56,34 @@ const PALETTE_PLACES = [
   { icon: '/map-icons/city.png',      label: 'City'      },
   { icon: GI('pin'),                  label: 'Location'  },
 ]
-const ALL_ICONS = [...PALETTE_TERRAIN, ...PALETTE_CHARS, ...PALETTE_PLACES]
+
+// ── Dungeon palette (inline SVG, no extra files) ───────────────────
+const PALETTE_DUNGEON = [
+  // Architecture
+  { icon: DS('<rect x="3" y="3" width="26" height="26" fill="none" stroke="white" stroke-width="2.5"/>'), label: 'Room' },
+  { icon: DS('<rect x="3" y="11" width="26" height="10" fill="none" stroke="white" stroke-width="2.5"/>'), label: 'Corridor' },
+  { icon: DS('<rect x="10" y="4" width="12" height="24" fill="none" stroke="white" stroke-width="2"/><circle cx="19.5" cy="16" r="2" fill="white"/>'), label: 'Door' },
+  { icon: DS('<rect x="10" y="4" width="12" height="24" fill="none" stroke="white" stroke-width="2" stroke-dasharray="3,2"/><circle cx="19.5" cy="16" r="2" fill="white"/>'), label: 'Secret Door' },
+  { icon: DS('<polyline points="3,29 3,23 8,23 8,17 13,17 13,11 18,11 18,5 23,5 23,3" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>'), label: 'Stairs' },
+  { icon: DS('<rect x="11" y="3" width="10" height="26" fill="none" stroke="white" stroke-width="2"/><rect x="7" y="3" width="18" height="4.5" fill="white"/><rect x="7" y="24.5" width="18" height="4.5" fill="white"/>'), label: 'Pillar' },
+  // Objects
+  { icon: DS('<rect x="5" y="15" width="22" height="12" fill="none" stroke="white" stroke-width="2"/><path d="M5,15 Q5,5 16,5 Q27,5 27,15" fill="none" stroke="white" stroke-width="2"/><rect x="13" y="18" width="6" height="5" rx="1" fill="none" stroke="white" stroke-width="1.5"/>'), label: 'Chest' },
+  { icon: DS('<line x1="16" y1="28" x2="16" y2="17" stroke="white" stroke-width="3" stroke-linecap="round"/><path d="M11,17 Q13,7 16,10 Q19,7 21,17 Q19,21 16,19 Q13,21 11,17Z" fill="white"/>'), label: 'Torch' },
+  { icon: DS('<ellipse cx="16" cy="9" rx="8" ry="6" fill="none" stroke="white" stroke-width="2"/><ellipse cx="16" cy="24" rx="8" ry="5" fill="none" stroke="white" stroke-width="2"/><line x1="8" y1="9" x2="8" y2="24" stroke="white" stroke-width="2"/><line x1="24" y1="9" x2="24" y2="24" stroke="white" stroke-width="2"/><line x1="9" y1="16.5" x2="23" y2="16.5" stroke="white" stroke-width="1.2"/>'), label: 'Barrel' },
+  { icon: DS('<path d="M8,28 L8,11 Q8,4 16,4 Q24,4 24,11 L24,28" fill="none" stroke="white" stroke-width="2"/><line x1="6" y1="28" x2="26" y2="28" stroke="white" stroke-width="3" stroke-linecap="round"/>'), label: 'Altar' },
+  // Hazards
+  { icon: DS('<polygon points="16,3 4,27 28,27" fill="none" stroke="white" stroke-width="2"/><line x1="16" y1="11" x2="16" y2="19" stroke="white" stroke-width="2.5"/><circle cx="16" cy="23.5" r="2" fill="white"/>'), label: 'Trap' },
+  { icon: DS('<ellipse cx="16" cy="16" rx="11" ry="7" fill="none" stroke="white" stroke-width="2" stroke-dasharray="4,2"/><line x1="10" y1="13" x2="14" y2="19" stroke="white" stroke-width="1.5"/><line x1="22" y1="13" x2="18" y2="19" stroke="white" stroke-width="1.5"/>'), label: 'Pit' },
+  { icon: DS('<line x1="5" y1="28" x2="16" y2="4" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="27" y1="28" x2="16" y2="4" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="28" x2="27" y2="28" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="20" x2="23" y2="20" stroke="white" stroke-width="1.5"/>'), label: 'Spike Trap' },
+  // Enemies
+  { icon: DS('<ellipse cx="16" cy="10" rx="8" ry="7" fill="none" stroke="white" stroke-width="2"/><rect x="10" y="16" width="12" height="8" rx="2" fill="none" stroke="white" stroke-width="1.5"/><line x1="13" y1="16" x2="13" y2="24" stroke="white" stroke-width="1.2"/><line x1="19" y1="16" x2="19" y2="24" stroke="white" stroke-width="1.2"/><circle cx="12.5" cy="9" r="2" fill="white"/><circle cx="19.5" cy="9" r="2" fill="white"/>'), label: 'Skull' },
+  { icon: DS('<circle cx="16" cy="13" r="5" fill="white"/><line x1="5" y1="8" x2="12" y2="11" stroke="white" stroke-width="2"/><line x1="4" y1="13" x2="11" y2="13" stroke="white" stroke-width="2"/><line x1="5" y1="18" x2="12" y2="15" stroke="white" stroke-width="2"/><line x1="27" y1="8" x2="20" y2="11" stroke="white" stroke-width="2"/><line x1="28" y1="13" x2="21" y2="13" stroke="white" stroke-width="2"/><line x1="27" y1="18" x2="20" y2="15" stroke="white" stroke-width="2"/>'), label: 'Spider' },
+  { icon: DS('<path d="M16,26 Q8,20 7,11 Q10,4 16,7 Q22,4 25,11 Q24,20 16,26Z" fill="none" stroke="white" stroke-width="2"/><path d="M7,11 Q2,6 4,3" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/><path d="M25,11 Q30,6 28,3" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="12" r="2" fill="white"/><circle cx="19" cy="12" r="2" fill="white"/>'), label: 'Dragon' },
+  { icon: DS('<path d="M8,24 Q7,16 10,10 Q13,4 16,5 Q19,4 22,10 Q25,16 24,24" fill="none" stroke="white" stroke-width="2"/><circle cx="16" cy="11" r="4" fill="white"/><line x1="8" y1="24" x2="5" y2="29" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="24" y1="24" x2="27" y2="29" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="21" x2="16" y2="28" stroke="white" stroke-width="2" stroke-linecap="round"/>'), label: 'Monster' },
+  { icon: DS('<path d="M7,16 Q7,8 16,6 Q25,8 25,16 Q25,24 16,26 Q7,24 7,16Z" fill="none" stroke="white" stroke-width="2"/><path d="M10,10 L14,14 M22,10 L18,14 M10,22 L14,18 M22,22 L18,18" stroke="white" stroke-width="1.8" stroke-linecap="round"/>'), label: 'Boss' },
+]
+
+const ALL_ICONS = [...PALETTE_TERRAIN, ...PALETTE_CHARS, ...PALETTE_PLACES, ...PALETTE_DUNGEON]
 
 // ── Icon selection (respects override) ────────────────────────────
 function iconFor(entity: WorldEntity): string {
@@ -718,6 +750,16 @@ function fmtTime(iso?: string) {
             <div class="toolbar-grid">
               <button
                 v-for="item in PALETTE_PLACES" :key="item.icon"
+                class="palette-btn" :class="{ active: pendingIcon === item.icon }"
+                :title="item.label" @click="selectPalette(item.icon)"
+              >
+                <img :src="item.icon" class="palette-img" />
+              </button>
+            </div>
+            <div class="toolbar-section-label">Dungeon</div>
+            <div class="toolbar-grid">
+              <button
+                v-for="item in PALETTE_DUNGEON" :key="item.label"
                 class="palette-btn" :class="{ active: pendingIcon === item.icon }"
                 :title="item.label" @click="selectPalette(item.icon)"
               >
