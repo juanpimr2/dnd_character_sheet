@@ -297,6 +297,9 @@ function fmtDate(iso: string) {
               <Globe :size="11" /> Extracting world lore…
             </span>
             <span v-if="loreError" class="lore-error">{{ loreError }}</span>
+            <span v-if="selectedSession.finalized && !extractingLore" class="lore-disclaimer">
+              AI-extracted — review world lore for errors.
+            </span>
           </div>
 
           <!-- Chat messages -->
@@ -570,6 +573,13 @@ function fmtDate(iso: string) {
 .lore-error {
   font-size: 0.65rem;
   color: var(--red-light, #f87171);
+}
+
+.lore-disclaimer {
+  font-size: 0.63rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-left: auto;
 }
 
 .lore-hint {

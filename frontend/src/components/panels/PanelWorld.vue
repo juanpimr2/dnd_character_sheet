@@ -532,6 +532,9 @@ function fmtTime(iso?: string) {
       </div>
     </div>
     <div v-if="authStore.isPremium && analyzeError" class="analyze-error">{{ analyzeError }}</div>
+    <div v-if="authStore.isPremium && (worldLore.lastAnalysis || worldLore.lastManualAnalysis)" class="ai-disclaimer">
+      AI-generated — review and edit as needed.
+    </div>
 
     <!-- ── Help overlay ── -->
     <div v-if="showHelp" class="help-box">
@@ -542,7 +545,7 @@ function fmtTime(iso?: string) {
         <div class="help-item"><span class="help-key">Breadcrumb</span> Navigate back up the hierarchy</div>
         <div class="help-item"><span class="help-key">Edit mode</span> Place terrain icons — click palette → click map. Drag decorations to move.</div>
         <div class="help-item"><span class="help-key">+ Add</span> Create a new entity manually</div>
-        <div class="help-item"><span class="help-key">Analyze notes</span> AI extracts entities from session logs (15 min cooldown)</div>
+        <div class="help-item"><span class="help-key">Analyze notes</span> AI extracts entities from session logs (15 min cooldown) — results may contain errors, always review</div>
       </div>
     </div>
 
@@ -939,6 +942,12 @@ function fmtTime(iso?: string) {
 .btn-analyze:hover:not(:disabled) { border-color: var(--gold-border); color: var(--gold); background: rgba(201,168,76,.08); }
 .btn-analyze:disabled { opacity: .45; cursor: default; }
 .analyze-error { font-size: .78rem; color: var(--red-light); margin-bottom: .5rem; }
+.ai-disclaimer {
+  font-size: .68rem;
+  color: var(--text-muted);
+  padding: .2rem .85rem .35rem;
+  opacity: .7;
+}
 
 /* ── Help box ── */
 .help-box {
