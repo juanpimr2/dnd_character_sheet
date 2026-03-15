@@ -4,6 +4,7 @@ import { useCharacterStore } from '@/stores/characters'
 import { useAuthStore } from '@/stores/auth'
 import type { WorldEntity, EntityKind, LoreFlag, MapDecoration } from '@/types/character'
 import { Globe, Loader2, X, ChevronLeft, ChevronRight, Edit2, HelpCircle, Plus } from 'lucide-vue-next'
+import UpgradeGate from '@/components/UpgradeGate.vue'
 
 const charStore = useCharacterStore()
 const authStore = useAuthStore()
@@ -507,21 +508,30 @@ function fmtTime(iso?: string) {
         <button class="btn-help" @click="showHelp = !showHelp" :class="{ active: showHelp }" title="Help">
           <HelpCircle :size="13" />
         </button>
-        <button class="btn-icon-hdr" :class="{ 'edit-on': editMode }" @click="toggleEdit" :title="editMode ? 'Exit edit mode' : 'Edit map'">
-          <Edit2 :size="13" />
-          <span>{{ editMode ? 'Done' : 'Edit' }}</span>
-        </button>
-        <button v-if="entities.length > 0" class="btn-reset" @click="resetLore">↺ Reset</button>
-        <button class="btn-analyze" :disabled="analyzing || cooldownSecs > 0" @click="analyzeNotes">
-          <Loader2 v-if="analyzing" :size="13" class="spin" />
-          <Globe v-else :size="13" />
-          <template v-if="cooldownSecs > 0">{{ cooldownSecs }}s</template>
-          <template v-else-if="analyzing">Analyzing…</template>
-          <template v-else>Analyze notes</template>
-        </button>
+        <template v-if="authStore.isPremium">
+          <button class="btn-icon-hdr" :class="{ 'edit-on': editMode }" @click="toggleEdit" :title="editMode ? 'Exit edit mode' : 'Edit map'">
+            <Edit2 :size="13" />
+            <span>{{ editMode ? 'Done' : 'Edit' }}</span>
+          </button>
+          <button v-if="entities.length > 0" class="btn-reset" @click="resetLore">↺ Reset</button>
+          <button class="btn-analyze" :disabled="analyzing || cooldownSecs > 0" @click="analyzeNotes">
+            <Loader2 v-if="analyzing" :size="13" class="spin" />
+            <Globe v-else :size="13" />
+            <template v-if="cooldownSecs > 0">{{ cooldownSecs }}s</template>
+            <template v-else-if="analyzing">Analyzing…</template>
+            <template v-else>Analyze notes</template>
+          </button>
+        </template>
+        <template v-else>
+          <UpgradeGate
+            feature="Map editor + AI analysis"
+            reason="Place icons, set custom background, extract world lore from sessions."
+            :inline="true"
+          />
+        </template>
       </div>
     </div>
-    <div v-if="analyzeError" class="analyze-error">{{ analyzeError }}</div>
+    <div v-if="authStore.isPremium && analyzeError" class="analyze-error">{{ analyzeError }}</div>
 
     <!-- ── Help overlay ── -->
     <div v-if="showHelp" class="help-box">

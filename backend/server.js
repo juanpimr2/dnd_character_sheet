@@ -176,6 +176,15 @@ app.delete('/api/characters/:id', requireAuth, async (req, res) => {
 
 // ── Exportar personaje (descarga JSON) ───────────────────────────
 app.get('/api/export', requireAuth, async (req, res) => {
+  // Premium-only feature
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('purchased, plan')
+    .eq('id', req.user.id)
+    .single()
+  const isPremium = prof?.purchased === true || (prof?.plan && prof.plan !== 'free')
+  if (!isPremium) return res.status(403).json({ error: 'premium_required' })
+
   const characterId = req.query.character ?? 'default'
 
   const { data, error } = await supabase
@@ -681,6 +690,15 @@ function mergeEntities(existing = [], incoming = [], sessionId) {
 //   - manual: if true, enforce cooldown
 app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
   if (!anthropic) return res.status(503).json({ error: 'World Lore no configurado (falta ANTHROPIC_API_KEY)' })
+
+  // Premium-only feature
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('purchased, plan')
+    .eq('id', req.user.id)
+    .single()
+  const isPremium = prof?.purchased === true || (prof?.plan && prof.plan !== 'free')
+  if (!isPremium) return res.status(403).json({ error: 'premium_required' })
 
   const characterId = req.params.id
   const { sessionId, manual = false } = req.body

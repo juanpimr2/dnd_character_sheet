@@ -60,6 +60,10 @@ async function createCharacter(): Promise<void> {
 }
 
 async function exportCharacter(id: string, name: string): Promise<void> {
+  if (!authStore.isPremium) {
+    router.push('/characters?upgrade=1')
+    return
+  }
   const res = await fetch(`/api/export?character=${id}`, {
     headers: { Authorization: `Bearer ${authStore.getToken()}` },
   })

@@ -4,12 +4,18 @@ import { useCharacterStore } from '@/stores/characters'
 import { useAuthStore } from '@/stores/auth'
 import type { SessionGroup, EventEntry } from '@/types/character'
 import { Plus, Trash2, Edit2, Check, X, SendHorizontal, CheckCircle2, Loader2, Globe } from 'lucide-vue-next'
+import UpgradeGate from '@/components/UpgradeGate.vue'
 
 const charStore = useCharacterStore()
 const authStore = useAuthStore()
 const char = computed(() => charStore.activeCharacter!)
 const characterId = computed(() => charStore.currentCharacterId)
 function save() { charStore.scheduleAutoSave() }
+
+const SESSION_LIMIT_FREE = 3
+const canAddSession = computed(() =>
+  authStore.isPremium || (char.value?.sessions?.length ?? 0) < SESSION_LIMIT_FREE
+)
 
 const extractingLore = ref(false)
 const loreError      = ref('')
@@ -199,7 +205,13 @@ function fmtDate(iso: string) {
       <aside class="sessions-sidebar" :class="{ open: sidebarOpen }">
         <div class="sidebar-header">
           <span class="sidebar-title">Sessions</span>
-          <button class="btn-new-session" @click="createSession" title="New session">
+          <button
+            class="btn-new-session"
+            :class="{ disabled: !canAddSession }"
+            :disabled="!canAddSession"
+            @click="canAddSession && createSession()"
+            :title="canAddSession ? 'New session' : 'Upgrade to add more sessions'"
+          >
             <Plus :size="14" />
           </button>
         </div>
@@ -241,6 +253,17 @@ function fmtDate(iso: string) {
 
         <div v-if="char.sessions.length === 0" class="sidebar-empty">
           No sessions.<br>Press + to start one.
+        </div>
+
+        <div v-if="!authStore.isPremium" class="sidebar-limit-info">
+          <span class="limit-count">{{ Math.min(char.sessions?.length ?? 0, SESSION_LIMIT_FREE) }}/{{ SESSION_LIMIT_FREE }} sessions</span>
+        </div>
+        <div v-if="!canAddSession" class="sidebar-upgrade">
+          <UpgradeGate
+            feature="Unlimited sessions"
+            reason="Keep a full campaign journal — no cap."
+            :inline="true"
+          />
         </div>
       </aside>
 
@@ -376,7 +399,8 @@ function fmtDate(iso: string) {
   align-items: center;
   transition: all var(--transition);
 }
-.btn-new-session:hover { background: var(--gold-border); }
+.btn-new-session:hover:not(.disabled) { background: var(--gold-border); }
+.btn-new-session.disabled { opacity: 0.4; cursor: not-allowed; }
 
 .session-list {
   list-style: none;
@@ -459,6 +483,23 @@ function fmtDate(iso: string) {
   font-size: 0.75rem;
   padding: 2rem 1rem;
   line-height: 1.7;
+}
+
+.sidebar-limit-info {
+  padding: 0.35rem 0.75rem;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.limit-count {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.sidebar-upgrade {
+  padding: 0.4rem 0.5rem;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
 }
 
 /* ── Main chat ── */

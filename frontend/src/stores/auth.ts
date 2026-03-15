@@ -23,6 +23,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => session.value !== null)
 
+  // Premium = has purchased OR has a non-free plan (dm, player, table)
+  const isPremium = computed(() =>
+    profile.value?.purchased === true ||
+    (profile.value?.plan != null && profile.value.plan !== 'free')
+  )
+
   const user = computed(() =>
     session.value && profile.value
       ? {
@@ -154,6 +160,7 @@ export const useAuthStore = defineStore('auth', () => {
     profile,
     user,
     isAuthenticated,
+    isPremium,
     getToken,
     init,
     fetchProfile,
