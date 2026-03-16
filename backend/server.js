@@ -641,7 +641,7 @@ app.get('/api/stores/:code', async (req, res) => {
 //  WORLD LORE — AI entity extraction
 // ══════════════════════════════════════════════════════════════════
 
-const LORE_COOLDOWN_MS = 15 * 60 * 1000  // 15 minutes for manual trigger
+const LORE_COOLDOWN_MS = 0  // cooldown disabled
 
 // Normalize a name for duplicate detection
 function normalizeName(name) {
@@ -805,28 +805,23 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
   const charData = row.data
   const worldLore = charData.worldLore ?? { entities: [], planes: [] }
 
-  // Resolve plane-specific data
-  let existingEntities = worldLore.entities ?? []  // legacy fallback
-  let seedData = null
-  let targetPlane = null
+  // Resolve plane-specific data — default to first plane if no planeId given
+  const allPlanes = worldLore.planes ?? []
+  let targetPlane = planeId ? allPlanes.find(p => p.id === planeId) : null
+  if (!targetPlane && allPlanes.length > 0) targetPlane = allPlanes[0]
 
-  if (planeId && worldLore.planes) {
-    targetPlane = worldLore.planes.find(p => p.id === planeId)
-    if (targetPlane) {
-      existingEntities = targetPlane.entities ?? []
-      seedData = targetPlane.seed
-    }
-  } else {
-    seedData = worldLore.seed
-  }
+  const existingEntities = targetPlane ? (targetPlane.entities ?? []) : (worldLore.entities ?? [])
+  const seedData = targetPlane ? targetPlane.seed : worldLore.seed
 
-  // Cooldown check (only for manual trigger) — use plane-level timestamp if available
-  const lastManualAnalysis = targetPlane ? targetPlane.lastManualAnalysis : worldLore.lastManualAnalysis
-  if (manual && lastManualAnalysis) {
-    const elapsed = Date.now() - new Date(lastManualAnalysis).getTime()
-    if (elapsed < LORE_COOLDOWN_MS) {
-      const remaining = Math.ceil((LORE_COOLDOWN_MS - elapsed) / 1000)
-      return res.status(429).json({ error: 'cooldown', remaining })
+  // Cooldown check (only for manual trigger) — disabled when LORE_COOLDOWN_MS = 0
+  if (manual && LORE_COOLDOWN_MS > 0) {
+    const lastManualAnalysis = targetPlane ? targetPlane.lastManualAnalysis : worldLore.lastManualAnalysis
+    if (lastManualAnalysis) {
+      const elapsed = Date.now() - new Date(lastManualAnalysis).getTime()
+      if (elapsed < LORE_COOLDOWN_MS) {
+        const remaining = Math.ceil((LORE_COOLDOWN_MS - elapsed) / 1000)
+        return res.status(429).json({ error: 'cooldown', remaining })
+      }
     }
   }
 
@@ -858,9 +853,11 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
     worldContextLines.push(`- Genre/tone: ${genreStr}`)
   }
 
+  // Known entities across ALL planes (for conflict detection + plane routing hints)
+  const allKnownEntities = allPlanes.flatMap(p => p.entities ?? [])
   let knownEntitiesBlock = ''
-  if (existingEntities.length > 0) {
-    const entLines = existingEntities.map(e => `- ${e.name} (${e.kind})`).join('\n')
+  if (allKnownEntities.length > 0) {
+    const entLines = allKnownEntities.map(e => `- ${e.name} (${e.kind})`).join('\n')
     knownEntitiesBlock = `\nKnown entities (preserve exact names — only parent/description updates allowed):\n${entLines}\n`
   }
 
@@ -869,12 +866,19 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
     worldContextBlock = `\nWorld context:\n${worldContextLines.join('\n')}\n`
   }
 
+  // Multi-plane routing context
+  let planesBlock = ''
+  if (allPlanes.length > 1) {
+    const planesList = allPlanes.map(p => `"${p.name}"`).join(', ')
+    planesBlock = `\nKnown planes/worlds (use exact name for planeHint field): ${planesList}\nDefault plane: "${targetPlane?.name ?? allPlanes[0]?.name}"\n`
+  }
+
   // Prompt to Claude Haiku
   const prompt = `You are an expert D&D lore extractor. Analyze these session notes and extract all notable entities.
 
 Return ONLY a valid JSON array (no markdown, no explanation) with this structure:
 [
-  { "name": "Entity Name", "kind": "city|location|npc|faction|quest", "description": "brief 1-2 sentence description", "parent": null }
+  { "name": "Entity Name", "kind": "city|location|npc|faction|quest", "description": "brief 1-2 sentence description", "parent": null, "planeHint": null }
 ]
 
 Kind rules:
@@ -898,6 +902,12 @@ Quest rules:
 - Quest parent: the location or NPC related to the quest, if any
 - Only include quests that are clearly active/unresolved in the session
 
+Plane routing rules (planeHint field):
+- Leave "planeHint": null for entities that belong to the default/current plane
+- Set "planeHint" to the EXACT plane name (from the Known planes list) ONLY when an entity CLEARLY belongs to a different plane (e.g. "Wandering Vault" entities → planeHint: "Wandering Vault")
+- A location/place being *visited through* the Material Plane doesn't mean it belongs there (e.g. a portal to Nine Hells → the destination entities get planeHint: "Nine Hells")
+- When unsure, always leave planeHint: null (default plane)
+
 Other rules:
 - CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)
 - CRITICAL: If only ONE city is mentioned across all notes, ALL non-city entities must default to having that city (or one of its locations) as parent
@@ -908,7 +918,7 @@ Other rules:
 - Descriptions should be factual (what was learned in the session)
 - Always include the "parent" field (null if no parent)
 - CRITICAL: Write ALL descriptions in the SAME LANGUAGE as the session notes. If notes are in Spanish, write in Spanish. Never change the language of descriptions or names.
-${worldContextBlock}${knownEntitiesBlock}
+${worldContextBlock}${planesBlock}${knownEntitiesBlock}
 Session notes:
 ${notesText}`
 
@@ -917,6 +927,11 @@ ${notesText}`
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 4096,
+      system: `You are Mirador, an ancient elven lore-keeper and planar cartographer who has chronicled the deeds of adventurers across a thousand campaigns. You possess encyclopedic knowledge of D&D world-building, planar cosmology, faction politics, and the deep relationships between characters, places, and events. Your role is to read adventurers' raw session notes — often messy, partial, or written in the heat of adventure — and extract clean, structured world lore with scholarly precision.
+
+You think like a world-builder: worlds contain planes, planes contain cities, cities contain districts and factions, factions contain members, taverns contain regulars. You understand that a "Casa Rakarov" is a noble house (faction), not a building; that the Wandering Vault is its own demiplane, not a location in the Material Plane; that an NPC mentioned at a specific tavern belongs to that tavern as parent, not just the city.
+
+When notes are ambiguous you make the most narratively coherent choice. You never invent entities not mentioned in the notes. You always respond with clean, valid JSON and nothing else.`,
       messages: [{ role: 'user', content: prompt }],
     })
     const text = response.content[0]?.text ?? '[]'
@@ -929,24 +944,39 @@ ${notesText}`
     return res.status(500).json({ error: 'Error al analizar con IA' })
   }
 
-  // Detect conflicts before merging
+  // Detect conflicts before merging (against the target plane's entities)
   const conflicts = detectConflicts(existingEntities, extracted)
 
-  // Merge into existing lore
+  // Distribute extracted entities to correct planes based on planeHint
   const now = new Date().toISOString()
-  const mergedEntities = mergeEntities(existingEntities, extracted, sessionId ?? null)
+  const entitiesByPlane = new Map()  // planeId → entities[]
 
-  if (planeId && targetPlane) {
-    // Update plane-specific data
-    targetPlane.entities = mergedEntities
-    targetPlane.lastAnalysis = now
-    if (manual) targetPlane.lastManualAnalysis = now
-  } else {
-    // Legacy: update top-level
-    worldLore.entities = mergedEntities
+  for (const ent of extracted) {
+    const hint = (ent.planeHint ?? '').trim().toLowerCase()
+    let destPlane = targetPlane  // default: active/target plane
+    if (hint) {
+      const matched = allPlanes.find(p => p.name.toLowerCase() === hint)
+      if (matched) destPlane = matched
+    }
+    const destId = destPlane?.id ?? 'default'
+    if (!entitiesByPlane.has(destId)) entitiesByPlane.set(destId, { plane: destPlane, ents: [] })
+    entitiesByPlane.get(destId).ents.push(ent)
+  }
+
+  // Merge each group into its destination plane
+  for (const { plane, ents } of entitiesByPlane.values()) {
+    if (!plane) continue
+    const existingInPlane = plane.entities ?? []
+    plane.entities = mergeEntities(existingInPlane, ents, sessionId ?? null)
+    plane.lastAnalysis = now
+    if (manual) plane.lastManualAnalysis = now
+  }
+
+  // If no planes matched (legacy), update top-level
+  if (allPlanes.length === 0) {
+    worldLore.entities = mergeEntities(worldLore.entities ?? [], extracted, sessionId ?? null)
     worldLore.lastAnalysis = now
     if (manual) worldLore.lastManualAnalysis = now
-    if (worldLore.seed) worldLore.seed = worldLore.seed  // preserve existing seed
   }
 
   // Save back

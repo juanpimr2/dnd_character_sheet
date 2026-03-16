@@ -260,10 +260,30 @@ const currentParent = computed<WorldEntity | null>(() => navStack.value[navStack
 
 const visibleNodes = computed<WorldEntity[]>(() => {
   const kindOk = (e: WorldEntity) => !hiddenKinds.value.has(e.kind)
-  if (!currentParent.value) return entities.value.filter(e => !e.parent && kindOk(e))
+  if (!currentParent.value) {
+    // Root map: NPCs & quests never appear as standalone pins
+    // NPCs live inside their location. Quests appear as badges on their parent.
+    return entities.value.filter(e => !e.parent && e.kind !== 'npc' && e.kind !== 'quest' && kindOk(e))
+  }
   const pn = norm(currentParent.value.name)
-  return entities.value.filter(e => e.parent && norm(e.parent) === pn && kindOk(e))
+  // Drill-down: show direct children except quests (quests appear as badges)
+  return entities.value.filter(e => e.parent && norm(e.parent) === pn && e.kind !== 'quest' && kindOk(e))
 })
+
+// ── Quest helpers ─────────────────────────────────────────────────
+const allQuests = computed<WorldEntity[]>(() => entities.value.filter(e => e.kind === 'quest'))
+
+function questsFor(entity: WorldEntity): WorldEntity[] {
+  const n = norm(entity.name)
+  return allQuests.value.filter(q => q.parent && norm(q.parent) === n)
+}
+
+function navigateToQuestParent(quest: WorldEntity) {
+  if (!quest.parent) { openDetail(quest); return }
+  const parent = entities.value.find(e => norm(e.name) === norm(quest.parent!))
+  if (parent) navigateTo(parent)
+  openDetail(quest)
+}
 
 function childrenOf(entity: WorldEntity): WorldEntity[] {
   const n = norm(entity.name)
@@ -450,21 +470,12 @@ function startCooldown(secs: number) {
 }
 
 async function analyzeNotes() {
-  if (analyzing.value || cooldownSecs.value > 0) return
+  if (analyzing.value) return
   const plane = activePlane.value
   if (!plane) return
-  // Cooldown check against active plane
-  if (plane.lastManualAnalysis) {
-    const elapsed = Date.now() - new Date(plane.lastManualAnalysis).getTime()
-    const COOLDOWN_MS = 15 * 60 * 1000
-    if (elapsed < COOLDOWN_MS) {
-      startCooldown(Math.ceil((COOLDOWN_MS - elapsed) / 1000))
-      return
-    }
-  }
   analyzing.value = true; analyzeError.value = ''
   try {
-    const res  = await fetch(`/api/characters/${charId.value}/extract-lore`, {
+    const res = await fetch(`/api/characters/${charId.value}/extract-lore`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authStore.getToken()}` },
       body: JSON.stringify({ manual: true, planeId: plane.id }),
@@ -472,20 +483,23 @@ async function analyzeNotes() {
     const json = await res.json()
     if (res.status === 429) { startCooldown(json.remaining); return }
     if (!res.ok) { analyzeError.value = json.error ?? 'Error'; return }
-    if (json.worldLore && activePlane.value) {
-      // Merge returned plane data into the active plane
-      const updatedPlane = json.worldLore.planes?.find((p: WorldPlane) => p.id === activePlane.value!.id)
-      if (updatedPlane) {
-        activePlane.value.entities = updatedPlane.entities ?? activePlane.value.entities
-        activePlane.value.lastAnalysis = updatedPlane.lastAnalysis
-        if (updatedPlane.lastManualAnalysis) activePlane.value.lastManualAnalysis = updatedPlane.lastManualAnalysis
-      } else if (json.worldLore.entities) {
-        // Legacy response: update entities directly
-        activePlane.value.entities = json.worldLore.entities ?? activePlane.value.entities
-        activePlane.value.lastAnalysis = json.worldLore.lastAnalysis
-        if (json.worldLore.lastManualAnalysis) activePlane.value.lastManualAnalysis = json.worldLore.lastManualAnalysis
+
+    // Sync ALL planes that were updated (multi-plane routing)
+    if (json.worldLore?.planes && char.value?.worldLore?.planes) {
+      for (const updatedPlane of json.worldLore.planes as WorldPlane[]) {
+        const localPlane = char.value.worldLore.planes.find(p => p.id === updatedPlane.id)
+        if (localPlane) {
+          localPlane.entities = updatedPlane.entities ?? localPlane.entities
+          localPlane.lastAnalysis = updatedPlane.lastAnalysis
+          if (updatedPlane.lastManualAnalysis) localPlane.lastManualAnalysis = updatedPlane.lastManualAnalysis
+        }
       }
+    } else if (json.worldLore?.entities && activePlane.value) {
+      // Legacy fallback
+      activePlane.value.entities = json.worldLore.entities
+      activePlane.value.lastAnalysis = json.worldLore.lastAnalysis
     }
+
     if (json.conflicts?.length) {
       loreConflicts.value = json.conflicts
       conflictsExpanded.value = true
@@ -623,6 +637,20 @@ function toggleKind(kind: EntityKind) {
   hiddenKinds.value = s
 }
 
+// ── Plane theme ───────────────────────────────────────────────────
+const planeBgClass = computed(() => {
+  const name = (activePlane.value?.name ?? '').toLowerCase()
+  if (/hell|inferno|avernus|nine hells|baator|devil|diablo|infierno/.test(name)) return 'theme-hells'
+  if (/underdark|abyss|abismo|underground|drow|subterr/.test(name))               return 'theme-underdark'
+  if (/astral|ethereal|ethereo|astral sea|silver sea/.test(name))                  return 'theme-astral'
+  if (/feywild|faerie|fey|hada|summer court|winter court|seelie/.test(name))       return 'theme-feywild'
+  if (/shadowfell|shadow realm|sombra|darkness|gloom/.test(name))                  return 'theme-shadow'
+  if (/spelljammer|wildspace|outer plane|far realm|realmspace/.test(name))         return 'theme-space'
+  if (/vault|pocket dimension|demiplane|extradimensional/.test(name))              return 'theme-vault'
+  if (/mechanus|clockwork|modron|order/.test(name))                                return 'theme-mechanus'
+  return 'theme-material'
+})
+
 // ── Grid ──────────────────────────────────────────────────────────
 const showGrid = ref(true)
 const gridSize = ref<'fine' | 'normal' | 'coarse'>('normal')
@@ -645,6 +673,7 @@ function clearMapBg() {
 
 // ── Sidebar ───────────────────────────────────────────────────────
 const sidebarOpen = ref(true)
+const sidebarTab  = ref<'entities' | 'quests'>('entities')
 
 interface SBNode { entity: WorldEntity; depth: number }
 
@@ -844,13 +873,21 @@ function fmtTime(iso?: string) {
       <!-- ── Sidebar ── -->
       <aside class="world-sidebar" :class="{ collapsed: !sidebarOpen }">
         <div class="sidebar-header">
-          <span v-if="sidebarOpen" class="sidebar-title">Entities</span>
+          <template v-if="sidebarOpen">
+            <button class="sb-tab" :class="{ active: sidebarTab === 'entities' }" @click="sidebarTab = 'entities'">Entities</button>
+            <button class="sb-tab" :class="{ active: sidebarTab === 'quests' }" @click="sidebarTab = 'quests'">
+              📜 <span>Quests</span>
+              <span v-if="allQuests.length" class="sb-quest-count">{{ allQuests.length }}</span>
+            </button>
+          </template>
           <button class="btn-toggle" @click="sidebarOpen = !sidebarOpen">
             <ChevronLeft v-if="sidebarOpen" :size="13" />
             <ChevronRight v-else :size="13" />
           </button>
         </div>
-        <div v-if="sidebarOpen" class="sidebar-body">
+
+        <!-- ENTITIES TAB -->
+        <div v-if="sidebarOpen && sidebarTab === 'entities'" class="sidebar-body">
           <div
             v-for="{ entity, depth } in sidebarNodes" :key="entity.id"
             class="sb-item"
@@ -860,6 +897,7 @@ function fmtTime(iso?: string) {
           >
             <img :src="iconFor(entity)" :class="['sb-icon', { 'sb-icon-sm': depth > 0 }, isGI(iconFor(entity)) ? 'gi' : '']" />
             <span class="sb-name">{{ entity.name }}</span>
+            <span v-if="questsFor(entity).length" class="sb-quest-pip">{{ questsFor(entity).length }}</span>
             <span v-if="hasChildren(entity)" class="sb-count">{{ childrenOf(entity).length }}</span>
             <span v-for="f in (entity.flags ?? []).slice(0,2)" :key="f.type" class="sb-flag" :style="{ background: flagColor(f.type) }" />
           </div>
@@ -875,8 +913,36 @@ function fmtTime(iso?: string) {
               <span class="sb-name">{{ ent.name }}</span>
             </div>
           </template>
-          <!-- Add entity button at bottom of sidebar -->
           <button class="sb-add-btn" @click="addEntity"><Plus :size="11" /> New entity</button>
+        </div>
+
+        <!-- QUEST LOG TAB (WoW-style) -->
+        <div v-if="sidebarOpen && sidebarTab === 'quests'" class="sidebar-body quest-log">
+          <div v-if="allQuests.length === 0" class="quest-empty">
+            <span class="quest-empty-icon">📜</span>
+            <p>No active quests.</p>
+            <p class="quest-empty-hint">Analyze session notes to extract quests automatically.</p>
+          </div>
+          <div
+            v-for="quest in allQuests" :key="quest.id"
+            class="quest-item"
+            :class="{ active: detailId === quest.id, done: quest.flags?.some(f => f.type === 'visit') }"
+            @click="navigateToQuestParent(quest)"
+          >
+            <div class="quest-item-header">
+              <span class="quest-excl" :class="{ done: quest.flags?.some(f => f.type === 'visit') }">!</span>
+              <span class="quest-name">{{ quest.name }}</span>
+            </div>
+            <div v-if="quest.parent" class="quest-location">
+              <span class="quest-pin">📍</span>
+              <span>{{ quest.parent }}</span>
+            </div>
+            <div v-if="quest.description" class="quest-desc">{{ quest.description }}</div>
+            <div v-if="quest.flags?.length" class="quest-flags">
+              <span v-for="f in quest.flags.slice(0,2)" :key="f.type" class="quest-flag-pill" :style="{ borderColor: flagColor(f.type), color: flagColor(f.type) }">{{ f.type }}</span>
+            </div>
+          </div>
+          <button class="sb-add-btn" @click="addEntity"><Plus :size="11" /> New quest</button>
         </div>
       </aside>
 
@@ -884,7 +950,7 @@ function fmtTime(iso?: string) {
       <div
         ref="canvasRef"
         class="world-canvas"
-        :class="{ 'edit-cursor': editMode && pendingIcon }"
+        :class="[planeBgClass, { 'edit-cursor': editMode && pendingIcon }]"
       >
         <div v-if="editMode && !authStore.isPremium" class="free-edit-hint">
           Move or delete existing pins — upgrade to add new ones
@@ -972,6 +1038,10 @@ function fmtTime(iso?: string) {
               <div class="node-img-wrap" :class="{ selected: detailId === entity.id, drillable: hasChildren(entity) }">
                 <img :src="iconFor(entity)" :class="['node-img', isGI(iconFor(entity)) ? 'gi' : 'kenney']" :style="{ width: KIND_SIZE[entity.kind] + 'px', height: KIND_SIZE[entity.kind] + 'px' }" :alt="entity.name" />
                 <span v-if="hasChildren(entity)" class="child-badge">{{ childrenOf(entity).length }}</span>
+                <!-- Quest badge: floating "!" on entities that have active quests -->
+                <span v-if="questsFor(entity).length" class="quest-marker" @click.stop="navigateToQuestParent(questsFor(entity)[0])">
+                  {{ questsFor(entity).length > 1 ? questsFor(entity).length : '!' }}
+                </span>
               </div>
               <div v-if="entity.flags?.length" class="node-flags">
                 <span v-for="f in entity.flags.slice(0,3)" :key="f.type" class="flag-dot" :style="{ background: flagColor(f.type) }" />
@@ -1023,6 +1093,9 @@ function fmtTime(iso?: string) {
               <div class="node-img-wrap" :class="{ selected: detailId === child.id, drillable: hasChildren(child) }">
                 <img :src="iconFor(child)" :class="['node-img', isGI(iconFor(child)) ? 'gi' : 'kenney']" :style="{ width: KIND_SIZE[child.kind] + 'px', height: KIND_SIZE[child.kind] + 'px' }" :alt="child.name" />
                 <span v-if="hasChildren(child)" class="child-badge">{{ childrenOf(child).length }}</span>
+                <span v-if="questsFor(child).length" class="quest-marker" @click.stop="navigateToQuestParent(questsFor(child)[0])">
+                  {{ questsFor(child).length > 1 ? questsFor(child).length : '!' }}
+                </span>
               </div>
               <div v-if="child.flags?.length" class="node-flags">
                 <span v-for="f in child.flags.slice(0,3)" :key="f.type" class="flag-dot" :style="{ background: flagColor(f.type) }" />
@@ -1284,10 +1357,31 @@ function fmtTime(iso?: string) {
 .world-sidebar.collapsed { width: 36px; }
 
 .sidebar-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: .5rem .6rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
+  display: flex; align-items: center; gap: .2rem;
+  padding: .35rem .4rem .35rem .5rem; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
 .sidebar-title { font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+
+/* Sidebar tabs */
+.sb-tab {
+  display: flex; align-items: center; gap: .22rem;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--text-muted); font-family: inherit; font-size: .63rem; font-weight: 600;
+  padding: .18rem .4rem; cursor: pointer; transition: all var(--transition);
+  flex-shrink: 0;
+}
+.sb-tab:hover { color: var(--text-secondary); }
+.sb-tab.active { background: rgba(201,168,76,.1); border-color: var(--gold-border); color: var(--gold); }
+.sb-quest-count {
+  background: #f5a623; color: rgba(40,20,0,.9); border-radius: 10px;
+  font-size: .52rem; font-weight: 800; padding: 0 .28rem; min-width: 14px; text-align: center;
+}
+.sb-quest-pip {
+  background: linear-gradient(135deg, #f5d020, #f5a623);
+  color: rgba(40,20,0,.9); border-radius: 10px;
+  font-size: .5rem; font-weight: 800; padding: 0 .22rem; min-width: 13px;
+  text-align: center; flex-shrink: 0; margin-left: .1rem;
+}
 .btn-toggle { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: .1rem; display: flex; align-items: center; }
 .btn-toggle:hover { color: var(--gold); }
 
@@ -1334,6 +1428,150 @@ function fmtTime(iso?: string) {
   cursor: default;
 }
 .world-canvas.edit-cursor { cursor: crosshair; }
+
+/* ── Plane themes ── */
+/* Material Plane: parchment (default, no override needed) */
+
+/* Nine Hells — smouldering darkness, embers */
+.world-canvas.theme-hells {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 90%, rgba(200,40,10,0.35) 0%, transparent 65%),
+    radial-gradient(ellipse 90% 60% at 50% 0%,  rgba(130,20,0,0.45) 0%, transparent 70%),
+    linear-gradient(175deg, #1c0604 0%, #220808 40%, #160404 100%);
+}
+.world-canvas.theme-hells .node-label {
+  color: rgba(255,200,140,0.92);
+  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(180,60,10,0.6);
+}
+.world-canvas.theme-hells .btn-crumb,
+.world-canvas.theme-hells .crumb-sep { color: rgba(220,140,80,0.7); }
+.world-canvas.theme-hells .crumb-current { color: rgba(240,160,80,0.85); text-shadow: none; }
+.world-canvas.theme-hells .node-img.gi { filter: invert(1) sepia(1) saturate(3) hue-rotate(340deg) brightness(0.7) drop-shadow(0 2px 4px rgba(180,40,0,.6)); }
+
+/* Underdark — deep cave black */
+.world-canvas.theme-underdark {
+  background:
+    radial-gradient(ellipse 60% 40% at 30% 60%, rgba(20,30,100,0.2) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 40% at 70% 30%, rgba(60,10,80,0.2) 0%, transparent 50%),
+    linear-gradient(160deg, #060608 0%, #090910 50%, #060606 100%);
+}
+.world-canvas.theme-underdark .node-label {
+  color: rgba(180,200,255,0.85);
+  text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 10px rgba(60,80,200,0.4);
+}
+.world-canvas.theme-underdark .btn-crumb,
+.world-canvas.theme-underdark .crumb-sep { color: rgba(140,160,220,0.6); }
+.world-canvas.theme-underdark .crumb-current { color: rgba(160,180,255,0.8); text-shadow: none; }
+.world-canvas.theme-underdark .node-img.gi { filter: invert(1) sepia(0.5) saturate(1.5) hue-rotate(200deg) brightness(0.75) drop-shadow(0 2px 4px rgba(0,0,80,.5)); }
+
+/* Astral Plane — deep space purple starfield */
+.world-canvas.theme-astral {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(70,30,140,0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 20% 25%, rgba(100,50,200,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse 35% 35% at 80% 70%, rgba(80,30,150,0.15) 0%, transparent 45%),
+    linear-gradient(160deg, #06060e 0%, #0a0c1c 50%, #08080c 100%);
+}
+.world-canvas.theme-astral .node-label {
+  color: rgba(210,190,255,0.9);
+  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(120,80,220,0.5);
+}
+.world-canvas.theme-astral .btn-crumb,
+.world-canvas.theme-astral .crumb-sep { color: rgba(180,150,240,0.6); }
+.world-canvas.theme-astral .crumb-current { color: rgba(200,170,255,0.85); text-shadow: none; }
+.world-canvas.theme-astral .node-img.gi { filter: invert(1) sepia(0.3) saturate(2) hue-rotate(240deg) brightness(0.8) drop-shadow(0 2px 4px rgba(80,40,180,.5)); }
+
+/* Feywild — magical emerald forest */
+.world-canvas.theme-feywild {
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 40%, rgba(20,90,20,0.28) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 20%, rgba(80,200,80,0.1) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 30% at 20% 80%, rgba(60,160,40,0.1) 0%, transparent 45%),
+    linear-gradient(160deg, #040a04 0%, #081208 50%, #060e06 100%);
+}
+.world-canvas.theme-feywild .node-label {
+  color: rgba(160,240,160,0.9);
+  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(40,160,40,0.5);
+}
+.world-canvas.theme-feywild .btn-crumb,
+.world-canvas.theme-feywild .crumb-sep { color: rgba(120,200,100,0.6); }
+.world-canvas.theme-feywild .crumb-current { color: rgba(140,220,120,0.85); text-shadow: none; }
+.world-canvas.theme-feywild .node-img.gi { filter: invert(1) sepia(1) saturate(2) hue-rotate(90deg) brightness(0.65) drop-shadow(0 2px 4px rgba(0,80,0,.5)); }
+
+/* Shadowfell — desaturated void */
+.world-canvas.theme-shadow {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(40,30,55,0.3) 0%, transparent 70%),
+    linear-gradient(160deg, #060608 0%, #0a0a0e 50%, #080808 100%);
+}
+.world-canvas.theme-shadow .node-label {
+  color: rgba(180,170,200,0.82);
+  text-shadow: 0 1px 4px rgba(0,0,0,.95);
+}
+.world-canvas.theme-shadow .btn-crumb,
+.world-canvas.theme-shadow .crumb-sep { color: rgba(150,140,180,0.6); }
+.world-canvas.theme-shadow .crumb-current { color: rgba(170,160,200,0.8); text-shadow: none; }
+.world-canvas.theme-shadow .node-img.gi { filter: grayscale(0.7) invert(0.85) brightness(0.7) drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+
+/* Spelljammer / Wildspace — deep space */
+.world-canvas.theme-space {
+  background:
+    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(10,5,40,0.6) 0%, transparent 80%),
+    linear-gradient(160deg, #02020a 0%, #04040e 50%, #030308 100%);
+}
+.world-canvas.theme-space .node-label {
+  color: rgba(200,220,255,0.9);
+  text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 8px rgba(100,150,255,0.4);
+}
+.world-canvas.theme-space .btn-crumb,
+.world-canvas.theme-space .crumb-sep { color: rgba(160,180,230,0.6); }
+.world-canvas.theme-space .crumb-current { color: rgba(180,200,255,0.85); text-shadow: none; }
+.world-canvas.theme-space .node-img.gi { filter: invert(1) sepia(0.2) saturate(1.5) hue-rotate(200deg) brightness(0.85) drop-shadow(0 2px 6px rgba(80,120,255,.4)); }
+
+/* Wandering Vault / Pocket Dimension — gilded void */
+.world-canvas.theme-vault {
+  background:
+    radial-gradient(ellipse 60% 60% at 50% 50%, rgba(80,60,10,0.28) 0%, transparent 70%),
+    radial-gradient(ellipse 30% 30% at 25% 25%, rgba(160,120,20,0.12) 0%, transparent 45%),
+    linear-gradient(160deg, #080604 0%, #100e06 50%, #0a0802 100%);
+}
+.world-canvas.theme-vault .node-label {
+  color: rgba(240,210,130,0.9);
+  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(160,120,20,0.4);
+}
+.world-canvas.theme-vault .btn-crumb,
+.world-canvas.theme-vault .crumb-sep { color: rgba(200,170,80,0.6); }
+.world-canvas.theme-vault .crumb-current { color: rgba(220,190,100,0.85); text-shadow: none; }
+.world-canvas.theme-vault .node-img.gi { filter: invert(1) sepia(1) saturate(2.5) hue-rotate(10deg) brightness(0.65) drop-shadow(0 2px 4px rgba(120,80,0,.5)); }
+
+/* Mechanus / Clockwork — cold steel blue */
+.world-canvas.theme-mechanus {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(20,40,80,0.3) 0%, transparent 70%),
+    linear-gradient(160deg, #060810 0%, #0a0e18 50%, #080c14 100%);
+}
+.world-canvas.theme-mechanus .node-label {
+  color: rgba(160,200,240,0.9);
+  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 10px rgba(40,100,180,0.4);
+}
+.world-canvas.theme-mechanus .btn-crumb,
+.world-canvas.theme-mechanus .crumb-sep { color: rgba(120,160,210,0.6); }
+.world-canvas.theme-mechanus .crumb-current { color: rgba(140,180,230,0.85); text-shadow: none; }
+.world-canvas.theme-mechanus .node-img.gi { filter: invert(1) sepia(0.4) saturate(1.5) hue-rotate(180deg) brightness(0.8) drop-shadow(0 2px 4px rgba(20,60,140,.5)); }
+
+/* For all dark themes: grid lines need to be lighter */
+.world-canvas.theme-hells .grid-overlay,
+.world-canvas.theme-underdark .grid-overlay,
+.world-canvas.theme-astral .grid-overlay,
+.world-canvas.theme-feywild .grid-overlay,
+.world-canvas.theme-shadow .grid-overlay,
+.world-canvas.theme-space .grid-overlay,
+.world-canvas.theme-vault .grid-overlay,
+.world-canvas.theme-mechanus .grid-overlay {
+  background-image:
+    linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px);
+}
 
 .free-edit-hint {
   position: absolute;
@@ -1510,6 +1748,27 @@ function fmtTime(iso?: string) {
   max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: center;
 }
 .node-label-lg { font-size: .75rem; }
+
+/* Quest marker badge on entity nodes — WoW-style ! */
+.quest-marker {
+  position: absolute;
+  top: -7px; right: -9px;
+  min-width: 16px; height: 16px; border-radius: 8px;
+  background: #f5d020;
+  background: linear-gradient(135deg, #f5d020, #f5a623);
+  color: rgba(40,20,0,0.92);
+  font-size: .58rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center; padding: 0 3px;
+  box-shadow: 0 1px 5px rgba(0,0,0,.5), 0 0 8px rgba(245,190,30,0.5);
+  cursor: pointer; z-index: 8;
+  transition: transform .15s ease, box-shadow .15s ease;
+  letter-spacing: -.02em;
+  border: 1px solid rgba(255,220,80,.5);
+}
+.quest-marker:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(0,0,0,.5), 0 0 12px rgba(245,190,30,0.7);
+}
 
 /* ── Floating edit toolbar ── */
 .edit-toolbar {
@@ -1851,4 +2110,67 @@ function fmtTime(iso?: string) {
   position: relative; bottom: -1px;
 }
 .plane-add:hover { background: rgba(201,168,76,.1); color: var(--gold); border-color: var(--gold-border); }
+
+/* ── Quest Log (WoW-style) ── */
+.quest-log { padding-top: .2rem; }
+.quest-empty {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 2rem 1rem; gap: .4rem; text-align: center;
+}
+.quest-empty-icon { font-size: 2rem; opacity: .5; }
+.quest-empty p { font-size: .73rem; color: var(--text-muted); margin: 0; }
+.quest-empty-hint { font-size: .65rem; color: var(--text-muted); opacity: .7; }
+
+.quest-item {
+  padding: .5rem .65rem .45rem;
+  border-bottom: 1px solid rgba(201,168,76,.08);
+  cursor: pointer;
+  transition: background var(--transition);
+  display: flex; flex-direction: column; gap: .2rem;
+}
+.quest-item:hover { background: rgba(201,168,76,.06); }
+.quest-item.active { background: rgba(201,168,76,.1); border-left: 2px solid var(--gold); }
+.quest-item.done { opacity: .5; }
+.quest-item.done .quest-excl { background: #888; color: #ccc; }
+
+.quest-item-header {
+  display: flex; align-items: flex-start; gap: .4rem;
+}
+.quest-excl {
+  flex-shrink: 0;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: linear-gradient(135deg, #f5d020, #f5a623);
+  color: rgba(40,20,0,.9);
+  font-size: .62rem; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.4), 0 0 6px rgba(245,190,30,.3);
+  margin-top: 1px;
+}
+.quest-name {
+  font-size: .75rem; font-weight: 700; color: var(--gold-light);
+  line-height: 1.3; flex: 1;
+}
+.quest-item.done .quest-name { color: var(--text-muted); text-decoration: line-through; }
+
+.quest-location {
+  display: flex; align-items: center; gap: .25rem;
+  font-size: .63rem; color: var(--text-muted); padding-left: 1.4rem;
+}
+.quest-pin { font-size: .7rem; }
+
+.quest-desc {
+  font-size: .65rem; color: var(--text-secondary); line-height: 1.4;
+  padding-left: 1.4rem;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.quest-flags {
+  display: flex; gap: .25rem; padding-left: 1.4rem; flex-wrap: wrap;
+}
+.quest-flag-pill {
+  font-size: .55rem; font-weight: 700; text-transform: uppercase;
+  border: 1px solid; border-radius: 20px; padding: .05rem .3rem;
+  letter-spacing: .05em;
+}
 </style>
