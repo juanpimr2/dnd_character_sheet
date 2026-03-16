@@ -236,6 +236,7 @@ function addDecoration(x: number, y: number) {
     size: 36,
     scope: currentScope.value,
   })
+  pendingIcon.value = null   // deselect after placing — user expects to be in move/inspect mode
   charStore.scheduleAutoSave()
 }
 function deleteDecoration(id: number) {
@@ -1123,9 +1124,12 @@ function fmtTime(iso?: string) {
 .deco-wrap {
   position: absolute; transform: translate(-50%, -50%);
   z-index: 6; pointer-events: auto;
+  transition: transform .15s ease;
 }
+.deco-wrap:not(.draggable):hover { transform: translate(-50%, -50%) scale(1.15) translateY(-2px); }
 .deco-wrap.draggable { cursor: grab; }
-.deco-wrap.draggable:active { cursor: grabbing; }
+.deco-wrap.draggable:hover { transform: translate(-50%, -50%) scale(1.1) translateY(-2px); }
+.deco-wrap.draggable:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.05); }
 .deco-img { width: var(--sz); height: var(--sz); object-fit: contain; filter: drop-shadow(0 1px 2px rgba(40,20,0,.3)); display: block; }
 .deco-del {
   position: absolute; top: -5px; right: -5px;
@@ -1198,6 +1202,7 @@ function fmtTime(iso?: string) {
   padding: .5rem .45rem;
   backdrop-filter: blur(6px);
   display: flex; flex-direction: column; gap: .35rem;
+  width: 175px;
   max-height: 80%; overflow-y: auto;
   scrollbar-width: none;
 }
@@ -1208,7 +1213,7 @@ function fmtTime(iso?: string) {
   letter-spacing: .1em; color: rgba(201,168,76,.55);
   padding: .05rem 0;
 }
-.toolbar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .22rem; }
+.toolbar-grid { display: grid; grid-template-columns: repeat(auto-fill, 30px); gap: .22rem; justify-content: start; }
 .palette-btn {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px;
