@@ -648,9 +648,71 @@ function normalizeName(name) {
   return name.toLowerCase().replace(/[^a-z0-9áéíóúàèìòùñü]/g, '').trim()
 }
 
+// Smart hierarchical layout — snaps to 6.25% grid (matches the map's Normal grid)
+// Only positions entities in `newIds`; existing entities keep their user-set positions.
+function smartLayout(allEntities, newIds) {
+  if (newIds.size === 0) return
+
+  const G = 6.25  // grid cell size in %
+  const snap = v => Math.round(v / G) * G
+
+  const byNorm = {}
+  allEntities.forEach(e => { byNorm[normalizeName(e.name)] = e })
+  const getParent = e => e.parent ? byNorm[normalizeName(e.parent)] : null
+
+  // Depth: 0 = city/root, 1 = direct child, 2 = grandchild
+  const depthOf = (e, visited = new Set()) => {
+    if (!e.parent || visited.has(e.id)) return 0
+    visited.add(e.id)
+    const p = getParent(e)
+    return p ? 1 + depthOf(p, visited) : 0
+  }
+
+  // Y levels per depth (grid-snapped)
+  const Y_LEVEL = [snap(12), snap(35), snap(57), snap(78)]
+
+  // Process new entities sorted by depth so parents are placed before children
+  const newEnts = allEntities
+    .filter(e => newIds.has(e.id))
+    .sort((a, b) => depthOf(a) - depthOf(b))
+
+  for (const ent of newEnts) {
+    const parent = getParent(ent)
+    const yLevel = Y_LEVEL[Math.min(depthOf(ent), Y_LEVEL.length - 1)]
+
+    if (!parent) {
+      // Root entity: spread across the top row, maximise distance to others
+      const topEnts = allEntities.filter(e => !getParent(e) && e !== ent && e.x != null)
+      const usedX = topEnts.map(e => e.x)
+      // Candidate slots: columns 2–14 out of 16 (avoid edges)
+      const slots = []
+      for (let col = 2; col <= 14; col++) slots.push(snap(col * G))
+      const best = slots.reduce((b, cx) => {
+        const minDist = usedX.length === 0 ? 999 : Math.min(...usedX.map(x => Math.abs(x - cx)))
+        return minDist > b.dist ? { x: cx, dist: minDist } : b
+      }, { x: snap(8 * G), dist: -1 })
+      ent.x = best.x
+      ent.y = yLevel
+    } else {
+      // Child: fan out symmetrically below parent
+      const siblings = allEntities.filter(e =>
+        e !== ent && getParent(e) === parent && e.x != null
+      )
+      const si = siblings.length
+      // Alternating offset: 0, -G, +G, -2G, +2G …
+      const sign  = si % 2 === 0 ? 1 : -1
+      const steps = Math.ceil(si / 2)
+      const dx    = sign * steps * G * 2   // 2 cells between siblings
+      ent.x = snap(Math.min(93.75, Math.max(6.25, parent.x + dx)))
+      ent.y = Math.min(snap(Y_LEVEL[Y_LEVEL.length - 1]), yLevel)
+    }
+  }
+}
+
 // Merge newly extracted entities into existing world lore
 function mergeEntities(existing = [], incoming = [], sessionId) {
   const result = existing.map(e => ({ ...e, flags: e.flags || [] }))
+  const existingIds = new Set(result.map(e => e.id))
 
   for (const newEnt of incoming) {
     const newNorm = normalizeName(newEnt.name)
@@ -674,12 +736,15 @@ function mergeEntities(existing = [], incoming = [], sessionId) {
         description: newEnt.description ?? '',
         parent: newEnt.parent ?? undefined,
         sessions: sessionId != null ? [sessionId] : [],
-        x: 20 + Math.random() * 60,
-        y: 20 + Math.random() * 60,
+        // x/y left undefined — smartLayout will assign them
         flags: [],
       })
     }
   }
+
+  // Assign smart grid-snapped positions to new entities only
+  const newIds = new Set(result.filter(e => e.x == null).map(e => e.id))
+  smartLayout(result, newIds)
 
   return result
 }

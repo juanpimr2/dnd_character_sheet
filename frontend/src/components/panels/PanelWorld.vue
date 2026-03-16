@@ -501,7 +501,7 @@ function toggleKind(kind: EntityKind) {
 }
 
 // ── Grid ──────────────────────────────────────────────────────────
-const showGrid = ref(false)
+const showGrid = ref(true)
 const gridSize = ref<'fine' | 'normal' | 'coarse'>('normal')
 const GRID_SIZES = { fine: '5%', normal: '6.25%', coarse: '10%' } as const
 
