@@ -2,7 +2,7 @@
 import { computed, ref, reactive, watch } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import { useAuthStore } from '@/stores/auth'
-import type { WorldEntity, EntityKind, LoreFlag, MapDecoration, LoreConflict, WorldPlane } from '@/types/character'
+import type { WorldEntity, EntityKind, LoreFlag, MapDecoration, WorldPlane } from '@/types/character'
 import { Globe, Loader2, X, ChevronLeft, ChevronRight, Edit2, HelpCircle, Plus } from 'lucide-vue-next'
 import UpgradeGate from '@/components/UpgradeGate.vue'
 
@@ -261,16 +261,17 @@ const KIND_SIZE: Record<EntityKind, number> = { city: 56, location: 42, npc: 38,
 const navStack = ref<WorldEntity[]>([])
 const currentParent = computed<WorldEntity | null>(() => navStack.value[navStack.value.length - 1] ?? null)
 
+// NPCs never appear on the map canvas — only in the sidebar entity tree + detail panel.
+// The map is for places, organizations, and quests-as-hints. People live in the sidebar.
+const MAP_HIDDEN_KINDS = new Set<EntityKind>(['npc', 'quest'])
+
 const visibleNodes = computed<WorldEntity[]>(() => {
-  const kindOk = (e: WorldEntity) => !hiddenKinds.value.has(e.kind)
+  const kindOk = (e: WorldEntity) => !MAP_HIDDEN_KINDS.has(e.kind) && !hiddenKinds.value.has(e.kind)
   if (!currentParent.value) {
-    // Root map: NPCs & quests never appear as standalone pins
-    // NPCs live inside their location. Quests appear as badges on their parent.
-    return entities.value.filter(e => !e.parent && e.kind !== 'npc' && e.kind !== 'quest' && kindOk(e))
+    return entities.value.filter(e => !e.parent && kindOk(e))
   }
   const pn = norm(currentParent.value.name)
-  // Drill-down: show direct children except quests (quests appear as badges)
-  return entities.value.filter(e => e.parent && norm(e.parent) === pn && e.kind !== 'quest' && kindOk(e))
+  return entities.value.filter(e => e.parent && norm(e.parent) === pn && kindOk(e))
 })
 
 // ── Quest helpers ─────────────────────────────────────────────────
@@ -428,27 +429,7 @@ function saveSeed() {
   showSeedForm.value = false
 }
 
-// ── Lore Conflicts ────────────────────────────────────────────────
-const loreConflicts = ref<LoreConflict[]>([])
-const conflictsExpanded = ref(false)
-
-function resolveConflict(entityId: number, field: string, newValue: string, accept: boolean) {
-  if (accept && activePlane.value?.entities) {
-    const entity = activePlane.value.entities.find(e => e.id === entityId)
-    if (entity) {
-      (entity as any)[field] = newValue
-      charStore.scheduleAutoSave()
-    }
-  }
-  // Remove this conflict from list
-  loreConflicts.value = loreConflicts.value.filter(
-    c => !(c.entityId === entityId && c.field === field)
-  )
-}
-
-function dismissAllConflicts() {
-  loreConflicts.value = []
-}
+// Conflicts removed — AI context is too limited to reliably detect them
 
 // ── Reset & Analyze ───────────────────────────────────────────────
 function resetLore() {
@@ -504,10 +485,6 @@ async function analyzeNotes() {
       activePlane.value.lastAnalysis = json.worldLore.lastAnalysis
     }
 
-    if (json.conflicts?.length) {
-      loreConflicts.value = json.conflicts
-      conflictsExpanded.value = true
-    }
     charStore.scheduleAutoSave()
   } catch { analyzeError.value = 'Network error' }
   finally   { analyzing.value = false }
@@ -784,37 +761,6 @@ function fmtTime(iso?: string) {
       </div>
     </Transition>
 
-    <!-- ── Lore conflicts ── -->
-    <Transition name="conflicts">
-      <div v-if="loreConflicts.length > 0" class="conflicts-bar">
-        <div class="conflicts-header" @click="conflictsExpanded = !conflictsExpanded">
-          <span class="conflicts-icon">⚠</span>
-          <span class="conflicts-title">{{ loreConflicts.length }} lore conflict{{ loreConflicts.length > 1 ? 's' : '' }} detected</span>
-          <span class="conflicts-sub">AI proposed changes to existing entities — review before accepting</span>
-          <span class="conflicts-chevron">{{ conflictsExpanded ? '▲' : '▼' }}</span>
-          <button class="conflicts-dismiss" @click.stop="dismissAllConflicts" title="Dismiss all">✕</button>
-        </div>
-        <Transition name="conflicts-body">
-          <div v-if="conflictsExpanded" class="conflicts-body">
-            <div v-for="c in loreConflicts" :key="`${c.entityId}-${c.field}`" class="conflict-item">
-              <div class="conflict-entity">
-                <span class="conflict-name">{{ c.entityName }}</span>
-                <span class="conflict-field">{{ c.field }}</span>
-              </div>
-              <div class="conflict-values">
-                <div class="conflict-val old"><span class="cv-label">Current</span><span class="cv-text">{{ c.oldValue }}</span></div>
-                <div class="conflict-val new"><span class="cv-label">AI proposed</span><span class="cv-text">{{ c.newValue }}</span></div>
-              </div>
-              <div class="conflict-actions">
-                <button class="conf-btn keep" @click="resolveConflict(c.entityId, c.field, c.newValue, false)">Keep current</button>
-                <button class="conf-btn accept" @click="resolveConflict(c.entityId, c.field, c.newValue, true)">Accept AI</button>
-              </div>
-            </div>
-          </div>
-        </Transition>
-      </div>
-    </Transition>
-
     <!-- ── Help overlay ── -->
     <div v-if="showHelp" class="help-box">
       <button class="help-close" @click="showHelp = false"><X :size="12" /></button>
@@ -981,14 +927,15 @@ function fmtTime(iso?: string) {
         <div class="map-legend">
           <div class="legend-section legend-entities">
             <span class="legend-title">Show/Hide</span>
+            <!-- NPCs never appear on the canvas — legend only shows map-visible kinds -->
             <button
-              v-for="k in (['city','location','faction','npc','quest'] as EntityKind[])" :key="k"
+              v-for="k in (['city','location','faction'] as EntityKind[])" :key="k"
               class="legend-btn" :class="{ hidden: hiddenKinds.has(k) }"
               @click="toggleKind(k)"
-              :title="(hiddenKinds.has(k) ? 'Show ' : 'Hide ') + { city:'Cities', location:'Locations', faction:'Factions', npc:'NPCs', quest:'Quests' }[k]"
+              :title="(hiddenKinds.has(k) ? 'Show ' : 'Hide ') + { city:'Cities', location:'Locations', faction:'Factions' }[k]"
             >
-              <span class="legend-icon">{{ { city:'🏙', location:'📍', faction:'⚔', npc:'👤', quest:'📜' }[k] }}</span>
-              <span class="legend-label">{{ { city:'Cities', location:'Places', faction:'Factions', npc:'NPCs', quest:'Quests' }[k] }}</span>
+              <span class="legend-icon">{{ { city:'🏙', location:'📍', faction:'⚔' }[k] }}</span>
+              <span class="legend-label">{{ { city:'Cities', location:'Places', faction:'Factions' }[k] }}</span>
             </button>
           </div>
           <div class="legend-sep"></div>

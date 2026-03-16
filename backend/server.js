@@ -961,9 +961,6 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
     return res.status(500).json({ error: 'Error al analizar con IA' })
   }
 
-  // Detect conflicts before merging (against the target plane's entities)
-  const conflicts = detectConflicts(existingEntities, extracted)
-
   // Distribute extracted entities to correct planes based on planeHint
   // Auto-creates new planes for previously unknown planeHints
   const now = new Date().toISOString()
@@ -1029,7 +1026,7 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
   if (saveErr) return res.status(500).json({ error: saveErr.message })
 
   console.log(`🗺  Lore extracted: ${extracted.length} entities for ${characterId}`)
-  res.json({ worldLore: charData.worldLore, extracted: extracted.length, conflicts, planeId })
+  res.json({ worldLore: charData.worldLore, extracted: extracted.length, planeId })
 })
 
 // ── Health check ─────────────────────────────────────────────────
