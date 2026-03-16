@@ -684,6 +684,30 @@ function mergeEntities(existing = [], incoming = [], sessionId) {
   return result
 }
 
+function detectConflicts(existing = [], incoming = []) {
+  const conflicts = []
+  for (const newEnt of incoming) {
+    const newNorm = normalizeName(newEnt.name)
+    const match = existing.find(e => normalizeName(e.name) === newNorm)
+    if (!match) continue
+
+    if (match.kind && newEnt.kind && match.kind !== newEnt.kind) {
+      conflicts.push({ entityId: match.id, entityName: match.name, field: 'kind', oldValue: match.kind, newValue: newEnt.kind })
+    }
+    if (match.parent && newEnt.parent && normalizeName(match.parent) !== normalizeName(newEnt.parent)) {
+      conflicts.push({ entityId: match.id, entityName: match.name, field: 'parent', oldValue: match.parent, newValue: newEnt.parent })
+    }
+    if (match.description && newEnt.description && match.description !== newEnt.description) {
+      // Only flag if descriptions are substantively different (not just an extension)
+      const oldShort = match.description.substring(0, 30).toLowerCase()
+      if (!newEnt.description.toLowerCase().startsWith(oldShort)) {
+        conflicts.push({ entityId: match.id, entityName: match.name, field: 'description', oldValue: match.description, newValue: newEnt.description })
+      }
+    }
+  }
+  return conflicts
+}
+
 // POST /api/characters/:id/extract-lore
 // body: { sessionId?: number, manual?: boolean }
 //   - sessionId: if given, only analyze that session's notes
@@ -744,6 +768,26 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'No hay notas para analizar' })
   }
 
+  // Build world context preamble from seed data
+  const seed = worldLore.seed ?? {}
+  let worldContextLines = []
+  if (seed.worldName) worldContextLines.push(`- World: ${seed.worldName}`)
+  if (seed.genre || seed.notes) {
+    const genreStr = [seed.genre, seed.notes].filter(Boolean).join(' — ')
+    worldContextLines.push(`- Genre/tone: ${genreStr}`)
+  }
+
+  let knownEntitiesBlock = ''
+  if (worldLore.entities && worldLore.entities.length > 0) {
+    const entLines = worldLore.entities.map(e => `- ${e.name} (${e.kind})`).join('\n')
+    knownEntitiesBlock = `\nKnown entities (preserve exact names — only parent/description updates allowed):\n${entLines}\n`
+  }
+
+  let worldContextBlock = ''
+  if (worldContextLines.length > 0) {
+    worldContextBlock = `\nWorld context:\n${worldContextLines.join('\n')}\n`
+  }
+
   // Prompt to Claude Haiku
   const prompt = `You are an expert D&D lore extractor. Analyze these session notes and extract all notable entities.
 
@@ -775,7 +819,7 @@ Other rules:
 - Descriptions should be factual (what was learned in the session)
 - Always include the "parent" field (null if no parent)
 - CRITICAL: Write ALL descriptions in the SAME LANGUAGE as the session notes. If notes are in Spanish, write in Spanish. Never change the language of descriptions or names.
-
+${worldContextBlock}${knownEntitiesBlock}
 Session notes:
 ${notesText}`
 
@@ -796,6 +840,9 @@ ${notesText}`
     return res.status(500).json({ error: 'Error al analizar con IA' })
   }
 
+  // Detect conflicts before merging
+  const conflicts = detectConflicts(worldLore.entities, extracted)
+
   // Merge into existing lore
   const now = new Date().toISOString()
   const mergedEntities = mergeEntities(worldLore.entities, extracted, sessionId ?? null)
@@ -803,6 +850,7 @@ ${notesText}`
     entities: mergedEntities,
     lastAnalysis: now,
     ...(manual ? { lastManualAnalysis: now } : {}),
+    ...(worldLore.seed ? { seed: worldLore.seed } : {}),
   }
 
   // Save back
@@ -816,7 +864,7 @@ ${notesText}`
   if (saveErr) return res.status(500).json({ error: saveErr.message })
 
   console.log(`🗺  Lore extracted: ${extracted.length} entities for ${characterId}`)
-  res.json({ worldLore: updatedLore, extracted: extracted.length })
+  res.json({ worldLore: updatedLore, extracted: extracted.length, conflicts })
 })
 
 // ── Health check ─────────────────────────────────────────────────

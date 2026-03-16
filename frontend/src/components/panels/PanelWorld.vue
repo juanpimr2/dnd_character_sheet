@@ -2,7 +2,7 @@
 import { computed, ref, reactive } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import { useAuthStore } from '@/stores/auth'
-import type { WorldEntity, EntityKind, LoreFlag, MapDecoration } from '@/types/character'
+import type { WorldEntity, EntityKind, LoreFlag, MapDecoration, LoreConflict } from '@/types/character'
 import { Globe, Loader2, X, ChevronLeft, ChevronRight, Edit2, HelpCircle, Plus } from 'lucide-vue-next'
 import UpgradeGate from '@/components/UpgradeGate.vue'
 
@@ -278,6 +278,56 @@ function addEntity() {
   charStore.scheduleAutoSave()
 }
 
+// ── World Seed ────────────────────────────────────────────────────
+const showSeedForm = ref(false)
+const seedForm = reactive({
+  worldName: '',
+  genre: '',
+  notes: '',
+})
+
+function openSeedForm() {
+  const seed = worldLore.value.seed ?? {}
+  seedForm.worldName = seed.worldName ?? ''
+  seedForm.genre = seed.genre ?? ''
+  seedForm.notes = seed.notes ?? ''
+  showSeedForm.value = true
+}
+
+function saveSeed() {
+  if (!char.value) return
+  if (!char.value.worldLore) char.value.worldLore = { entities: [] }
+  char.value.worldLore.seed = {
+    worldName: seedForm.worldName || undefined,
+    genre: seedForm.genre || undefined,
+    notes: seedForm.notes || undefined,
+  }
+  charStore.scheduleAutoSave()
+  showSeedForm.value = false
+}
+
+// ── Lore Conflicts ────────────────────────────────────────────────
+const loreConflicts = ref<LoreConflict[]>([])
+const conflictsExpanded = ref(false)
+
+function resolveConflict(entityId: number, field: string, newValue: string, accept: boolean) {
+  if (accept && char.value?.worldLore?.entities) {
+    const entity = char.value.worldLore.entities.find(e => e.id === entityId)
+    if (entity) {
+      (entity as any)[field] = newValue
+      charStore.scheduleAutoSave()
+    }
+  }
+  // Remove this conflict from list
+  loreConflicts.value = loreConflicts.value.filter(
+    c => !(c.entityId === entityId && c.field === field)
+  )
+}
+
+function dismissAllConflicts() {
+  loreConflicts.value = []
+}
+
 // ── Reset & Analyze ───────────────────────────────────────────────
 function resetLore() {
   if (!confirm('Clear all world entities and decorations? Press Analyze notes afterwards to rebuild.')) return
@@ -314,6 +364,10 @@ async function analyzeNotes() {
     if (res.status === 429) { startCooldown(json.remaining); return }
     if (!res.ok) { analyzeError.value = json.error ?? 'Error'; return }
     if (char.value) char.value.worldLore = json.worldLore
+    if (json.conflicts?.length) {
+      loreConflicts.value = json.conflicts
+      conflictsExpanded.value = true
+    }
     charStore.scheduleAutoSave()
   } catch { analyzeError.value = 'Network error' }
   finally   { analyzing.value = false }
@@ -506,6 +560,10 @@ function fmtTime(iso?: string) {
       <h2 class="panel-title">World Lore</h2>
       <div class="header-right">
         <span class="last-analysis">{{ fmtTime(worldLore.lastAnalysis) }}</span>
+        <button class="btn-icon-hdr" @click="openSeedForm" :class="{ 'edit-on': showSeedForm || worldLore.seed?.worldName }" title="World setup">
+          <span style="font-size:.9em">⚙</span>
+          <span>World</span>
+        </button>
         <button class="btn-help" @click="showHelp = !showHelp" :class="{ active: showHelp }" title="Help">
           <HelpCircle :size="13" />
         </button>
@@ -537,6 +595,67 @@ function fmtTime(iso?: string) {
     <div v-if="authStore.isPremium && (worldLore.lastAnalysis || worldLore.lastManualAnalysis)" class="ai-disclaimer">
       AI-generated — review and edit as needed.
     </div>
+
+    <!-- ── Seed form ── -->
+    <Transition name="seed-form">
+      <div v-if="showSeedForm" class="seed-panel">
+        <div class="seed-row">
+          <label class="seed-label">World name</label>
+          <input v-model="seedForm.worldName" class="seed-input" placeholder="e.g. Faerûn, Golarion, Midgard…" maxlength="60" />
+        </div>
+        <div class="seed-row">
+          <label class="seed-label">Genre</label>
+          <select v-model="seedForm.genre" class="seed-select">
+            <option value="">— choose —</option>
+            <option value="high-fantasy">High Fantasy</option>
+            <option value="dark-fantasy">Dark Fantasy</option>
+            <option value="sword-sorcery">Sword &amp; Sorcery</option>
+            <option value="sci-fi">Sci-Fi / Spelljammer</option>
+            <option value="historical">Historical</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="seed-row seed-row--col">
+          <label class="seed-label">World notes <span class="seed-hint">(tone, themes, key facts — up to 300 chars)</span></label>
+          <textarea v-model="seedForm.notes" class="seed-textarea" rows="3" maxlength="300" placeholder="e.g. A world of ancient ruins and corrupt gods. The party is wanted by the Thieves Guild…" />
+        </div>
+        <div class="seed-actions">
+          <button class="seed-cancel" @click="showSeedForm = false">Cancel</button>
+          <button class="seed-save" @click="saveSeed">Save world context</button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- ── Lore conflicts ── -->
+    <Transition name="conflicts">
+      <div v-if="loreConflicts.length > 0" class="conflicts-bar">
+        <div class="conflicts-header" @click="conflictsExpanded = !conflictsExpanded">
+          <span class="conflicts-icon">⚠</span>
+          <span class="conflicts-title">{{ loreConflicts.length }} lore conflict{{ loreConflicts.length > 1 ? 's' : '' }} detected</span>
+          <span class="conflicts-sub">AI proposed changes to existing entities — review before accepting</span>
+          <span class="conflicts-chevron">{{ conflictsExpanded ? '▲' : '▼' }}</span>
+          <button class="conflicts-dismiss" @click.stop="dismissAllConflicts" title="Dismiss all">✕</button>
+        </div>
+        <Transition name="conflicts-body">
+          <div v-if="conflictsExpanded" class="conflicts-body">
+            <div v-for="c in loreConflicts" :key="`${c.entityId}-${c.field}`" class="conflict-item">
+              <div class="conflict-entity">
+                <span class="conflict-name">{{ c.entityName }}</span>
+                <span class="conflict-field">{{ c.field }}</span>
+              </div>
+              <div class="conflict-values">
+                <div class="conflict-val old"><span class="cv-label">Current</span><span class="cv-text">{{ c.oldValue }}</span></div>
+                <div class="conflict-val new"><span class="cv-label">AI proposed</span><span class="cv-text">{{ c.newValue }}</span></div>
+              </div>
+              <div class="conflict-actions">
+                <button class="conf-btn keep" @click="resolveConflict(c.entityId, c.field, c.newValue, false)">Keep current</button>
+                <button class="conf-btn accept" @click="resolveConflict(c.entityId, c.field, c.newValue, true)">Accept AI</button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </div>
+    </Transition>
 
     <!-- ── Help overlay ── -->
     <div v-if="showHelp" class="help-box">
@@ -1363,4 +1482,112 @@ function fmtTime(iso?: string) {
 /* Spinner */
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Seed form ── */
+.seed-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-md);
+  padding: .75rem .85rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin-bottom: .4rem;
+  border-left: 3px solid var(--gold-dim);
+}
+.seed-row { display: flex; align-items: center; gap: .6rem; }
+.seed-row--col { flex-direction: column; align-items: stretch; gap: .25rem; }
+.seed-label { font-size: .68rem; font-weight: 700; color: var(--text-muted); white-space: nowrap; min-width: 70px; }
+.seed-hint { font-weight: 400; font-size: .62rem; color: var(--text-muted); opacity: .7; }
+.seed-input, .seed-select {
+  flex: 1; background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text-primary); font-family: inherit;
+  font-size: .8rem; padding: .28rem .5rem; outline: none;
+  transition: border-color var(--transition);
+}
+.seed-input:focus, .seed-select:focus { border-color: var(--gold-dim); }
+.seed-textarea {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-primary); font-family: inherit; font-size: .8rem;
+  padding: .35rem .5rem; outline: none; resize: vertical; transition: border-color var(--transition);
+  line-height: 1.45;
+}
+.seed-textarea:focus { border-color: var(--gold-dim); }
+.seed-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .15rem; }
+.seed-cancel {
+  background: transparent; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text-muted); font-family: inherit; font-size: .72rem; padding: .25rem .65rem; cursor: pointer;
+  transition: all var(--transition);
+}
+.seed-cancel:hover { border-color: var(--border-hover); color: var(--text-secondary); }
+.seed-save {
+  background: var(--gold); border: none; border-radius: var(--radius-sm);
+  color: rgba(20,10,0,.9); font-family: inherit; font-size: .72rem; font-weight: 700;
+  padding: .25rem .75rem; cursor: pointer; transition: background var(--transition);
+}
+.seed-save:hover { background: var(--gold-bright, #e8c84a); }
+.seed-form-enter-active, .seed-form-leave-active { transition: opacity .2s ease, transform .2s ease; }
+.seed-form-enter-from, .seed-form-leave-to { opacity: 0; transform: translateY(-6px); }
+
+/* ── Conflicts bar ── */
+.conflicts-bar {
+  border: 1px solid rgba(220, 170, 50, 0.4);
+  border-left: 3px solid rgba(220, 170, 50, 0.8);
+  border-radius: var(--radius-md);
+  background: rgba(50, 35, 5, 0.5);
+  margin-bottom: .4rem;
+  overflow: hidden;
+}
+.conflicts-header {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .4rem .75rem; cursor: pointer; user-select: none;
+  transition: background var(--transition);
+}
+.conflicts-header:hover { background: rgba(220, 170, 50, 0.06); }
+.conflicts-icon { font-size: .85rem; color: rgba(220, 170, 50, .9); flex-shrink: 0; }
+.conflicts-title { font-size: .75rem; font-weight: 700; color: rgba(220, 170, 50, .9); white-space: nowrap; }
+.conflicts-sub { font-size: .63rem; color: var(--text-muted); flex: 1; }
+.conflicts-chevron { font-size: .6rem; color: var(--text-muted); flex-shrink: 0; }
+.conflicts-dismiss {
+  background: transparent; border: none; color: var(--text-muted); cursor: pointer;
+  font-size: .7rem; padding: .1rem .2rem; flex-shrink: 0; transition: color var(--transition);
+}
+.conflicts-dismiss:hover { color: var(--text-primary); }
+
+.conflicts-body { padding: .3rem .75rem .55rem; display: flex; flex-direction: column; gap: .5rem; }
+
+.conflict-item {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  padding: .4rem .6rem;
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.conflict-entity { display: flex; align-items: center; gap: .5rem; }
+.conflict-name { font-size: .8rem; font-weight: 700; color: var(--text-primary); }
+.conflict-field {
+  font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  background: rgba(220,170,50,.12); color: rgba(220,170,50,.8);
+  border: 1px solid rgba(220,170,50,.25); border-radius: 20px; padding: .08rem .4rem;
+}
+.conflict-values { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
+.conflict-val { display: flex; flex-direction: column; gap: .1rem; }
+.cv-label { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); }
+.conflict-val.old .cv-label { color: rgba(120,200,120,.7); }
+.conflict-val.new .cv-label { color: rgba(220,170,50,.7); }
+.cv-text { font-size: .72rem; color: var(--text-secondary); line-height: 1.4; }
+.conflict-actions { display: flex; gap: .4rem; justify-content: flex-end; margin-top: .1rem; }
+.conf-btn {
+  font-family: inherit; font-size: .68rem; font-weight: 600;
+  border-radius: var(--radius-sm); padding: .2rem .55rem; cursor: pointer;
+  transition: all var(--transition);
+}
+.conf-btn.keep { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+.conf-btn.keep:hover { border-color: rgba(120,200,120,.4); color: rgba(120,200,120,.9); }
+.conf-btn.accept { background: rgba(220,170,50,.12); border: 1px solid rgba(220,170,50,.35); color: rgba(220,170,50,.9); }
+.conf-btn.accept:hover { background: rgba(220,170,50,.22); border-color: rgba(220,170,50,.6); }
+
+.conflicts-enter-active, .conflicts-leave-active { transition: opacity .25s ease, transform .25s ease; }
+.conflicts-enter-from, .conflicts-leave-to { opacity: 0; transform: translateY(-4px); }
+.conflicts-body-enter-active, .conflicts-body-leave-active { transition: opacity .2s ease; }
+.conflicts-body-enter-from, .conflicts-body-leave-to { opacity: 0; }
 </style>

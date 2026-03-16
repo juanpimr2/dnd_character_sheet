@@ -158,6 +158,19 @@ export interface WorldLore {
   lastAnalysis?: string  // ISO timestamp of last AI analysis
   lastManualAnalysis?: string  // ISO timestamp of last manual-triggered analysis
   mapBg?: string         // URL of custom map background image
+  seed?: {
+    worldName?: string
+    genre?: string   // 'high-fantasy' | 'dark-fantasy' | 'sword-sorcery' | 'sci-fi' | 'historical' | 'other'
+    notes?: string   // free-form context max ~300 chars
+  }
+}
+
+export interface LoreConflict {
+  entityId: number
+  entityName: string
+  field: 'kind' | 'description' | 'parent'
+  oldValue: string
+  newValue: string
 }
 
 export type GameFormat = 'pf1e' | 'dnd35' | 'dnd5e'
