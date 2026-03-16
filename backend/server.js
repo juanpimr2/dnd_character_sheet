@@ -858,7 +858,7 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
 
 Return ONLY a valid JSON array (no markdown, no explanation) with this structure:
 [
-  { "name": "Entity Name", "kind": "city|location|npc|faction", "description": "brief 1-2 sentence description", "parent": null }
+  { "name": "Entity Name", "kind": "city|location|npc|faction|quest", "description": "brief 1-2 sentence description", "parent": null }
 ]
 
 Kind rules:
@@ -866,6 +866,7 @@ Kind rules:
 - "location": dungeons, taverns, ruins, forests, mountains, rivers, specific buildings or places
 - "npc": named characters that are NOT the player character
 - "faction": guilds, armies, religions, noble houses, organizations
+- "quest": active objectives, missions, tasks or things the party must do (e.g. "Find the Dragon Lance", "Cure Dular's darkness", "Recover the toxin from Vhan Crane")
 
 Parent rules (IMPORTANT — hierarchy can be multiple levels deep):
 - Cities: parent = null (always top-level)
@@ -873,6 +874,13 @@ Parent rules (IMPORTANT — hierarchy can be multiple levels deep):
 - NPCs: FIRST check if they belong to a specific location/building/house → parent = that location's exact name. Only use the city as parent if no specific location is mentioned. EXAMPLE: "Dimitri Rakarov de la Casa Rakarov en Sigil" → parent: "Casa Rakarov" (NOT "Sigil")
 - Factions/organizations: parent = the city they operate in (NOT a location, factions are city-level)
 - The result can be multi-level: city → location → npc (e.g. Sigil → Casa Rakarov → Dimitri Rakarov)
+
+Quest rules:
+- Extract quests from objectives, missions, tasks or goals the party is pursuing
+- Quest name should be a short action phrase: "Find the Wandering Vault", "Obtain the Dragon Lance"
+- Quest description: what needs to be done and why (1-2 sentences)
+- Quest parent: the location or NPC related to the quest, if any
+- Only include quests that are clearly active/unresolved in the session
 
 Other rules:
 - CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)

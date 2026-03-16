@@ -89,6 +89,7 @@ const ALL_ICONS = [...PALETTE_TERRAIN, ...PALETTE_CHARS, ...PALETTE_PLACES, ...P
 // ── Icon selection (respects override) ────────────────────────────
 function iconFor(entity: WorldEntity): string {
   if (entity.iconOverride) return entity.iconOverride
+  if (entity.kind === 'quest') return GI('scroll-unfurled')
   if (entity.kind === 'city') return '/map-icons/city.png'
   if (entity.kind === 'npc') {
     const n = entity.name.toLowerCase()
@@ -153,11 +154,15 @@ function recommendedForKind(kind: EntityKind) {
       { icon: '/map-icons/loc-ruins.png',  label: 'Thieves'     },
     ]
     case 'location': return PALETTE_TERRAIN
+    case 'quest':    return [
+      { icon: GI('scroll-unfurled'), label: 'Quest/Task' },
+      { icon: GI('flag-objective'),  label: 'Objective'  },
+    ]
     default:         return ALL_ICONS
   }
 }
 
-const KIND_SIZE: Record<EntityKind, number> = { city: 56, location: 42, npc: 38, faction: 38 }
+const KIND_SIZE: Record<EntityKind, number> = { city: 56, location: 42, npc: 38, faction: 38, quest: 38 }
 
 // ── Multi-level navigation (navStack) ─────────────────────────────
 const navStack = ref<WorldEntity[]>([])
@@ -746,23 +751,35 @@ function fmtTime(iso?: string) {
         <!-- Compass -->
         <img src="/map-icons/compass.png" class="map-compass" alt="" />
 
-        <!-- Kind visibility filters + grid toggle -->
-        <div class="map-filters">
-          <button
-            v-for="k in (['city','location','faction','npc'] as EntityKind[])" :key="k"
-            class="filter-btn" :class="{ hidden: hiddenKinds.has(k) }"
-            @click="toggleKind(k)" :title="hiddenKinds.has(k) ? `Show ${k}s` : `Hide ${k}s`"
-          >{{ { city:'🏙', location:'📍', faction:'⚔️', npc:'👤' }[k] }}</button>
-          <!-- Grid toggle -->
-          <button class="filter-btn" :class="{ active: showGrid }" @click="showGrid = !showGrid" title="Toggle grid">▦</button>
-          <!-- Grid size (visible when grid is on) -->
-          <template v-if="showGrid">
+        <!-- Map legend + controls -->
+        <div class="map-legend">
+          <div class="legend-section legend-entities">
+            <span class="legend-title">Show/Hide</span>
             <button
-              v-for="sz in (['fine','normal','coarse'] as const)" :key="sz"
-              class="filter-btn grid-sz" :class="{ active: gridSize === sz }"
-              @click="gridSize = sz" :title="`Grid: ${sz}`"
-            >{{ { fine:'S', normal:'M', coarse:'L' }[sz] }}</button>
-          </template>
+              v-for="k in (['city','location','faction','npc','quest'] as EntityKind[])" :key="k"
+              class="legend-btn" :class="{ hidden: hiddenKinds.has(k) }"
+              @click="toggleKind(k)"
+              :title="(hiddenKinds.has(k) ? 'Show ' : 'Hide ') + { city:'Cities', location:'Locations', faction:'Factions', npc:'NPCs', quest:'Quests' }[k]"
+            >
+              <span class="legend-icon">{{ { city:'🏙', location:'📍', faction:'⚔', npc:'👤', quest:'📜' }[k] }}</span>
+              <span class="legend-label">{{ { city:'Cities', location:'Places', faction:'Factions', npc:'NPCs', quest:'Quests' }[k] }}</span>
+            </button>
+          </div>
+          <div class="legend-sep"></div>
+          <div class="legend-section legend-grid">
+            <span class="legend-title">Grid</span>
+            <button class="legend-btn" :class="{ active: showGrid }" @click="showGrid = !showGrid" title="Toggle grid overlay">
+              <span class="legend-icon">▦</span>
+              <span class="legend-label">{{ showGrid ? 'On' : 'Off' }}</span>
+            </button>
+            <template v-if="showGrid">
+              <button
+                v-for="[sz, label] in ([['fine','Fine'],['normal','Med'],['coarse','Large']] as const)" :key="sz"
+                class="legend-btn grid-sz-btn" :class="{ active: gridSize === sz }"
+                @click="gridSize = sz" :title="`Grid size: ${sz} (${{ fine:'~32 cells', normal:'~16 cells', coarse:'~10 cells' }[sz]})`"
+              >{{ label }}</button>
+            </template>
+          </div>
         </div>
 
         <!-- Breadcrumb nav -->
@@ -947,6 +964,7 @@ function fmtTime(iso?: string) {
           <option value="location">Location / Place</option>
           <option value="faction">Faction / Organization</option>
           <option value="npc">NPC / Character</option>
+          <option value="quest">Quest / Mission</option>
         </select>
 
         <!-- Editable description -->
@@ -1099,7 +1117,7 @@ function fmtTime(iso?: string) {
 .btn-add-empty:hover { border-color: var(--gold-border); color: var(--gold); }
 
 /* ── Layout ── */
-.world-layout { display: flex; gap: .75rem; height: 560px; }
+.world-layout { display: flex; gap: .75rem; height: 680px; }
 
 /* ══ Sidebar ══ */
 .world-sidebar {
@@ -1204,22 +1222,49 @@ function fmtTime(iso?: string) {
   z-index: 5; opacity: .75; pointer-events: none;
 }
 
-/* Kind visibility filters */
-.map-filters {
+/* Map legend */
+.map-legend {
   position: absolute; bottom: .6rem; left: .6rem;
-  display: flex; gap: .25rem; z-index: 7;
+  display: flex; align-items: flex-end; gap: .4rem; z-index: 7;
+  flex-wrap: wrap; max-width: 85%;
 }
-.filter-btn {
-  width: 26px; height: 26px; border-radius: var(--radius-sm);
-  background: rgba(14,8,2,.7); border: 1px solid rgba(60,30,5,.3);
-  font-size: .85rem; cursor: pointer; transition: all var(--transition);
-  display: flex; align-items: center; justify-content: center;
+.legend-section {
+  display: flex; align-items: center; gap: .25rem;
+  background: rgba(10, 6, 2, 0.82);
+  border: 1px solid rgba(201,168,76,.25);
+  border-radius: var(--radius-md);
+  padding: .25rem .35rem;
   backdrop-filter: blur(4px);
+  flex-wrap: wrap;
 }
-.filter-btn:hover { border-color: rgba(201,168,76,.5); background: rgba(14,8,2,.85); }
-.filter-btn.hidden { opacity: .35; filter: grayscale(1); border-style: dashed; }
-.filter-btn.active { border-color: rgba(201,168,76,.7); background: rgba(201,168,76,.18); color: rgba(201,168,76,.95); }
-.grid-sz { font-size: .6rem; font-weight: 700; color: rgba(201,168,76,.7); font-family: inherit; letter-spacing: .02em; }
+.legend-title {
+  font-size: .52rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: rgba(201,168,76,.45);
+  white-space: nowrap; padding-right: .2rem;
+  border-right: 1px solid rgba(201,168,76,.2);
+  margin-right: .1rem;
+}
+.legend-sep { width: 1px; height: 28px; background: rgba(201,168,76,.15); }
+.legend-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  background: transparent; border: 1px solid transparent;
+  border-radius: var(--radius-sm); color: var(--text-muted);
+  cursor: pointer; padding: .18rem .3rem; min-width: 34px;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+.legend-btn:hover { background: rgba(201,168,76,.1); border-color: rgba(201,168,76,.35); }
+.legend-btn.active {
+  background: rgba(201,168,76,.18); border-color: rgba(201,168,76,.6);
+  color: rgba(201,168,76,.95);
+}
+.legend-btn.hidden { opacity: .45; filter: grayscale(.8); }
+.legend-btn.hidden:hover { opacity: .7; filter: none; }
+.legend-icon { font-size: .9rem; line-height: 1; }
+.legend-label { font-size: .52rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: inherit; white-space: nowrap; }
+.legend-btn.active .legend-label { color: rgba(201,168,76,.9); }
+.grid-sz-btn { min-width: 30px; }
+.grid-sz-btn .legend-icon { font-size: .68rem; font-weight: 700; font-family: inherit; }
 
 /* Breadcrumb nav */
 .map-nav {

@@ -123,7 +123,7 @@ export interface CharacterSummary {
 
 // ─── World Lore ───────────────────────────────────────────────────────────────
 
-export type EntityKind = 'city' | 'location' | 'npc' | 'faction'
+export type EntityKind = 'city' | 'location' | 'npc' | 'faction' | 'quest'
 
 export interface LoreFlag {
   type: 'visit' | 'danger' | 'ally' | 'enemy' | 'quest' | 'note'
