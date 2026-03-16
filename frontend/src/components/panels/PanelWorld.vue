@@ -508,11 +508,12 @@ function fmtTime(iso?: string) {
         <button class="btn-help" @click="showHelp = !showHelp" :class="{ active: showHelp }" title="Help">
           <HelpCircle :size="13" />
         </button>
+        <!-- Edit button: everyone can move/delete existing pins -->
+        <button class="btn-icon-hdr" :class="{ 'edit-on': editMode }" @click="toggleEdit" :title="editMode ? 'Exit edit mode' : 'Edit map'">
+          <Edit2 :size="13" />
+          <span>{{ editMode ? 'Done' : 'Edit' }}</span>
+        </button>
         <template v-if="authStore.isPremium">
-          <button class="btn-icon-hdr" :class="{ 'edit-on': editMode }" @click="toggleEdit" :title="editMode ? 'Exit edit mode' : 'Edit map'">
-            <Edit2 :size="13" />
-            <span>{{ editMode ? 'Done' : 'Edit' }}</span>
-          </button>
           <button v-if="entities.length > 0" class="btn-reset" @click="resetLore">↺ Reset</button>
           <button class="btn-analyze" :disabled="analyzing || cooldownSecs > 0" @click="analyzeNotes">
             <Loader2 v-if="analyzing" :size="13" class="spin" />
@@ -524,8 +525,8 @@ function fmtTime(iso?: string) {
         </template>
         <template v-else>
           <UpgradeGate
-            feature="Map editor + AI analysis"
-            reason="Place icons, set custom background, extract world lore from sessions."
+            feature="AI analysis"
+            reason="Extract world lore automatically from session notes."
             :inline="true"
           />
         </template>
@@ -605,6 +606,9 @@ function fmtTime(iso?: string) {
         class="world-canvas"
         :class="{ 'edit-cursor': editMode && pendingIcon }"
       >
+        <div v-if="editMode && !authStore.isPremium" class="free-edit-hint">
+          Move or delete existing pins — upgrade to add new ones
+        </div>
         <!-- Custom map background image -->
         <div
           v-if="worldLore.mapBg"
@@ -736,9 +740,9 @@ function fmtTime(iso?: string) {
           </div>
         </Transition>
 
-        <!-- ── Floating edit toolbar (visible when edit mode) ── -->
+        <!-- ── Floating edit toolbar (premium only — add new pins + map bg) ── -->
         <Transition name="toolbar">
-          <div v-if="editMode" class="edit-toolbar">
+          <div v-if="editMode && authStore.isPremium" class="edit-toolbar">
             <div class="toolbar-section-label">Terrain</div>
             <div class="toolbar-grid">
               <button
@@ -1037,6 +1041,22 @@ function fmtTime(iso?: string) {
   cursor: default;
 }
 .world-canvas.edit-cursor { cursor: crosshair; }
+
+.free-edit-hint {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 8, 4, 0.75);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  padding: 0.25rem 0.75rem;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 20;
+}
 .world-canvas::before {
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
   background: rgba(30,15,0,.08);
