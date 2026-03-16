@@ -203,16 +203,19 @@ function iconFor(entity: WorldEntity): string {
   }
   // kind === 'location'
   const n = entity.name.toLowerCase()
-  if (/cueva|cave|dungeon|mine|cavern|mina/.test(n))          return '/map-icons/loc-cave.png'
-  if (/bosque|forest|wood|grove|arboleda/.test(n))            return '/map-icons/loc-forest.png'
-  if (/ruinas|ruin|ancient|antiguo/.test(n))                  return '/map-icons/loc-ruins.png'
-  if (/templo|iglesia|temple|church|shrine|catedral/.test(n)) return '/map-icons/loc-temple.png'
-  if (/torre|tower|keep|fortaleza/.test(n))                   return '/map-icons/loc-tower.png'
-  if (/taberna|tavern|inn|posada/.test(n))                    return '/map-icons/loc-tavern.png'
-  if (/monta[ñn]a|mountain|peak|cima/.test(n))                return '/map-icons/loc-mountain.png'
-  if (/cementerio|grave|tomb|catacumb/.test(n))               return '/map-icons/loc-graveyard.png'
-  if (/puerto|port|harbor|dock|muelle/.test(n))               return '/map-icons/loc-port.png'
-  return GI('pin')  // generic location — map pin (not an airplane!)
+  if (/cueva|cave|dungeon|mine|cavern|mina/.test(n))                           return '/map-icons/loc-cave.png'
+  if (/bosque|forest|wood|grove|arboleda/.test(n))                             return '/map-icons/loc-forest.png'
+  if (/ruinas|ruin|ancient|antiguo/.test(n))                                   return '/map-icons/loc-ruins.png'
+  if (/templo|iglesia|temple|church|shrine|catedral/.test(n))                  return '/map-icons/loc-temple.png'
+  if (/torre|tower|keep|fortaleza/.test(n))                                    return '/map-icons/loc-tower.png'
+  if (/taberna|tavern|inn|posada|laboratorio|lab|workshop|taller/.test(n))     return '/map-icons/loc-tavern.png'
+  if (/monta[ñn]a|mountain|peak|cima/.test(n))                                 return '/map-icons/loc-mountain.png'
+  if (/cementerio|grave|tomb|catacumb/.test(n))                                return '/map-icons/loc-graveyard.png'
+  if (/puerto|port|harbor|dock|muelle/.test(n))                                return '/map-icons/loc-port.png'
+  if (/badlands|wasteland|desierto|desert|yermo|páramo|paramo|wasteland|blight|desolation|maldici/.test(n)) return '/map-icons/loc-danger.png'
+  if (/pueblo|village|aldea|hamlet|town|avanzada|outpost|settlement/.test(n))  return '/map-icons/city.png'
+  if (/vault|b[oó]veda|santuario|sanctuary|chamber|c[aá]mara/.test(n))        return '/map-icons/loc-ruins.png'
+  return GI('pin')  // generic location
 }
 
 // ── Recommended icons per entity kind (for picker) ────────────────
@@ -287,7 +290,8 @@ function navigateToQuestParent(quest: WorldEntity) {
 
 function childrenOf(entity: WorldEntity): WorldEntity[] {
   const n = norm(entity.name)
-  return entities.value.filter(e => e.parent && norm(e.parent) === n)
+  // Quests are never counted as children — they appear in the Quest Log only
+  return entities.value.filter(e => e.parent && norm(e.parent) === n && e.kind !== 'quest')
 }
 function hasChildren(entity: WorldEntity): boolean {
   return childrenOf(entity).length > 0
@@ -681,9 +685,10 @@ const sidebarNodes = computed<SBNode[]>(() => {
   const result: SBNode[] = []
   function traverse(ent: WorldEntity, depth: number) {
     result.push({ entity: ent, depth })
-    childrenOf(ent).forEach(child => traverse(child, depth + 1))
+    childrenOf(ent).forEach(child => traverse(child, depth + 1))  // childrenOf already excludes quests
   }
-  entities.value.filter(e => !e.parent).forEach(e => traverse(e, 0))
+  // Exclude quests from entity tree — they live in the Quest Log tab only
+  entities.value.filter(e => !e.parent && e.kind !== 'quest').forEach(e => traverse(e, 0))
   return result
 })
 
@@ -1038,15 +1043,15 @@ function fmtTime(iso?: string) {
               <div class="node-img-wrap" :class="{ selected: detailId === entity.id, drillable: hasChildren(entity) }">
                 <img :src="iconFor(entity)" :class="['node-img', isGI(iconFor(entity)) ? 'gi' : 'kenney']" :style="{ width: KIND_SIZE[entity.kind] + 'px', height: KIND_SIZE[entity.kind] + 'px' }" :alt="entity.name" />
                 <span v-if="hasChildren(entity)" class="child-badge">{{ childrenOf(entity).length }}</span>
-                <!-- Quest badge: floating "!" on entities that have active quests -->
-                <span v-if="questsFor(entity).length" class="quest-marker" @click.stop="navigateToQuestParent(questsFor(entity)[0])">
-                  {{ questsFor(entity).length > 1 ? questsFor(entity).length : '!' }}
-                </span>
               </div>
               <div v-if="entity.flags?.length" class="node-flags">
                 <span v-for="f in entity.flags.slice(0,3)" :key="f.type" class="flag-dot" :style="{ background: flagColor(f.type) }" />
               </div>
               <span class="node-label">{{ entity.name }}</span>
+              <!-- Quest hint: subtle "! N" under the label, doesn't compete with child-badge -->
+              <span v-if="questsFor(entity).length" class="node-quest-hint" @click.stop="() => { sidebarTab = 'quests'; sidebarOpen = true; openDetail(questsFor(entity)[0]) }">
+                ✦ {{ questsFor(entity).length }} quest{{ questsFor(entity).length > 1 ? 's' : '' }}
+              </span>
             </div>
           </div>
 
@@ -1093,14 +1098,14 @@ function fmtTime(iso?: string) {
               <div class="node-img-wrap" :class="{ selected: detailId === child.id, drillable: hasChildren(child) }">
                 <img :src="iconFor(child)" :class="['node-img', isGI(iconFor(child)) ? 'gi' : 'kenney']" :style="{ width: KIND_SIZE[child.kind] + 'px', height: KIND_SIZE[child.kind] + 'px' }" :alt="child.name" />
                 <span v-if="hasChildren(child)" class="child-badge">{{ childrenOf(child).length }}</span>
-                <span v-if="questsFor(child).length" class="quest-marker" @click.stop="navigateToQuestParent(questsFor(child)[0])">
-                  {{ questsFor(child).length > 1 ? questsFor(child).length : '!' }}
-                </span>
               </div>
               <div v-if="child.flags?.length" class="node-flags">
                 <span v-for="f in child.flags.slice(0,3)" :key="f.type" class="flag-dot" :style="{ background: flagColor(f.type) }" />
               </div>
               <span class="node-label">{{ child.name }}</span>
+              <span v-if="questsFor(child).length" class="node-quest-hint" @click.stop="() => { sidebarTab = 'quests'; sidebarOpen = true; openDetail(questsFor(child)[0]) }">
+                ✦ {{ questsFor(child).length }} quest{{ questsFor(child).length > 1 ? 's' : '' }}
+              </span>
             </div>
           </div>
         </Transition>
@@ -1749,26 +1754,19 @@ function fmtTime(iso?: string) {
 }
 .node-label-lg { font-size: .75rem; }
 
-/* Quest marker badge on entity nodes — WoW-style ! */
-.quest-marker {
-  position: absolute;
-  top: -7px; right: -9px;
-  min-width: 16px; height: 16px; border-radius: 8px;
-  background: #f5d020;
-  background: linear-gradient(135deg, #f5d020, #f5a623);
-  color: rgba(40,20,0,0.92);
-  font-size: .58rem; font-weight: 900;
-  display: flex; align-items: center; justify-content: center; padding: 0 3px;
-  box-shadow: 0 1px 5px rgba(0,0,0,.5), 0 0 8px rgba(245,190,30,0.5);
-  cursor: pointer; z-index: 8;
-  transition: transform .15s ease, box-shadow .15s ease;
-  letter-spacing: -.02em;
-  border: 1px solid rgba(255,220,80,.5);
+/* Quest hint: subtle text under entity label — no conflict with child-badge */
+.node-quest-hint {
+  font-size: .5rem;
+  font-weight: 700;
+  color: #f0c040;
+  text-shadow: 0 1px 3px rgba(0,0,0,.9);
+  letter-spacing: .03em;
+  cursor: pointer;
+  opacity: .85;
+  transition: opacity .15s;
+  white-space: nowrap;
 }
-.quest-marker:hover {
-  transform: scale(1.2);
-  box-shadow: 0 2px 8px rgba(0,0,0,.5), 0 0 12px rgba(245,190,30,0.7);
-}
+.node-quest-hint:hover { opacity: 1; }
 
 /* ── Floating edit toolbar ── */
 .edit-toolbar {

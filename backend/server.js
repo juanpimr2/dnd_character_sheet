@@ -681,7 +681,7 @@ function smartLayout(allEntities, newIds) {
     const yLevel = Y_LEVEL[Math.min(depthOf(ent), Y_LEVEL.length - 1)]
 
     if (!parent) {
-      // Root entity: spread across the top row, maximise distance to others
+      // Root entity: spread across top rows, maximise distance to others
       const topEnts = allEntities.filter(e => !getParent(e) && e !== ent && e.x != null)
       const usedX = topEnts.map(e => e.x)
       // Candidate slots: columns 2–14 out of 16 (avoid edges)
@@ -692,7 +692,8 @@ function smartLayout(allEntities, newIds) {
         return minDist > b.dist ? { x: cx, dist: minDist } : b
       }, { x: snap(8 * G), dist: -1 })
       ent.x = best.x
-      ent.y = yLevel
+      // Stagger vertically: odd-indexed roots drop 1.5 cells lower for visual breathing room
+      ent.y = snap(yLevel + (usedX.length % 2 === 1 ? G * 1.5 : 0))
     } else {
       // Child: fan out symmetrically below parent
       const siblings = allEntities.filter(e =>
@@ -747,6 +748,20 @@ function mergeEntities(existing = [], incoming = [], sessionId) {
   smartLayout(result, newIds)
 
   return result
+}
+
+// Auto-detect a fitting icon for a new plane based on its name
+function detectPlaneIcon(name) {
+  const n = name.toLowerCase()
+  if (/hell|inferno|avernus|devil|nine hells|baator/.test(n)) return '🔥'
+  if (/underdark|abyss|underground|drow/.test(n))             return '🕳️'
+  if (/astral|ethereal|silver sea/.test(n))                   return '⭐'
+  if (/feywild|fey|faerie|seelie/.test(n))                   return '🌿'
+  if (/shadowfell|shadow realm|gloom/.test(n))               return '🌑'
+  if (/spelljammer|wildspace|space/.test(n))                 return '🌌'
+  if (/vault|pocket|demi|extradimensional/.test(n))          return '✨'
+  if (/mechanus|clockwork|order/.test(n))                    return '⚙️'
+  return '🌀'
 }
 
 function detectConflicts(existing = [], incoming = []) {
@@ -904,8 +919,10 @@ Quest rules:
 
 Plane routing rules (planeHint field):
 - Leave "planeHint": null for entities that belong to the default/current plane
-- Set "planeHint" to the EXACT plane name (from the Known planes list) ONLY when an entity CLEARLY belongs to a different plane (e.g. "Wandering Vault" entities → planeHint: "Wandering Vault")
-- A location/place being *visited through* the Material Plane doesn't mean it belongs there (e.g. a portal to Nine Hells → the destination entities get planeHint: "Nine Hells")
+- Set "planeHint" to the plane name when an entity clearly belongs to a different plane or realm
+- CRITICAL: If an entity IS a demiplane / pocket dimension / separate realm (e.g. "Wandering Vault", "Nine Hells", "The Feywild"), set ALL its contents to planeHint: "that realm's name". The realm itself does NOT need to be an entity — its contents get routed to their own plane tab automatically.
+- Example: notes mention "The Wandering Vault" as a demiplane with "El Curador" inside → El Curador gets planeHint: "Wandering Vault". Do NOT create "Wandering Vault" as a location entity in the Material Plane.
+- A portal or gateway in the Material Plane can be a location entity (kind: "location") but the entities INSIDE the destination plane get planeHint pointing to that plane name
 - When unsure, always leave planeHint: null (default plane)
 
 Other rules:
@@ -948,16 +965,38 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
   const conflicts = detectConflicts(existingEntities, extracted)
 
   // Distribute extracted entities to correct planes based on planeHint
+  // Auto-creates new planes for previously unknown planeHints
   const now = new Date().toISOString()
   const entitiesByPlane = new Map()  // planeId → entities[]
 
   for (const ent of extracted) {
-    const hint = (ent.planeHint ?? '').trim().toLowerCase()
+    const hint = (ent.planeHint ?? '').trim()
+    const hintLower = hint.toLowerCase()
     let destPlane = targetPlane  // default: active/target plane
+
     if (hint) {
-      const matched = allPlanes.find(p => p.name.toLowerCase() === hint)
-      if (matched) destPlane = matched
+      const matched = allPlanes.find(p => p.name.toLowerCase() === hintLower)
+      if (matched) {
+        destPlane = matched
+      } else {
+        // Auto-create a new plane for this unrecognised planeHint
+        const newPlane = {
+          id: 'plane-' + Date.now() + '-' + hintLower.replace(/[^a-z0-9]/g, '').slice(0, 12),
+          name: hint,  // preserve original casing from AI
+          icon: detectPlaneIcon(hint),
+          entities: [],
+          decorations: [],
+        }
+        // Avoid duplicate creation in the same extraction run
+        const alreadyCreated = allPlanes.find(p => p.name.toLowerCase() === hintLower)
+        if (!alreadyCreated) {
+          allPlanes.push(newPlane)
+          worldLore.planes = allPlanes
+        }
+        destPlane = allPlanes.find(p => p.name.toLowerCase() === hintLower) ?? targetPlane
+      }
     }
+
     const destId = destPlane?.id ?? 'default'
     if (!entitiesByPlane.has(destId)) entitiesByPlane.set(destId, { plane: destPlane, ents: [] })
     entitiesByPlane.get(destId).ents.push(ent)
