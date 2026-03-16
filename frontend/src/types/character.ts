@@ -152,7 +152,26 @@ export interface MapDecoration {
   scope: string | null   // null = world view, entity name = shown in that entity's drill-down
 }
 
+export interface WorldPlane {
+  id: string
+  name: string            // "Morryn", "Nine Hells", "Wandering Vault"
+  icon?: string           // emoji: '🌍', '🔥', '👻'
+  entities: WorldEntity[]
+  decorations?: MapDecoration[]
+  mapBg?: string
+  seed?: {
+    worldName?: string
+    genre?: string
+    notes?: string
+  }
+  lastAnalysis?: string
+  lastManualAnalysis?: string
+}
+
 export interface WorldLore {
+  planes?: WorldPlane[]          // NEW: multi-plane (if present, use this)
+  activePlaneId?: string         // which plane tab is active
+  // Legacy single-plane fields (kept for migration):
   entities: WorldEntity[]
   decorations?: MapDecoration[]
   lastAnalysis?: string  // ISO timestamp of last AI analysis

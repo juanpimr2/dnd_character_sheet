@@ -790,7 +790,7 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
   if (!isPremium) return res.status(403).json({ error: 'premium_required' })
 
   const characterId = req.params.id
-  const { sessionId, manual = false } = req.body
+  const { sessionId, manual = false, planeId } = req.body
 
   // Load character
   const { data: row, error: loadErr } = await supabase
@@ -803,11 +803,27 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
   if (loadErr || !row) return res.status(404).json({ error: 'Personaje no encontrado' })
 
   const charData = row.data
-  const worldLore = charData.worldLore ?? { entities: [] }
+  const worldLore = charData.worldLore ?? { entities: [], planes: [] }
 
-  // Cooldown check (only for manual trigger)
-  if (manual && worldLore.lastManualAnalysis) {
-    const elapsed = Date.now() - new Date(worldLore.lastManualAnalysis).getTime()
+  // Resolve plane-specific data
+  let existingEntities = worldLore.entities ?? []  // legacy fallback
+  let seedData = null
+  let targetPlane = null
+
+  if (planeId && worldLore.planes) {
+    targetPlane = worldLore.planes.find(p => p.id === planeId)
+    if (targetPlane) {
+      existingEntities = targetPlane.entities ?? []
+      seedData = targetPlane.seed
+    }
+  } else {
+    seedData = worldLore.seed
+  }
+
+  // Cooldown check (only for manual trigger) — use plane-level timestamp if available
+  const lastManualAnalysis = targetPlane ? targetPlane.lastManualAnalysis : worldLore.lastManualAnalysis
+  if (manual && lastManualAnalysis) {
+    const elapsed = Date.now() - new Date(lastManualAnalysis).getTime()
     if (elapsed < LORE_COOLDOWN_MS) {
       const remaining = Math.ceil((LORE_COOLDOWN_MS - elapsed) / 1000)
       return res.status(429).json({ error: 'cooldown', remaining })
@@ -834,7 +850,7 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
   }
 
   // Build world context preamble from seed data
-  const seed = worldLore.seed ?? {}
+  const seed = seedData ?? {}
   let worldContextLines = []
   if (seed.worldName) worldContextLines.push(`- World: ${seed.worldName}`)
   if (seed.genre || seed.notes) {
@@ -843,8 +859,8 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
   }
 
   let knownEntitiesBlock = ''
-  if (worldLore.entities && worldLore.entities.length > 0) {
-    const entLines = worldLore.entities.map(e => `- ${e.name} (${e.kind})`).join('\n')
+  if (existingEntities.length > 0) {
+    const entLines = existingEntities.map(e => `- ${e.name} (${e.kind})`).join('\n')
     knownEntitiesBlock = `\nKnown entities (preserve exact names — only parent/description updates allowed):\n${entLines}\n`
   }
 
@@ -914,20 +930,27 @@ ${notesText}`
   }
 
   // Detect conflicts before merging
-  const conflicts = detectConflicts(worldLore.entities, extracted)
+  const conflicts = detectConflicts(existingEntities, extracted)
 
   // Merge into existing lore
   const now = new Date().toISOString()
-  const mergedEntities = mergeEntities(worldLore.entities, extracted, sessionId ?? null)
-  const updatedLore = {
-    entities: mergedEntities,
-    lastAnalysis: now,
-    ...(manual ? { lastManualAnalysis: now } : {}),
-    ...(worldLore.seed ? { seed: worldLore.seed } : {}),
+  const mergedEntities = mergeEntities(existingEntities, extracted, sessionId ?? null)
+
+  if (planeId && targetPlane) {
+    // Update plane-specific data
+    targetPlane.entities = mergedEntities
+    targetPlane.lastAnalysis = now
+    if (manual) targetPlane.lastManualAnalysis = now
+  } else {
+    // Legacy: update top-level
+    worldLore.entities = mergedEntities
+    worldLore.lastAnalysis = now
+    if (manual) worldLore.lastManualAnalysis = now
+    if (worldLore.seed) worldLore.seed = worldLore.seed  // preserve existing seed
   }
 
   // Save back
-  charData.worldLore = updatedLore
+  charData.worldLore = worldLore
   const { error: saveErr } = await supabase
     .from('characters')
     .update({ data: charData })
@@ -937,7 +960,7 @@ ${notesText}`
   if (saveErr) return res.status(500).json({ error: saveErr.message })
 
   console.log(`🗺  Lore extracted: ${extracted.length} entities for ${characterId}`)
-  res.json({ worldLore: updatedLore, extracted: extracted.length, conflicts })
+  res.json({ worldLore: charData.worldLore, extracted: extracted.length, conflicts, planeId })
 })
 
 // ── Health check ─────────────────────────────────────────────────

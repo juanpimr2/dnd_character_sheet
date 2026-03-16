@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, reactive } from 'vue'
+import { computed, ref, reactive, watch } from 'vue'
 import { useCharacterStore } from '@/stores/characters'
 import { useAuthStore } from '@/stores/auth'
-import type { WorldEntity, EntityKind, LoreFlag, MapDecoration, LoreConflict } from '@/types/character'
+import type { WorldEntity, EntityKind, LoreFlag, MapDecoration, LoreConflict, WorldPlane } from '@/types/character'
 import { Globe, Loader2, X, ChevronLeft, ChevronRight, Edit2, HelpCircle, Plus } from 'lucide-vue-next'
 import UpgradeGate from '@/components/UpgradeGate.vue'
 
@@ -11,8 +11,98 @@ const authStore = useAuthStore()
 const char      = computed(() => charStore.activeCharacter!)
 const charId    = computed(() => charStore.currentCharacterId)
 const worldLore = computed(() => char.value?.worldLore ?? { entities: [] })
-const entities  = computed<WorldEntity[]>(() => worldLore.value.entities ?? [])
-const decorations = computed<MapDecoration[]>(() => worldLore.value.decorations ?? [])
+
+// ── Planes ────────────────────────────────────────────────────────
+const renamingPlaneId = ref<string | null>(null)
+const renameText = ref('')
+
+function ensurePlanes() {
+  if (!char.value) return
+  const wl = char.value.worldLore
+  if (!wl) { char.value.worldLore = { entities: [], planes: [defaultPlane()] }; return }
+  if (!wl.planes || wl.planes.length === 0) {
+    wl.planes = [{
+      id: 'plane-1',
+      name: wl.seed?.worldName || 'Material Plane',
+      icon: '🌍',
+      entities: wl.entities ?? [],
+      decorations: wl.decorations ?? [],
+      mapBg: wl.mapBg,
+      seed: wl.seed,
+      lastAnalysis: wl.lastAnalysis,
+      lastManualAnalysis: wl.lastManualAnalysis,
+    }]
+    if (!wl.activePlaneId) wl.activePlaneId = 'plane-1'
+    charStore.scheduleAutoSave()
+  }
+  if (!wl.activePlaneId && wl.planes.length > 0) {
+    wl.activePlaneId = wl.planes[0].id
+  }
+}
+
+function defaultPlane(): WorldPlane {
+  return { id: 'plane-' + Date.now(), name: 'Material Plane', icon: '🌍', entities: [], decorations: [] }
+}
+
+const planes = computed<WorldPlane[]>(() => char.value?.worldLore?.planes ?? [])
+
+const activePlane = computed<WorldPlane | null>(() => {
+  const wl = char.value?.worldLore
+  if (!wl?.planes?.length) return null
+  return wl.planes.find(p => p.id === wl.activePlaneId) ?? wl.planes[0]
+})
+
+function setActivePlane(id: string) {
+  if (!char.value?.worldLore) return
+  char.value.worldLore.activePlaneId = id
+  navStack.value = []
+  detailId.value = null
+}
+
+function addPlane() {
+  if (!char.value) return
+  const wl = char.value.worldLore ??= { entities: [], planes: [] }
+  if (!wl.planes) wl.planes = []
+  const id = 'plane-' + Date.now()
+  wl.planes.push({ id, name: 'New Plane', icon: '✨', entities: [], decorations: [] })
+  wl.activePlaneId = id
+  renamingPlaneId.value = id
+  renameText.value = 'New Plane'
+  charStore.scheduleAutoSave()
+}
+
+function deletePlane(id: string) {
+  if (!char.value?.worldLore?.planes) return
+  if (planes.value.length <= 1) return
+  if (!confirm('Delete this plane and all its entities?')) return
+  char.value.worldLore.planes = char.value.worldLore.planes.filter(p => p.id !== id)
+  if (char.value.worldLore.activePlaneId === id) {
+    char.value.worldLore.activePlaneId = char.value.worldLore.planes[0]?.id
+  }
+  charStore.scheduleAutoSave()
+}
+
+function startRenamePlane(plane: WorldPlane) {
+  renamingPlaneId.value = plane.id
+  renameText.value = plane.name
+}
+
+function commitRenamePlane() {
+  if (!renamingPlaneId.value || !char.value?.worldLore?.planes) return
+  const plane = char.value.worldLore.planes.find(p => p.id === renamingPlaneId.value)
+  if (plane && renameText.value.trim()) {
+    plane.name = renameText.value.trim()
+    charStore.scheduleAutoSave()
+  }
+  renamingPlaneId.value = null
+}
+
+watch(() => char.value, (c) => {
+  if (c) ensurePlanes()
+}, { immediate: true })
+
+const entities  = computed<WorldEntity[]>(() => activePlane.value?.entities ?? [])
+const decorations = computed<MapDecoration[]>(() => activePlane.value?.decorations ?? [])
 
 function norm(s: string) { return s.toLowerCase().replace(/[^a-z0-9]/g, '') }
 
@@ -231,9 +321,10 @@ const visibleDecorations = computed(() =>
 
 function addDecoration(x: number, y: number) {
   if (!pendingIcon.value || !char.value) return
-  const wl = char.value.worldLore ??= { entities: [] }
-  if (!wl.decorations) wl.decorations = []
-  wl.decorations.push({
+  const plane = activePlane.value
+  if (!plane) return
+  if (!plane.decorations) plane.decorations = []
+  plane.decorations.push({
     id: Date.now(),
     icon: pendingIcon.value,
     x: Math.max(3, Math.min(95, x)),
@@ -245,8 +336,9 @@ function addDecoration(x: number, y: number) {
   charStore.scheduleAutoSave()
 }
 function deleteDecoration(id: number) {
-  if (!char.value?.worldLore?.decorations) return
-  char.value.worldLore.decorations = char.value.worldLore.decorations.filter(d => d.id !== id)
+  const plane = activePlane.value
+  if (!plane?.decorations) return
+  plane.decorations = plane.decorations.filter(d => d.id !== id)
   charStore.scheduleAutoSave()
 }
 
@@ -257,7 +349,7 @@ const pendingIcon = ref<string | null>(null)
 function toggleEdit() {
   editMode.value = !editMode.value
   if (!editMode.value) { pendingIcon.value = null }
-  else { mapBgInput.value = worldLore.value.mapBg ?? '' }
+  else { mapBgInput.value = activePlane.value?.mapBg ?? '' }
 }
 function selectPalette(icon: string) {
   pendingIcon.value = pendingIcon.value === icon ? null : icon
@@ -266,7 +358,8 @@ function selectPalette(icon: string) {
 // ── Add entity manually ───────────────────────────────────────────
 function addEntity() {
   if (!char.value) return
-  const wl = char.value.worldLore ??= { entities: [] }
+  const plane = activePlane.value
+  if (!plane) return
   const newEnt: WorldEntity = {
     id: Date.now(),
     name: 'New Entity',
@@ -278,7 +371,7 @@ function addEntity() {
     y: 35 + Math.random() * 25,
     flags: [],
   }
-  wl.entities.push(newEnt)
+  plane.entities.push(newEnt)
   detailId.value = newEnt.id
   charStore.scheduleAutoSave()
 }
@@ -292,7 +385,7 @@ const seedForm = reactive({
 })
 
 function openSeedForm() {
-  const seed = worldLore.value.seed ?? {}
+  const seed = activePlane.value?.seed ?? {}
   seedForm.worldName = seed.worldName ?? ''
   seedForm.genre = seed.genre ?? ''
   seedForm.notes = seed.notes ?? ''
@@ -300,9 +393,9 @@ function openSeedForm() {
 }
 
 function saveSeed() {
-  if (!char.value) return
-  if (!char.value.worldLore) char.value.worldLore = { entities: [] }
-  char.value.worldLore.seed = {
+  const plane = activePlane.value
+  if (!plane) return
+  plane.seed = {
     worldName: seedForm.worldName || undefined,
     genre: seedForm.genre || undefined,
     notes: seedForm.notes || undefined,
@@ -316,8 +409,8 @@ const loreConflicts = ref<LoreConflict[]>([])
 const conflictsExpanded = ref(false)
 
 function resolveConflict(entityId: number, field: string, newValue: string, accept: boolean) {
-  if (accept && char.value?.worldLore?.entities) {
-    const entity = char.value.worldLore.entities.find(e => e.id === entityId)
+  if (accept && activePlane.value?.entities) {
+    const entity = activePlane.value.entities.find(e => e.id === entityId)
     if (entity) {
       (entity as any)[field] = newValue
       charStore.scheduleAutoSave()
@@ -335,12 +428,12 @@ function dismissAllConflicts() {
 
 // ── Reset & Analyze ───────────────────────────────────────────────
 function resetLore() {
-  if (!confirm('Clear all world entities and decorations? Press Analyze notes afterwards to rebuild.')) return
-  if (char.value) {
-    char.value.worldLore = { entities: [], decorations: [] }
-    navStack.value = []; detailId.value = null
-    charStore.scheduleAutoSave()
-  }
+  if (!activePlane.value) return
+  if (!confirm('Reset all entities in this plane?')) return
+  activePlane.value.entities = []
+  activePlane.value.decorations = []
+  navStack.value = []; detailId.value = null
+  charStore.scheduleAutoSave()
 }
 
 const analyzing    = ref(false)
@@ -358,17 +451,41 @@ function startCooldown(secs: number) {
 
 async function analyzeNotes() {
   if (analyzing.value || cooldownSecs.value > 0) return
+  const plane = activePlane.value
+  if (!plane) return
+  // Cooldown check against active plane
+  if (plane.lastManualAnalysis) {
+    const elapsed = Date.now() - new Date(plane.lastManualAnalysis).getTime()
+    const COOLDOWN_MS = 15 * 60 * 1000
+    if (elapsed < COOLDOWN_MS) {
+      startCooldown(Math.ceil((COOLDOWN_MS - elapsed) / 1000))
+      return
+    }
+  }
   analyzing.value = true; analyzeError.value = ''
   try {
     const res  = await fetch(`/api/characters/${charId.value}/extract-lore`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authStore.getToken()}` },
-      body: JSON.stringify({ manual: true }),
+      body: JSON.stringify({ manual: true, planeId: plane.id }),
     })
     const json = await res.json()
     if (res.status === 429) { startCooldown(json.remaining); return }
     if (!res.ok) { analyzeError.value = json.error ?? 'Error'; return }
-    if (char.value) char.value.worldLore = json.worldLore
+    if (json.worldLore && activePlane.value) {
+      // Merge returned plane data into the active plane
+      const updatedPlane = json.worldLore.planes?.find((p: WorldPlane) => p.id === activePlane.value!.id)
+      if (updatedPlane) {
+        activePlane.value.entities = updatedPlane.entities ?? activePlane.value.entities
+        activePlane.value.lastAnalysis = updatedPlane.lastAnalysis
+        if (updatedPlane.lastManualAnalysis) activePlane.value.lastManualAnalysis = updatedPlane.lastManualAnalysis
+      } else if (json.worldLore.entities) {
+        // Legacy response: update entities directly
+        activePlane.value.entities = json.worldLore.entities ?? activePlane.value.entities
+        activePlane.value.lastAnalysis = json.worldLore.lastAnalysis
+        if (json.worldLore.lastManualAnalysis) activePlane.value.lastManualAnalysis = json.worldLore.lastManualAnalysis
+      }
+    }
     if (json.conflicts?.length) {
       loreConflicts.value = json.conflicts
       conflictsExpanded.value = true
@@ -448,8 +565,9 @@ function openDetail(entity: WorldEntity) { detailId.value = entity.id }
 function closeDetail() { detailId.value = null }
 
 function deleteEntity(id: number) {
-  if (!char.value?.worldLore) return
-  char.value.worldLore.entities = char.value.worldLore.entities.filter(e => e.id !== id)
+  const plane = activePlane.value
+  if (!plane) return
+  plane.entities = plane.entities.filter(e => e.id !== id)
   if (detailId.value === id) detailId.value = null
   charStore.scheduleAutoSave()
 }
@@ -514,14 +632,15 @@ const GRID_SIZES = { fine: '5%', normal: '6.25%', coarse: '10%' } as const
 const mapBgInput = ref('')
 function applyMapBg() {
   const url = mapBgInput.value.trim()
-  if (!char.value) return
-  const wl = char.value.worldLore ??= { entities: [] }
-  wl.mapBg = url || undefined
+  const plane = activePlane.value
+  if (!plane) return
+  plane.mapBg = url || undefined
   charStore.scheduleAutoSave()
 }
 function clearMapBg() {
   mapBgInput.value = ''
-  if (char.value?.worldLore) { char.value.worldLore.mapBg = undefined; charStore.scheduleAutoSave() }
+  const plane = activePlane.value
+  if (plane) { plane.mapBg = undefined; charStore.scheduleAutoSave() }
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────
@@ -564,8 +683,8 @@ function fmtTime(iso?: string) {
     <div class="panel-header">
       <h2 class="panel-title">World Lore</h2>
       <div class="header-right">
-        <span class="last-analysis">{{ fmtTime(worldLore.lastAnalysis) }}</span>
-        <button class="btn-icon-hdr" @click="openSeedForm" :class="{ 'edit-on': showSeedForm || worldLore.seed?.worldName }" title="World setup">
+        <span class="last-analysis">{{ fmtTime(activePlane?.lastAnalysis) }}</span>
+        <button class="btn-icon-hdr" @click="openSeedForm" :class="{ 'edit-on': showSeedForm || activePlane?.seed?.worldName }" title="World setup">
           <span style="font-size:.9em">⚙</span>
           <span>World</span>
         </button>
@@ -597,7 +716,7 @@ function fmtTime(iso?: string) {
       </div>
     </div>
     <div v-if="authStore.isPremium && analyzeError" class="analyze-error">{{ analyzeError }}</div>
-    <div v-if="authStore.isPremium && (worldLore.lastAnalysis || worldLore.lastManualAnalysis)" class="ai-disclaimer">
+    <div v-if="authStore.isPremium && (activePlane?.lastAnalysis || activePlane?.lastManualAnalysis)" class="ai-disclaimer">
       AI-generated — review and edit as needed.
     </div>
 
@@ -675,6 +794,42 @@ function fmtTime(iso?: string) {
       </div>
     </div>
 
+    <!-- ── Plane tabs ── -->
+    <div v-if="planes.length > 0" class="plane-tabs">
+      <div class="plane-tabs-list">
+        <div
+          v-for="plane in planes" :key="plane.id"
+          class="plane-tab"
+          :class="{ active: plane.id === worldLore.activePlaneId }"
+          @click="setActivePlane(plane.id)"
+          @dblclick="startRenamePlane(plane)"
+        >
+          <template v-if="renamingPlaneId === plane.id">
+            <input
+              v-model="renameText"
+              class="plane-rename-input"
+              @keydown.enter="commitRenamePlane"
+              @keydown.escape="renamingPlaneId = null"
+              @blur="commitRenamePlane"
+              @click.stop
+              autofocus
+            />
+          </template>
+          <template v-else>
+            <span class="plane-icon">{{ plane.icon || '🌍' }}</span>
+            <span class="plane-name">{{ plane.name }}</span>
+            <button
+              v-if="planes.length > 1"
+              class="plane-del"
+              @click.stop="deletePlane(plane.id)"
+              title="Delete plane"
+            >×</button>
+          </template>
+        </div>
+        <button class="plane-add" @click="addPlane" title="Add plane">＋</button>
+      </div>
+    </div>
+
     <!-- ── Empty ── -->
     <div v-if="entities.length === 0 && !analyzing" class="world-empty">
       <Globe :size="40" class="empty-icon" />
@@ -736,9 +891,9 @@ function fmtTime(iso?: string) {
         </div>
         <!-- Custom map background image -->
         <div
-          v-if="worldLore.mapBg"
+          v-if="activePlane?.mapBg"
           class="map-bg"
-          :style="{ backgroundImage: `url('${worldLore.mapBg}')` }"
+          :style="{ backgroundImage: `url('${activePlane.mapBg}')` }"
         />
 
         <!-- Grid overlay -->
@@ -932,8 +1087,8 @@ function fmtTime(iso?: string) {
               @blur="applyMapBg"
               @keydown.enter.prevent="applyMapBg"
             />
-            <div v-if="worldLore.mapBg" class="toolbar-hint" style="color:rgba(120,200,120,.7)">✓ Custom map active</div>
-            <button v-if="worldLore.mapBg" class="toolbar-clear-btn" @click="clearMapBg">✕ Remove map</button>
+            <div v-if="activePlane?.mapBg" class="toolbar-hint" style="color:rgba(120,200,120,.7)">✓ Custom map active</div>
+            <button v-if="activePlane?.mapBg" class="toolbar-clear-btn" @click="clearMapBg">✕ Remove map</button>
           </div>
         </Transition>
       </div>
@@ -1635,4 +1790,65 @@ function fmtTime(iso?: string) {
 .conflicts-enter-from, .conflicts-leave-to { opacity: 0; transform: translateY(-4px); }
 .conflicts-body-enter-active, .conflicts-body-leave-active { transition: opacity .2s ease; }
 .conflicts-body-enter-from, .conflicts-body-leave-to { opacity: 0; }
+
+/* ── Plane tabs ── */
+.plane-tabs {
+  margin-bottom: .4rem;
+}
+.plane-tabs-list {
+  display: flex; align-items: flex-end; gap: .2rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.plane-tabs-list::-webkit-scrollbar { display: none; }
+
+.plane-tab {
+  display: flex; align-items: center; gap: .3rem;
+  padding: .3rem .65rem .35rem;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: .78rem;
+  white-space: nowrap;
+  transition: all var(--transition);
+  position: relative;
+  bottom: -1px;
+  user-select: none;
+}
+.plane-tab:hover { background: rgba(201,168,76,.06); color: var(--text-secondary); }
+.plane-tab.active {
+  background: var(--bg-card);
+  border-color: var(--border);
+  border-bottom-color: var(--bg-card);
+  color: var(--gold);
+  font-weight: 600;
+}
+.plane-icon { font-size: .85rem; line-height: 1; }
+.plane-name { font-size: .78rem; }
+.plane-del {
+  background: transparent; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: .7rem; padding: 0 .1rem;
+  line-height: 1; opacity: 0; transition: opacity var(--transition), color var(--transition);
+}
+.plane-tab:hover .plane-del { opacity: 1; }
+.plane-del:hover { color: var(--red-light); }
+.plane-rename-input {
+  background: var(--bg-input); border: 1px solid var(--gold-dim);
+  border-radius: var(--radius-sm); color: var(--text-primary);
+  font-family: inherit; font-size: .78rem; padding: .05rem .3rem;
+  width: 120px; outline: none;
+}
+.plane-add {
+  background: transparent; border: 1px solid var(--border);
+  border-bottom: none; border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--text-muted); cursor: pointer; font-size: .9rem;
+  padding: .2rem .5rem .3rem; transition: all var(--transition);
+  position: relative; bottom: -1px;
+}
+.plane-add:hover { background: rgba(201,168,76,.1); color: var(--gold); border-color: var(--gold-border); }
 </style>
