@@ -876,14 +876,13 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
     knownEntitiesBlock = `\nKnown entities (preserve exact names — only parent/description updates allowed):\n${entLines}\n`
   }
 
-  // Add world-name exclusion so the AI never creates the world itself as an entity
-  if (seed.worldName) {
-    worldContextLines.push(`- CRITICAL: Do NOT create an entity named "${seed.worldName}" — it is the world container itself. Skip it entirely.`)
-  }
-
   let worldContextBlock = ''
   if (worldContextLines.length > 0) {
     worldContextBlock = `\nWorld context:\n${worldContextLines.join('\n')}\n`
+  }
+  // Append explicit world-name exclusion right after the context block (only if worldName is set)
+  if (seed.worldName) {
+    worldContextBlock += `- Do NOT create an entity named "${seed.worldName}" — it is the world itself, not a location within it.\n`
   }
 
   // Multi-plane routing context
@@ -901,8 +900,13 @@ Return ONLY a valid JSON array (no markdown, no explanation) with this structure
   { "name": "Entity Name", "kind": "city|location|npc|faction|quest", "description": "brief 1-2 sentence description", "parent": null, "planeHint": null }
 ]
 
+CRITICAL — never create an entity for the world itself:
+- The world map is the canvas. The world/plane/reality that CONTAINS everything is never a pin on the map.
+- If a name refers to the entire world, the whole plane of existence, or the overarching setting (e.g. "Morryn is a world where...", "the planet Faerûn", "our realm"), skip it entirely — it is the container, not an entity.
+- Only create entities for places, people, and groups that exist INSIDE the world.
+
 Kind rules:
-- "city": cities, towns, villages, castles, kingdoms, settlements
+- "city": cities, towns, villages, castles, kingdoms, settlements INSIDE the world
 - "location": dungeons, taverns, ruins, forests, mountains, rivers, specific buildings or places
 - "npc": named characters that are NOT the player character
 - "faction": guilds, armies, religions, noble houses, organizations
