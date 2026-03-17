@@ -203,18 +203,19 @@ function iconFor(entity: WorldEntity): string {
   }
   // kind === 'location'
   const n = entity.name.toLowerCase()
-  if (/cueva|cave|dungeon|mine|cavern|mina/.test(n))                           return '/map-icons/loc-cave.png'
+  if (/cueva|cave|dungeon|mine|cavern|mina|glaciar|glacier|black ice/.test(n)) return '/map-icons/loc-cave.png'
   if (/bosque|forest|wood|grove|arboleda/.test(n))                             return '/map-icons/loc-forest.png'
   if (/ruinas|ruin|ancient|antiguo/.test(n))                                   return '/map-icons/loc-ruins.png'
   if (/templo|iglesia|temple|church|shrine|catedral/.test(n))                  return '/map-icons/loc-temple.png'
   if (/torre|tower|keep|fortaleza/.test(n))                                    return '/map-icons/loc-tower.png'
   if (/taberna|tavern|inn|posada|laboratorio|lab|workshop|taller/.test(n))     return '/map-icons/loc-tavern.png'
-  if (/monta[ñn]a|mountain|peak|cima/.test(n))                                 return '/map-icons/loc-mountain.png'
+  if (/monta[ñn]a|mountain|peak|cima|sierra|cordillera/.test(n))               return '/map-icons/loc-mountain.png'
   if (/cementerio|grave|tomb|catacumb/.test(n))                                return '/map-icons/loc-graveyard.png'
   if (/puerto|port|harbor|dock|muelle/.test(n))                                return '/map-icons/loc-port.png'
-  if (/badlands|wasteland|desierto|desert|yermo|páramo|paramo|wasteland|blight|desolation|maldici/.test(n)) return '/map-icons/loc-danger.png'
+  if (/badlands|wasteland|desierto|desert|yermo|páramo|paramo|blight|desolation|maldici/.test(n)) return '/map-icons/loc-danger.png'
   if (/pueblo|village|aldea|hamlet|town|avanzada|outpost|settlement/.test(n))  return '/map-icons/city.png'
   if (/vault|b[oó]veda|santuario|sanctuary|chamber|c[aá]mara/.test(n))        return '/map-icons/loc-ruins.png'
+  if (/reino|kingdom|empire|imperio|naci[oó]n|nation|realm|principado/.test(n)) return '/map-icons/city.png'
   return GI('pin')  // generic location
 }
 
@@ -469,19 +470,24 @@ async function analyzeNotes() {
     if (res.status === 429) { startCooldown(json.remaining); return }
     if (!res.ok) { analyzeError.value = json.error ?? 'Error'; return }
 
+    // Helper: strip any entity that matches the world name (AI sometimes creates it accidentally)
+    const worldName = activePlane.value?.seed?.worldName ?? ''
+    const stripWorldName = (ents: WorldEntity[]) =>
+      worldName ? ents.filter(e => norm(e.name) !== norm(worldName)) : ents
+
     // Sync ALL planes that were updated (multi-plane routing)
     if (json.worldLore?.planes && char.value?.worldLore?.planes) {
       for (const updatedPlane of json.worldLore.planes as WorldPlane[]) {
         const localPlane = char.value.worldLore.planes.find(p => p.id === updatedPlane.id)
         if (localPlane) {
-          localPlane.entities = updatedPlane.entities ?? localPlane.entities
+          localPlane.entities = stripWorldName(updatedPlane.entities ?? localPlane.entities)
           localPlane.lastAnalysis = updatedPlane.lastAnalysis
           if (updatedPlane.lastManualAnalysis) localPlane.lastManualAnalysis = updatedPlane.lastManualAnalysis
         }
       }
     } else if (json.worldLore?.entities && activePlane.value) {
       // Legacy fallback
-      activePlane.value.entities = json.worldLore.entities
+      activePlane.value.entities = stripWorldName(json.worldLore.entities)
       activePlane.value.lastAnalysis = json.worldLore.lastAnalysis
     }
 
@@ -1153,7 +1159,7 @@ function fmtTime(iso?: string) {
           :value="detail.description"
           placeholder="Description…"
           @blur="updateDesc(($event.target as HTMLTextAreaElement).value)"
-          rows="3"
+          rows="5"
         />
 
         <!-- Parent assignment -->
@@ -1176,10 +1182,10 @@ function fmtTime(iso?: string) {
           </div>
         </div>
 
-        <!-- Icon override — always visible, organized by kind -->
+        <!-- Icon override — grouped by category -->
         <div class="detail-section">
           <div class="section-label">Icon</div>
-          <div class="icon-pick-sublabel">Recommended for {{ detail.kind }}</div>
+          <div class="icon-pick-sublabel">Best for {{ detail.kind }}</div>
           <div class="icon-pick-grid">
             <button
               v-for="item in recommendedForKind(detail.kind)" :key="item.icon"
@@ -1190,17 +1196,33 @@ function fmtTime(iso?: string) {
               <img :src="item.icon" />
             </button>
           </div>
-          <div class="icon-pick-sublabel" style="margin-top:.3rem">All icons</div>
-          <div class="icon-pick-grid">
-            <button
-              v-for="item in ALL_ICONS" :key="item.icon + '_all'"
-              :class="['icon-pick-btn', isGI(item.icon) ? 'gi' : '', { active: (detail.iconOverride ?? iconFor(detail)) === item.icon }]"
-              :title="item.label"
-              @click="applyIconOverride(item.icon)"
-            >
-              <img :src="item.icon" />
-            </button>
-          </div>
+          <details class="icon-more-details">
+            <summary class="icon-pick-sublabel icon-more-summary">More icons ▸</summary>
+            <div class="icon-pick-sublabel" style="margin-top:.4rem">Terrain</div>
+            <div class="icon-pick-grid">
+              <button v-for="item in PALETTE_TERRAIN" :key="item.icon+'_t'"
+                :class="['icon-pick-btn', { active: (detail.iconOverride ?? iconFor(detail)) === item.icon }]"
+                :title="item.label" @click="applyIconOverride(item.icon)">
+                <img :src="item.icon" />
+              </button>
+            </div>
+            <div class="icon-pick-sublabel" style="margin-top:.3rem">Characters</div>
+            <div class="icon-pick-grid">
+              <button v-for="item in PALETTE_CHARS" :key="item.icon+'_c'"
+                :class="['icon-pick-btn gi', { active: (detail.iconOverride ?? iconFor(detail)) === item.icon }]"
+                :title="item.label" @click="applyIconOverride(item.icon)">
+                <img :src="item.icon" />
+              </button>
+            </div>
+            <div class="icon-pick-sublabel" style="margin-top:.3rem">Dungeon</div>
+            <div class="icon-pick-grid">
+              <button v-for="item in PALETTE_DUNGEON" :key="item.label+'_d'"
+                :class="['icon-pick-btn gi', { active: (detail.iconOverride ?? iconFor(detail)) === item.icon }]"
+                :title="item.label" @click="applyIconOverride(item.icon)">
+                <img :src="item.icon" />
+              </button>
+            </div>
+          </details>
           <button v-if="detail.iconOverride" class="btn-reset-icon" @click="clearIconOverride">↺ Reset to auto</button>
         </div>
 
@@ -1231,7 +1253,7 @@ function fmtTime(iso?: string) {
 </template>
 
 <style scoped>
-.world-panel { user-select: none; }
+.world-panel { user-select: none; display: flex; flex-direction: column; height: 100%; }
 
 /* ── Header ── */
 .panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; gap: .75rem; flex-wrap: wrap; }
@@ -1297,7 +1319,7 @@ function fmtTime(iso?: string) {
 .btn-add-empty:hover { border-color: var(--gold-border); color: var(--gold); }
 
 /* ── Layout ── */
-.world-layout { display: flex; gap: .75rem; height: 680px; }
+.world-layout { display: flex; gap: .75rem; flex: 1; min-height: 500px; }
 
 /* ══ Sidebar ══ */
 .world-sidebar {
@@ -1337,7 +1359,7 @@ function fmtTime(iso?: string) {
 .btn-toggle { background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: .1rem; display: flex; align-items: center; }
 .btn-toggle:hover { color: var(--gold); }
 
-.sidebar-body { flex: 1; overflow-y: auto; padding: .35rem 0; display: flex; flex-direction: column; }
+.sidebar-body { flex: 1; overflow-y: auto; padding: .35rem 0; display: flex; flex-direction: column; overscroll-behavior: contain; }
 
 .sb-section-label { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); padding: .4rem .7rem .15rem; }
 
@@ -1376,7 +1398,14 @@ function fmtTime(iso?: string) {
 /* ══ Canvas ══ */
 .world-canvas {
   flex: 1; position: relative; border-radius: var(--radius-md); overflow: hidden;
-  background: url('/map-icons/parchment.png') center/cover no-repeat;
+  /* Rich fantasy map: parchment texture + terrain color zones + vignette */
+  background:
+    radial-gradient(ellipse 55% 45% at 30% 35%, rgba(120,160,80,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 35% at 70% 65%, rgba(80,130,60,0.14) 0%, transparent 50%),
+    radial-gradient(ellipse 35% 30% at 15% 70%, rgba(100,80,40,0.18) 0%, transparent 45%),
+    radial-gradient(ellipse 30% 25% at 80% 20%, rgba(140,120,70,0.14) 0%, transparent 40%),
+    radial-gradient(ellipse 20% 20% at 55% 80%, rgba(80,110,150,0.12) 0%, transparent 40%),
+    url('/map-icons/parchment.png') center/cover no-repeat;
   cursor: default;
 }
 .world-canvas.edit-cursor { cursor: crosshair; }
@@ -1542,8 +1571,15 @@ function fmtTime(iso?: string) {
 }
 .world-canvas::before {
   content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
-  background: rgba(30,15,0,.08);
-  box-shadow: inset 0 0 60px rgba(30,15,0,.25);
+  background: rgba(30,15,0,.06);
+  box-shadow: inset 0 0 80px rgba(30,15,0,.30), inset 0 0 20px rgba(30,15,0,.15);
+}
+/* Inner decorative border — parchment map frame feel */
+.world-canvas::after {
+  content: ''; position: absolute; inset: 6px; pointer-events: none; z-index: 1;
+  border: 1px solid rgba(100,65,20,.18);
+  border-radius: calc(var(--radius-md) - 4px);
+  box-shadow: inset 0 0 0 1px rgba(240,210,140,.08);
 }
 
 /* Custom map background */
@@ -1780,7 +1816,7 @@ function fmtTime(iso?: string) {
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--bg-elevated);
   display: flex; flex-direction: column; gap: .5rem;
-  padding: .65rem; overflow-y: auto;
+  padding: .65rem; overflow-y: auto; overscroll-behavior: contain;
 }
 .detail-header { display: flex; align-items: center; justify-content: space-between; }
 .detail-icon {
@@ -1850,6 +1886,17 @@ function fmtTime(iso?: string) {
 .icon-pick-btn.active { border-color: var(--gold); background: rgba(201,168,76,.15); }
 
 .icon-pick-sublabel { font-size: .58rem; color: var(--text-muted); font-style: italic; margin-bottom: .1rem; }
+
+.icon-more-details { margin-top: .2rem; }
+.icon-more-details[open] .icon-more-summary { color: var(--gold-dim); }
+.icon-more-summary {
+  list-style: none; cursor: pointer;
+  font-size: .58rem; color: var(--text-muted); font-style: italic;
+  padding: .1rem 0; user-select: none;
+  transition: color var(--transition);
+}
+.icon-more-summary::-webkit-details-marker { display: none; }
+.icon-more-summary:hover { color: var(--gold-dim); }
 
 .btn-reset-icon {
   font-size: .65rem; padding: .15rem .4rem; background: transparent;
@@ -2106,7 +2153,7 @@ function fmtTime(iso?: string) {
 .quest-desc {
   font-size: .65rem; color: var(--text-secondary); line-height: 1.4;
   padding-left: 1.4rem;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
 }
 

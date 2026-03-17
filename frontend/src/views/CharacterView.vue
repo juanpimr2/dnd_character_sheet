@@ -206,7 +206,7 @@ async function exportCurrent(): Promise<void> {
         <!-- ═══════════════════════════════════
              TAB: MUNDO
         ═══════════════════════════════════ -->
-        <div v-show="activeTab === 'mundo'" class="tab-content">
+        <div v-show="activeTab === 'mundo'" class="tab-content tab-content--stretch">
           <PanelWorld />
         </div>
 
@@ -373,6 +373,11 @@ async function exportCurrent(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+.tab-content--stretch {
+  flex: 1;
+  height: calc(100vh - 220px);
+  min-height: 520px;
 }
 
 @media (max-width: 600px) {

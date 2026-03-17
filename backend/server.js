@@ -876,6 +876,11 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
     knownEntitiesBlock = `\nKnown entities (preserve exact names — only parent/description updates allowed):\n${entLines}\n`
   }
 
+  // Add world-name exclusion so the AI never creates the world itself as an entity
+  if (seed.worldName) {
+    worldContextLines.push(`- CRITICAL: Do NOT create an entity named "${seed.worldName}" — it is the world container itself. Skip it entirely.`)
+  }
+
   let worldContextBlock = ''
   if (worldContextLines.length > 0) {
     worldContextBlock = `\nWorld context:\n${worldContextLines.join('\n')}\n`
@@ -927,6 +932,7 @@ Plane routing rules (planeHint field):
 
 Other rules:
 - CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)
+- CRITICAL: Extract ALL named entities regardless of how unusual, non-fantasy, or test-sounding the names are. If the user wrote it in their notes, include it
 - CRITICAL: If only ONE city is mentioned across all notes, ALL non-city entities must default to having that city (or one of its locations) as parent
 - Factions and noble houses (Casa X, House X) are kind="faction", not kind="location"
 - A noble house IS a faction (organization), even if they also have a physical building
