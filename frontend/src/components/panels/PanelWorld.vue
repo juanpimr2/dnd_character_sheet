@@ -777,13 +777,12 @@ function fmtTime(iso?: string) {
           <span>{{ editMode ? 'Done' : 'Edit' }}</span>
         </button>
         <template v-if="authStore.isPremium">
-          <button v-if="entities.length > 0" class="btn-reset" @click="resetLore">↺ Reset</button>
           <button class="btn-analyze" :disabled="analyzing || cooldownSecs > 0" @click="analyzeNotes">
             <Loader2 v-if="analyzing" :size="13" class="spin" />
             <Globe v-else :size="13" />
             <template v-if="cooldownSecs > 0">{{ cooldownSecs }}s</template>
             <template v-else-if="analyzing">Analyzing…</template>
-            <template v-else>Analyze notes</template>
+            <template v-else>Analyze</template>
           </button>
           <button
             v-if="extractionLog.length > 0"
@@ -791,7 +790,7 @@ function fmtTime(iso?: string) {
             :class="{ 'btn-elog-toggle--warn': extractionLog.some(e => e.warning) }"
             :title="showExtractionLog ? 'Hide extraction log' : 'Show extraction log'"
             @click="showExtractionLog = !showExtractionLog"
-          >{{ extractionLog.filter(e => e.confidence === 'low' || e.warning).length > 0 ? '⚠' : '✓' }} log</button>
+          >{{ extractionLog.some(e => e.confidence === 'low' || e.warning) ? '⚠' : '✓' }} log</button>
         </template>
         <template v-else>
           <UpgradeGate
@@ -817,9 +816,8 @@ function fmtTime(iso?: string) {
             </template>
             {{ extractionLog.length }} entities extracted
             <span class="elog-conf-summary">
-              <span class="elog-conf elog-conf--high">{{ extractionLog.filter(e => e.confidence === 'high').length }} high</span>
-              <span class="elog-conf elog-conf--medium">{{ extractionLog.filter(e => e.confidence === 'medium').length }} mid</span>
-              <span class="elog-conf elog-conf--low">{{ extractionLog.filter(e => e.confidence === 'low').length }} low</span>
+              <span class="elog-conf elog-conf--high">{{ extractionLog.filter(e => e.confidence === 'high').length }} ubicados</span>
+              <span class="elog-conf elog-conf--low">{{ extractionLog.filter(e => e.confidence === 'low').length }} inciertos</span>
             </span>
           </span>
           <button class="elog-close" @click="showExtractionLog = false">✕</button>
@@ -832,13 +830,13 @@ function fmtTime(iso?: string) {
             <span class="elog-parent">{{ entry.parent ? `→ ${entry.parent}` : '— no parent' }}</span>
             <span v-if="entry.planeHint" class="elog-plane">✦ {{ entry.planeHint }}</span>
             <span class="elog-conf-badge" :class="`elog-conf-badge--${entry.confidence ?? 'high'}`"
-                  :title="`Confidence: ${entry.confidence}`">{{ entry.confidence === 'high' ? '●' : entry.confidence === 'medium' ? '◐' : '○' }}</span>
+                  :title="entry.confidence === 'high' ? 'Origen claro en notas' : 'Origen incierto'">{{ entry.confidence === 'high' ? '●' : '○' }}</span>
             <span v-if="entry.warning" class="elog-warning-txt" :title="entry.warning">⚠</span>
           </div>
         </div>
         <div class="elog-footer">
-          <span>● high = explicit · ◐ mid = inferred · ○ low = uncertain</span>
-          <span v-if="extractionLog.some(e => !e.parent)">· Fix parents in detail panel → "Belongs to"</span>
+          <span>● ubicado = origen explícito en notas · ○ incierto = sin contexto suficiente</span>
+          <span v-if="extractionLog.some(e => !e.parent && (e.kind === 'npc' || e.kind === 'faction'))">· Asigna ubicación en el panel de detalle → "Belongs to"</span>
         </div>
       </div>
     </Transition>
@@ -1242,6 +1240,10 @@ function fmtTime(iso?: string) {
             />
             <div v-if="activePlane?.mapBg" class="toolbar-hint" style="color:rgba(120,200,120,.7)">✓ Custom map active</div>
             <button v-if="activePlane?.mapBg" class="toolbar-clear-btn" @click="clearMapBg">✕ Remove map</button>
+            <!-- Reset — lives here to reduce header clutter and make it intentional -->
+            <div v-if="entities.length > 0" class="toolbar-reset-zone">
+              <button class="toolbar-reset-btn" @click="resetLore">↺ Reset all entities</button>
+            </div>
           </div>
         </Transition>
       </div>
@@ -1288,7 +1290,9 @@ function fmtTime(iso?: string) {
         <div class="detail-section">
           <div class="section-label">
             Belongs to
-            <span v-if="detail.kind === 'npc' && !detail.parent" class="parent-warn" title="NPCs without a parent appear on the root map and can clutter it. Assign a location or city.">⚠ unassigned</span>
+            <span v-if="(detail.kind === 'npc' || detail.kind === 'faction') && !detail.parent"
+                  class="parent-warn"
+                  title="Origen incierto — asigna una ciudad o lugar para ubicarlo en el mapa">⚠ sin ubicar</span>
           </div>
           <select
             :value="detail.parent ?? ''"
@@ -1993,6 +1997,18 @@ function fmtTime(iso?: string) {
   transition: all var(--transition); width: 100%;
 }
 .toolbar-clear-btn:hover { border-color: rgba(220,80,80,.7); color: rgba(220,100,100,1); background: rgba(220,80,80,.08); }
+.toolbar-reset-zone {
+  margin-top: .5rem;
+  border-top: 1px solid rgba(220,80,80,.15);
+  padding-top: .4rem;
+}
+.toolbar-reset-btn {
+  font-size: .6rem; padding: .18rem .4rem; background: transparent;
+  border: 1px solid rgba(220,80,80,.3); border-radius: var(--radius-sm);
+  color: rgba(220,100,100,.6); cursor: pointer; font-family: inherit;
+  transition: all var(--transition); width: 100%;
+}
+.toolbar-reset-btn:hover { border-color: rgba(220,80,80,.7); color: rgba(220,100,100,1); background: rgba(220,80,80,.08); }
 
 /* Toolbar transition */
 .toolbar-enter-active { transition: opacity .2s ease, transform .2s ease; }

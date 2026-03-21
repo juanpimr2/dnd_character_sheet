@@ -905,10 +905,10 @@ Return ONLY a valid JSON array (no markdown, no explanation) with this structure
 ]
 
 LANGUAGE RULE — ABSOLUTE PRIORITY:
-- Detect the language of the session notes (Spanish, English, French, etc.)
-- Write EVERY field in that SAME language: name (as written), description, AND quest names
-- NEVER translate or switch language. If notes are in Spanish, every description and quest name must be in Spanish.
-- Quest names must be action phrases IN THE NOTES' LANGUAGE: e.g. "Encontrar la Lanza del Dragón", not "Find the Dragon Lance"
+- Detect the dominant language of the session notes (usually Spanish, English, etc.)
+- Write all DESCRIPTIONS in that dominant language.
+- NAMES: keep them EXACTLY as written in the notes. Do NOT translate proper nouns, artifact names, place names, or character names — "Dragon Lance", "Wandering Vault", "Vhan Crane" stay as-is even if the notes are mostly in Spanish. Mixed-language notes are normal.
+- QUEST NAMES: write action phrases in the dominant language of the notes, but keep embedded proper nouns unchanged. Example: notes are Spanish → "Obtener la Dragon Lance" (not "Obtain the Dragon Lance", not "Obtener la Lanza del Dragón" — the artifact name stays as written).
 
 Confidence levels — ONLY TWO:
 - "high": the entity's home/affiliation/parent is EXPLICITLY stated in the notes. The notes directly say where they live, work, or operate.
@@ -1018,12 +1018,15 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
       }
     }
 
+    // Enforce: low confidence → always null parent (no guessing)
+    const confidence = ent.confidence ?? (ent.parent ? 'high' : 'low')
+    if (confidence === 'low') ent.parent = null
+
     const destId = destPlane?.id ?? 'default'
     if (!entitiesByPlane.has(destId)) entitiesByPlane.set(destId, { plane: destPlane, ents: [] })
     entitiesByPlane.get(destId).ents.push(ent)
 
     // Build extraction log entry for this entity
-    const confidence = ent.confidence ?? (ent.parent ? 'high' : 'low')
     const parentClarity = ent.parent
       ? (hint ? 'clear-with-plane' : 'clear')
       : (allKnownEntities.length === 0 ? 'none'
