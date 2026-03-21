@@ -975,6 +975,7 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
   // Auto-creates new planes for previously unknown planeHints
   const now = new Date().toISOString()
   const entitiesByPlane = new Map()  // planeId → entities[]
+  const extractionLog   = []         // per-entity debug info returned to frontend
 
   for (const ent of extracted) {
     const hint = (ent.planeHint ?? '').trim()
@@ -1007,6 +1008,23 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
     const destId = destPlane?.id ?? 'default'
     if (!entitiesByPlane.has(destId)) entitiesByPlane.set(destId, { plane: destPlane, ents: [] })
     entitiesByPlane.get(destId).ents.push(ent)
+
+    // Build extraction log entry for this entity
+    const parentClarity = ent.parent
+      ? (hint ? 'clear-with-plane' : 'clear')       // AI gave an explicit parent
+      : (allKnownEntities.length === 0 ? 'none'
+         : allPlanes.flatMap(p => p.entities ?? []).some(e => e.kind === 'city') ? 'inferred-single-city' : 'none')
+    extractionLog.push({
+      name:         ent.name,
+      kind:         ent.kind,
+      parent:       ent.parent ?? null,
+      parentClarity,
+      planeHint:    hint || null,
+      assignedPlane: destPlane?.name ?? 'unknown',
+      warning:      (!ent.parent && (ent.kind === 'npc' || ent.kind === 'faction'))
+                      ? 'No parent assigned — location unclear in notes'
+                      : null,
+    })
   }
 
   // Merge each group into its destination plane
@@ -1035,8 +1053,9 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
 
   if (saveErr) return res.status(500).json({ error: saveErr.message })
 
-  console.log(`🗺  Lore extracted: ${extracted.length} entities for ${characterId}`)
-  res.json({ worldLore: charData.worldLore, extracted: extracted.length, planeId })
+  const warnings = extractionLog.filter(e => e.warning)
+  console.log(`🗺  Lore extracted: ${extracted.length} entities for ${characterId} (${warnings.length} warnings)`)
+  res.json({ worldLore: charData.worldLore, extracted: extracted.length, planeId, extractionLog })
 })
 
 // ── Health check ─────────────────────────────────────────────────

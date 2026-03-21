@@ -442,9 +442,15 @@ function resetLore() {
   charStore.scheduleAutoSave()
 }
 
-const analyzing    = ref(false)
-const analyzeError = ref('')
-const cooldownSecs = ref(0)
+const analyzing       = ref(false)
+const analyzeError    = ref('')
+const cooldownSecs    = ref(0)
+const extractionLog   = ref<Array<{
+  name: string; kind: string; parent: string | null
+  parentClarity: string; planeHint: string | null
+  assignedPlane: string; warning: string | null
+}>>([])
+const showExtractionLog = ref(false)
 let cooldownTimer: ReturnType<typeof setInterval> | null = null
 
 function startCooldown(secs: number) {
@@ -491,6 +497,10 @@ async function analyzeNotes() {
       activePlane.value.lastAnalysis = json.worldLore.lastAnalysis
     }
 
+    if (json.extractionLog) {
+      extractionLog.value = json.extractionLog
+      showExtractionLog.value = json.extractionLog.some((e: any) => e.warning)
+    }
     charStore.scheduleAutoSave()
   } catch { analyzeError.value = 'Network error' }
   finally   { analyzing.value = false }
@@ -652,6 +662,57 @@ function applyMapBg() {
   plane.mapBg = url || undefined
   charStore.scheduleAutoSave()
 }
+
+// Curated preset map backgrounds (public domain / free)
+const PRESET_MAPS = [
+  {
+    label: 'Carta Marina',
+    hint: '1539 • Sea monsters & kingdoms',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/5/5b/Carta_Marina.jpeg',
+    swatch: 'linear-gradient(135deg,#8B6520,#C4922A,#7A5010)',
+  },
+  {
+    label: 'Ortelius 1570',
+    hint: 'Renaissance world map',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/a/a3/Ortelius_1570_world_map.jpg',
+    swatch: 'linear-gradient(135deg,#9E7A3A,#C8A84A,#6E5018)',
+  },
+  {
+    label: 'Fra Mauro',
+    hint: '1450 • Illuminated medieval',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/b/b3/Fra_Mauro_1450.jpg',
+    swatch: 'linear-gradient(135deg,#5C4820,#8A6C2A,#3C3010)',
+  },
+  {
+    label: 'Hubble Deep Field',
+    hint: 'NASA • Space / Astral',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Hubble_ultra_deep_field.jpg/1280px-Hubble_ultra_deep_field.jpg',
+    swatch: 'linear-gradient(135deg,#04020e,#180840,#08040c)',
+  },
+  {
+    label: 'Pillars of Creation',
+    hint: 'NASA • Feywild / Astral',
+    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg/800px-Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg',
+    swatch: 'linear-gradient(135deg,#0a0420,#2a1040,#0e0818)',
+  },
+  {
+    label: 'Custom URL',
+    hint: 'Paste your own (Midjourney, etc.)',
+    url: '__custom__',
+    swatch: 'repeating-linear-gradient(45deg,#1a1208 0px,#1a1208 4px,#221a10 4px,#221a10 8px)',
+  },
+]
+
+function applyPreset(preset: typeof PRESET_MAPS[0]) {
+  if (preset.url === '__custom__') {
+    // Focus the URL input
+    const el = document.querySelector('.toolbar-bg-input') as HTMLInputElement | null
+    el?.focus()
+    return
+  }
+  mapBgInput.value = preset.url
+  applyMapBg()
+}
 function clearMapBg() {
   mapBgInput.value = ''
   const plane = activePlane.value
@@ -736,6 +797,26 @@ function fmtTime(iso?: string) {
     <div v-if="authStore.isPremium && (activePlane?.lastAnalysis || activePlane?.lastManualAnalysis)" class="ai-disclaimer">
       AI-generated — review and edit as needed.
     </div>
+
+    <!-- ── Extraction log ── -->
+    <Transition name="seed-form">
+      <div v-if="showExtractionLog && extractionLog.length" class="extraction-log">
+        <div class="elog-header">
+          <span class="elog-title">⚠ Extraction report — {{ extractionLog.filter(e => e.warning).length }} item{{ extractionLog.filter(e => e.warning).length > 1 ? 's' : '' }} need review</span>
+          <button class="elog-close" @click="showExtractionLog = false">✕</button>
+        </div>
+        <div class="elog-body">
+          <div v-for="(entry, i) in extractionLog" :key="i" class="elog-row" :class="{ 'elog-warn': entry.warning }">
+            <span class="elog-kind">{{ { city:'🏙', location:'📍', npc:'👤', faction:'⚔', quest:'📜' }[entry.kind] ?? '?' }}</span>
+            <span class="elog-name">{{ entry.name }}</span>
+            <span class="elog-parent">{{ entry.parent ? `→ ${entry.parent}` : '— no parent' }}</span>
+            <span v-if="entry.planeHint" class="elog-plane">✦ {{ entry.planeHint }}</span>
+            <span v-if="entry.warning" class="elog-warning-txt" :title="entry.warning">⚠</span>
+          </div>
+        </div>
+        <div class="elog-footer">Assign missing parents in the detail panel → "Belongs to"</div>
+      </div>
+    </Transition>
 
     <!-- ── Seed form ── -->
     <Transition name="seed-form">
@@ -854,6 +935,12 @@ function fmtTime(iso?: string) {
           >
             <img :src="iconFor(entity)" :class="['sb-icon', { 'sb-icon-sm': depth > 0 }, isGI(iconFor(entity)) ? 'gi' : '']" />
             <span class="sb-name">{{ entity.name }}</span>
+            <!-- ⚠ parent unclear: NPC/faction at root with no parent -->
+            <span
+              v-if="depth === 0 && !entity.parent && (entity.kind === 'npc' || entity.kind === 'faction')"
+              class="sb-warn"
+              title="Parent unclear — assign a location in the detail panel"
+            >⚠</span>
             <span v-if="questsFor(entity).length" class="sb-quest-pip">{{ questsFor(entity).length }}</span>
             <span v-if="hasChildren(entity)" class="sb-count">{{ childrenOf(entity).length }}</span>
             <span v-for="f in (entity.flags ?? []).slice(0,2)" :key="f.type" class="sb-flag" :style="{ background: flagColor(f.type) }" />
@@ -1109,12 +1196,22 @@ function fmtTime(iso?: string) {
             <div v-if="pendingIcon" class="toolbar-hint">Click map to place</div>
             <div v-else class="toolbar-hint">Select an icon above</div>
             <!-- Map background section -->
-            <div class="toolbar-section-label" style="margin-top:.2rem">Map image</div>
+            <div class="toolbar-section-label" style="margin-top:.2rem">Map background</div>
+            <div class="preset-grid">
+              <button
+                v-for="p in PRESET_MAPS" :key="p.label"
+                class="preset-btn"
+                :class="{ active: p.url !== '__custom__' && activePlane?.mapBg === p.url }"
+                :style="{ '--sw': p.swatch }"
+                :title="p.hint"
+                @click="applyPreset(p)"
+              >{{ p.label }}</button>
+            </div>
             <input
               v-model="mapBgInput"
               class="toolbar-bg-input"
               type="url"
-              placeholder="Paste image URL…"
+              placeholder="Or paste any image URL…"
               @blur="applyMapBg"
               @keydown.enter.prevent="applyMapBg"
             />
@@ -1384,6 +1481,7 @@ function fmtTime(iso?: string) {
 .sb-name { font-size: .73rem; color: var(--text-secondary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-item.active .sb-name { color: var(--gold); }
 .sb-count { font-size: .58rem; color: var(--text-muted); background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: .03rem .28rem; flex-shrink: 0; }
+.sb-warn { font-size: .6rem; color: rgba(220,160,30,.85); flex-shrink: 0; cursor: help; line-height: 1; }
 .sb-flag { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
 
 .sb-add-btn {
@@ -1398,147 +1496,193 @@ function fmtTime(iso?: string) {
 /* ══ Canvas ══ */
 .world-canvas {
   flex: 1; position: relative; border-radius: var(--radius-md); overflow: hidden;
-  /* Rich fantasy map: parchment texture + terrain color zones + vignette */
+  /* Material Plane: illustrated fantasy map — terrain zones over parchment */
   background:
-    radial-gradient(ellipse 55% 45% at 30% 35%, rgba(120,160,80,0.18) 0%, transparent 55%),
-    radial-gradient(ellipse 40% 35% at 70% 65%, rgba(80,130,60,0.14) 0%, transparent 50%),
-    radial-gradient(ellipse 35% 30% at 15% 70%, rgba(100,80,40,0.18) 0%, transparent 45%),
-    radial-gradient(ellipse 30% 25% at 80% 20%, rgba(140,120,70,0.14) 0%, transparent 40%),
-    radial-gradient(ellipse 20% 20% at 55% 80%, rgba(80,110,150,0.12) 0%, transparent 40%),
+    /* Forests — deep greens, scattered */
+    radial-gradient(ellipse 30% 24% at 17% 32%, rgba(22,88,22,0.55) 0%, transparent 55%),
+    radial-gradient(ellipse 26% 20% at 73% 60%, rgba(28,100,24,0.50) 0%, transparent 52%),
+    radial-gradient(ellipse 20% 17% at 40% 78%, rgba(30,85,18,0.45) 0%, transparent 48%),
+    radial-gradient(ellipse 16% 13% at 88% 38%, rgba(25,78,18,0.38) 0%, transparent 44%),
+    /* Mountains — warm grey-ochre ridges */
+    radial-gradient(ellipse 34% 26% at 64% 16%, rgba(125,105,68,0.52) 0%, transparent 56%),
+    radial-gradient(ellipse 20% 26% at 7% 57%, rgba(115,95,62,0.44) 0%, transparent 50%),
+    radial-gradient(ellipse 16% 13% at 50% 44%, rgba(135,112,72,0.30) 0%, transparent 44%),
+    /* Seas & lakes — deep cobalt */
+    radial-gradient(ellipse 26% 20% at 89% 82%, rgba(28,78,165,0.42) 0%, transparent 55%),
+    radial-gradient(ellipse 16% 20% at 26% 3%,  rgba(32,82,158,0.34) 0%, transparent 48%),
+    radial-gradient(ellipse 11% 9%  at 61% 92%, rgba(38,88,152,0.28) 0%, transparent 40%),
+    /* Badlands / plains — warm ochre */
+    radial-gradient(ellipse 28% 20% at 43% 20%, rgba(185,145,58,0.26) 0%, transparent 50%),
+    /* Warm overall parchment tone */
+    radial-gradient(ellipse 110% 90% at 50% 50%, rgba(195,162,90,0.12) 0%, transparent 80%),
     url('/map-icons/parchment.png') center/cover no-repeat;
   cursor: default;
 }
 .world-canvas.edit-cursor { cursor: crosshair; }
 
 /* ── Plane themes ── */
-/* Material Plane: parchment (default, no override needed) */
 
-/* Nine Hells — smouldering darkness, embers */
+/* Nine Hells — hellfire & burning darkness */
 .world-canvas.theme-hells {
   background:
-    radial-gradient(ellipse 70% 50% at 50% 90%, rgba(200,40,10,0.35) 0%, transparent 65%),
-    radial-gradient(ellipse 90% 60% at 50% 0%,  rgba(130,20,0,0.45) 0%, transparent 70%),
-    linear-gradient(175deg, #1c0604 0%, #220808 40%, #160404 100%);
+    /* Lava pockets glowing from below */
+    radial-gradient(circle 14% at 18% 82%, rgba(255,110,0,0.32) 0%, transparent 60%),
+    radial-gradient(circle 10% at 76% 65%, rgba(240,80,0,0.26) 0%, transparent 55%),
+    radial-gradient(circle 7%  at 44% 28%, rgba(220,55,0,0.20) 0%, transparent 50%),
+    radial-gradient(circle 5%  at 88% 14%, rgba(200,40,0,0.16) 0%, transparent 45%),
+    /* Hellfire glow from the abyss below */
+    radial-gradient(ellipse 100% 55% at 50% 115%, rgba(230,55,5,0.70) 0%, transparent 58%),
+    /* Blood-red smoke ceiling */
+    radial-gradient(ellipse 110% 40% at 50% -12%, rgba(150,12,0,0.60) 0%, transparent 55%),
+    /* Base: near-black with deep crimson */
+    linear-gradient(175deg, #130202 0%, #1e0404 30%, #190303 60%, #0f0101 100%);
 }
-.world-canvas.theme-hells .node-label {
-  color: rgba(255,200,140,0.92);
-  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(180,60,10,0.6);
-}
+.world-canvas.theme-hells .node-label { color: rgba(255,205,145,0.92); text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 14px rgba(200,65,8,0.65); }
 .world-canvas.theme-hells .btn-crumb,
-.world-canvas.theme-hells .crumb-sep { color: rgba(220,140,80,0.7); }
-.world-canvas.theme-hells .crumb-current { color: rgba(240,160,80,0.85); text-shadow: none; }
-.world-canvas.theme-hells .node-img.gi { filter: invert(1) sepia(1) saturate(3) hue-rotate(340deg) brightness(0.7) drop-shadow(0 2px 4px rgba(180,40,0,.6)); }
+.world-canvas.theme-hells .crumb-sep { color: rgba(225,140,78,0.72); }
+.world-canvas.theme-hells .crumb-current { color: rgba(245,162,80,0.88); text-shadow: none; }
+.world-canvas.theme-hells .node-img.gi { filter: invert(1) sepia(1) saturate(3) hue-rotate(340deg) brightness(0.68) drop-shadow(0 2px 6px rgba(200,45,0,.65)); }
 
-/* Underdark — deep cave black */
+/* Underdark — bioluminescent cave darkness */
 .world-canvas.theme-underdark {
   background:
-    radial-gradient(ellipse 60% 40% at 30% 60%, rgba(20,30,100,0.2) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 70% 30%, rgba(60,10,80,0.2) 0%, transparent 50%),
-    linear-gradient(160deg, #060608 0%, #090910 50%, #060606 100%);
+    /* Bioluminescent glow spots */
+    radial-gradient(circle 9%  at 14% 24%, rgba(35,115,205,0.35) 0%, transparent 60%),
+    radial-gradient(circle 7%  at 66% 76%, rgba(80,38,188,0.30) 0%, transparent 55%),
+    radial-gradient(circle 5%  at 83% 14%, rgba(55,175,118,0.25) 0%, transparent 50%),
+    radial-gradient(circle 4%  at 34% 89%, rgba(98,45,200,0.22) 0%, transparent 45%),
+    radial-gradient(circle 6%  at 51% 47%, rgba(18,78,160,0.20) 0%, transparent 44%),
+    /* Deep cave atmosphere */
+    radial-gradient(ellipse 68% 48% at 32% 68%, rgba(8,18,88,0.40) 0%, transparent 65%),
+    radial-gradient(ellipse 58% 42% at 74% 26%, rgba(48,6,72,0.34) 0%, transparent 58%),
+    linear-gradient(158deg, #020308 0%, #050710 42%, #030408 100%);
 }
-.world-canvas.theme-underdark .node-label {
-  color: rgba(180,200,255,0.85);
-  text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 10px rgba(60,80,200,0.4);
-}
+.world-canvas.theme-underdark .node-label { color: rgba(178,202,255,0.88); text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 12px rgba(58,80,210,0.45); }
 .world-canvas.theme-underdark .btn-crumb,
-.world-canvas.theme-underdark .crumb-sep { color: rgba(140,160,220,0.6); }
-.world-canvas.theme-underdark .crumb-current { color: rgba(160,180,255,0.8); text-shadow: none; }
-.world-canvas.theme-underdark .node-img.gi { filter: invert(1) sepia(0.5) saturate(1.5) hue-rotate(200deg) brightness(0.75) drop-shadow(0 2px 4px rgba(0,0,80,.5)); }
+.world-canvas.theme-underdark .crumb-sep { color: rgba(138,162,222,0.62); }
+.world-canvas.theme-underdark .crumb-current { color: rgba(158,182,255,0.82); text-shadow: none; }
+.world-canvas.theme-underdark .node-img.gi { filter: invert(1) sepia(0.5) saturate(1.5) hue-rotate(200deg) brightness(0.72) drop-shadow(0 2px 5px rgba(0,0,90,.55)); }
 
-/* Astral Plane — deep space purple starfield */
+/* Astral Plane — nebula & silver sea */
 .world-canvas.theme-astral {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(70,30,140,0.35) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 40% at 20% 25%, rgba(100,50,200,0.18) 0%, transparent 50%),
-    radial-gradient(ellipse 35% 35% at 80% 70%, rgba(80,30,150,0.15) 0%, transparent 45%),
-    linear-gradient(160deg, #06060e 0%, #0a0c1c 50%, #08080c 100%);
+    /* Nebula clouds */
+    radial-gradient(ellipse 58% 38% at 28% 62%, rgba(105,38,208,0.32) 0%, transparent 65%),
+    radial-gradient(ellipse 48% 34% at 76% 22%, rgba(38,82,228,0.26) 0%, transparent 60%),
+    radial-gradient(ellipse 38% 28% at 56% 86%, rgba(125,28,158,0.24) 0%, transparent 55%),
+    /* Bright nebula core */
+    radial-gradient(ellipse 22% 18% at 46% 36%, rgba(168,82,255,0.22) 0%, transparent 52%),
+    /* Faint silver shimmer */
+    radial-gradient(ellipse 85% 32% at 50% 52%, rgba(165,145,225,0.08) 0%, transparent 72%),
+    linear-gradient(145deg, #030110 0%, #07051a 38%, #05030e 68%, #010008 100%);
 }
-.world-canvas.theme-astral .node-label {
-  color: rgba(210,190,255,0.9);
-  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(120,80,220,0.5);
-}
+.world-canvas.theme-astral .node-label { color: rgba(215,192,255,0.92); text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 14px rgba(125,82,228,0.55); }
 .world-canvas.theme-astral .btn-crumb,
-.world-canvas.theme-astral .crumb-sep { color: rgba(180,150,240,0.6); }
-.world-canvas.theme-astral .crumb-current { color: rgba(200,170,255,0.85); text-shadow: none; }
-.world-canvas.theme-astral .node-img.gi { filter: invert(1) sepia(0.3) saturate(2) hue-rotate(240deg) brightness(0.8) drop-shadow(0 2px 4px rgba(80,40,180,.5)); }
+.world-canvas.theme-astral .crumb-sep { color: rgba(182,152,242,0.62); }
+.world-canvas.theme-astral .crumb-current { color: rgba(202,172,255,0.88); text-shadow: none; }
+.world-canvas.theme-astral .node-img.gi { filter: invert(1) sepia(0.3) saturate(2) hue-rotate(240deg) brightness(0.78) drop-shadow(0 2px 5px rgba(88,42,188,.55)); }
 
-/* Feywild — magical emerald forest */
+/* Feywild — enchanted forest twilight */
 .world-canvas.theme-feywild {
   background:
-    radial-gradient(ellipse 70% 60% at 50% 40%, rgba(20,90,20,0.28) 0%, transparent 70%),
-    radial-gradient(ellipse 50% 40% at 80% 20%, rgba(80,200,80,0.1) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 30% at 20% 80%, rgba(60,160,40,0.1) 0%, transparent 45%),
-    linear-gradient(160deg, #040a04 0%, #081208 50%, #060e06 100%);
+    /* Magical light sparks */
+    radial-gradient(circle 7%  at 24% 19%, rgba(175,255,95,0.24) 0%, transparent 55%),
+    radial-gradient(circle 5%  at 79% 67%, rgba(148,255,78,0.20) 0%, transparent 50%),
+    radial-gradient(circle 4%  at 51% 87%, rgba(98,255,148,0.18) 0%, transparent 46%),
+    /* Enchanted canopy */
+    radial-gradient(ellipse 72% 55% at 44% 36%, rgba(18,105,18,0.45) 0%, transparent 65%),
+    radial-gradient(ellipse 52% 42% at 82% 72%, rgba(28,115,22,0.36) 0%, transparent 58%),
+    radial-gradient(ellipse 35% 28% at 12% 58%, rgba(22,95,15,0.30) 0%, transparent 52%),
+    /* Ethereal underglow */
+    radial-gradient(ellipse 95% 42% at 50% 105%, rgba(82,205,58,0.22) 0%, transparent 58%),
+    linear-gradient(162deg, #010802 0%, #030e04 42%, #020a03 100%);
 }
-.world-canvas.theme-feywild .node-label {
-  color: rgba(160,240,160,0.9);
-  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(40,160,40,0.5);
-}
+.world-canvas.theme-feywild .node-label { color: rgba(162,245,162,0.92); text-shadow: 0 1px 4px rgba(0,0,0,.88), 0 0 14px rgba(38,165,38,0.55); }
 .world-canvas.theme-feywild .btn-crumb,
-.world-canvas.theme-feywild .crumb-sep { color: rgba(120,200,100,0.6); }
-.world-canvas.theme-feywild .crumb-current { color: rgba(140,220,120,0.85); text-shadow: none; }
-.world-canvas.theme-feywild .node-img.gi { filter: invert(1) sepia(1) saturate(2) hue-rotate(90deg) brightness(0.65) drop-shadow(0 2px 4px rgba(0,80,0,.5)); }
+.world-canvas.theme-feywild .crumb-sep { color: rgba(118,202,98,0.62); }
+.world-canvas.theme-feywild .crumb-current { color: rgba(138,222,118,0.88); text-shadow: none; }
+.world-canvas.theme-feywild .node-img.gi { filter: invert(1) sepia(1) saturate(2) hue-rotate(90deg) brightness(0.62) drop-shadow(0 2px 5px rgba(0,85,0,.55)); }
 
-/* Shadowfell — desaturated void */
+/* Shadowfell — ashen void, dying light */
 .world-canvas.theme-shadow {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(40,30,55,0.3) 0%, transparent 70%),
-    linear-gradient(160deg, #060608 0%, #0a0a0e 50%, #080808 100%);
+    /* Dying light sources — muted purples */
+    radial-gradient(circle 11% at 24% 34%, rgba(82,62,125,0.26) 0%, transparent 60%),
+    radial-gradient(circle 7%  at 69% 74%, rgba(62,42,108,0.22) 0%, transparent 55%),
+    radial-gradient(circle 5%  at 44% 12%, rgba(52,32,88,0.18) 0%, transparent 48%),
+    /* Ashen fog layers */
+    radial-gradient(ellipse 95% 52% at 50% 18%, rgba(28,18,48,0.42) 0%, transparent 65%),
+    radial-gradient(ellipse 72% 42% at 28% 82%, rgba(38,28,62,0.32) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 45% at 78% 40%, rgba(22,15,38,0.28) 0%, transparent 55%),
+    linear-gradient(168deg, #040408 0%, #08070e 42%, #050408 100%);
 }
-.world-canvas.theme-shadow .node-label {
-  color: rgba(180,170,200,0.82);
-  text-shadow: 0 1px 4px rgba(0,0,0,.95);
-}
+.world-canvas.theme-shadow .node-label { color: rgba(182,172,205,0.85); text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 8px rgba(80,60,120,0.35); }
 .world-canvas.theme-shadow .btn-crumb,
-.world-canvas.theme-shadow .crumb-sep { color: rgba(150,140,180,0.6); }
-.world-canvas.theme-shadow .crumb-current { color: rgba(170,160,200,0.8); text-shadow: none; }
-.world-canvas.theme-shadow .node-img.gi { filter: grayscale(0.7) invert(0.85) brightness(0.7) drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+.world-canvas.theme-shadow .crumb-sep { color: rgba(152,142,182,0.62); }
+.world-canvas.theme-shadow .crumb-current { color: rgba(172,162,202,0.82); text-shadow: none; }
+.world-canvas.theme-shadow .node-img.gi { filter: grayscale(0.65) invert(0.82) brightness(0.68) drop-shadow(0 2px 4px rgba(0,0,0,.65)); }
 
-/* Spelljammer / Wildspace — deep space */
+/* Spelljammer / Wildspace — deep space with stars */
 .world-canvas.theme-space {
   background:
-    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(10,5,40,0.6) 0%, transparent 80%),
-    linear-gradient(160deg, #02020a 0%, #04040e 50%, #030308 100%);
+    /* Simulated star clusters */
+    radial-gradient(circle 2%  at 18% 14%, rgba(255,255,255,0.18) 0%, transparent 50%),
+    radial-gradient(circle 1%  at 52% 7%,  rgba(205,222,255,0.15) 0%, transparent 45%),
+    radial-gradient(circle 1%  at 79% 44%, rgba(222,202,255,0.12) 0%, transparent 40%),
+    radial-gradient(circle 2%  at 33% 72%, rgba(182,222,255,0.10) 0%, transparent 38%),
+    radial-gradient(circle 1%  at 65% 88%, rgba(255,245,202,0.14) 0%, transparent 42%),
+    radial-gradient(circle 2%  at 90% 28%, rgba(255,255,225,0.12) 0%, transparent 44%),
+    radial-gradient(circle 1%  at 8%  92%, rgba(202,218,255,0.10) 0%, transparent 38%),
+    /* Nebula colour clouds */
+    radial-gradient(ellipse 52% 36% at 24% 62%, rgba(18,8,88,0.48) 0%, transparent 65%),
+    radial-gradient(ellipse 42% 32% at 74% 28%, rgba(52,4,82,0.42) 0%, transparent 58%),
+    radial-gradient(ellipse 30% 24% at 50% 80%, rgba(8,22,68,0.35) 0%, transparent 52%),
+    linear-gradient(148deg, #010108 0%, #020110 38%, #010108 100%);
 }
-.world-canvas.theme-space .node-label {
-  color: rgba(200,220,255,0.9);
-  text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 8px rgba(100,150,255,0.4);
-}
+.world-canvas.theme-space .node-label { color: rgba(202,222,255,0.92); text-shadow: 0 1px 4px rgba(0,0,0,.95), 0 0 10px rgba(102,152,255,0.45); }
 .world-canvas.theme-space .btn-crumb,
-.world-canvas.theme-space .crumb-sep { color: rgba(160,180,230,0.6); }
-.world-canvas.theme-space .crumb-current { color: rgba(180,200,255,0.85); text-shadow: none; }
-.world-canvas.theme-space .node-img.gi { filter: invert(1) sepia(0.2) saturate(1.5) hue-rotate(200deg) brightness(0.85) drop-shadow(0 2px 6px rgba(80,120,255,.4)); }
+.world-canvas.theme-space .crumb-sep { color: rgba(162,182,232,0.62); }
+.world-canvas.theme-space .crumb-current { color: rgba(182,202,255,0.88); text-shadow: none; }
+.world-canvas.theme-space .node-img.gi { filter: invert(1) sepia(0.2) saturate(1.5) hue-rotate(200deg) brightness(0.82) drop-shadow(0 2px 7px rgba(80,122,255,.48)); }
 
-/* Wandering Vault / Pocket Dimension — gilded void */
+/* Wandering Vault / Pocket Dimension — gilded mystery */
 .world-canvas.theme-vault {
   background:
-    radial-gradient(ellipse 60% 60% at 50% 50%, rgba(80,60,10,0.28) 0%, transparent 70%),
-    radial-gradient(ellipse 30% 30% at 25% 25%, rgba(160,120,20,0.12) 0%, transparent 45%),
-    linear-gradient(160deg, #080604 0%, #100e06 50%, #0a0802 100%);
+    /* Gold light sources */
+    radial-gradient(circle 14% at 50% 50%, rgba(205,162,18,0.28) 0%, transparent 62%),
+    radial-gradient(circle 9%  at 18% 28%, rgba(188,142,12,0.22) 0%, transparent 55%),
+    radial-gradient(circle 7%  at 76% 72%, rgba(205,158,8,0.18) 0%, transparent 50%),
+    radial-gradient(circle 5%  at 85% 18%, rgba(182,138,8,0.15) 0%, transparent 45%),
+    /* Gilded haze layers */
+    radial-gradient(ellipse 82% 62% at 50% 38%, rgba(125,92,6,0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 52% 42% at 18% 82%, rgba(105,78,4,0.26) 0%, transparent 62%),
+    linear-gradient(162deg, #050302 0%, #0c0802 38%, #080502 100%);
 }
-.world-canvas.theme-vault .node-label {
-  color: rgba(240,210,130,0.9);
-  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(160,120,20,0.4);
-}
+.world-canvas.theme-vault .node-label { color: rgba(242,212,132,0.92); text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 14px rgba(165,122,18,0.48); }
 .world-canvas.theme-vault .btn-crumb,
-.world-canvas.theme-vault .crumb-sep { color: rgba(200,170,80,0.6); }
-.world-canvas.theme-vault .crumb-current { color: rgba(220,190,100,0.85); text-shadow: none; }
-.world-canvas.theme-vault .node-img.gi { filter: invert(1) sepia(1) saturate(2.5) hue-rotate(10deg) brightness(0.65) drop-shadow(0 2px 4px rgba(120,80,0,.5)); }
+.world-canvas.theme-vault .crumb-sep { color: rgba(202,172,78,0.62); }
+.world-canvas.theme-vault .crumb-current { color: rgba(222,192,102,0.88); text-shadow: none; }
+.world-canvas.theme-vault .node-img.gi { filter: invert(1) sepia(1) saturate(2.5) hue-rotate(10deg) brightness(0.62) drop-shadow(0 2px 5px rgba(125,82,0,.55)); }
 
-/* Mechanus / Clockwork — cold steel blue */
+/* Mechanus / Clockwork — cold steel blueprint */
 .world-canvas.theme-mechanus {
   background:
-    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(20,40,80,0.3) 0%, transparent 70%),
-    linear-gradient(160deg, #060810 0%, #0a0e18 50%, #080c14 100%);
+    /* Circuit / gear highlights */
+    radial-gradient(circle 11% at 50% 50%, rgba(58,122,205,0.24) 0%, transparent 56%),
+    radial-gradient(circle 8%  at 20% 74%, rgba(38,102,185,0.20) 0%, transparent 50%),
+    radial-gradient(circle 6%  at 79% 26%, rgba(48,112,192,0.18) 0%, transparent 46%),
+    radial-gradient(circle 4%  at 32% 22%, rgba(55,118,198,0.14) 0%, transparent 42%),
+    /* Cold steel atmosphere */
+    radial-gradient(ellipse 82% 58% at 50% 28%, rgba(12,32,82,0.42) 0%, transparent 70%),
+    radial-gradient(ellipse 62% 48% at 22% 78%, rgba(18,42,105,0.32) 0%, transparent 62%),
+    radial-gradient(ellipse 50% 38% at 75% 65%, rgba(10,28,72,0.26) 0%, transparent 55%),
+    linear-gradient(162deg, #030510 0%, #060a1a 38%, #040810 100%);
 }
-.world-canvas.theme-mechanus .node-label {
-  color: rgba(160,200,240,0.9);
-  text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 10px rgba(40,100,180,0.4);
-}
+.world-canvas.theme-mechanus .node-label { color: rgba(162,202,242,0.92); text-shadow: 0 1px 4px rgba(0,0,0,.9), 0 0 12px rgba(38,102,182,0.48); }
 .world-canvas.theme-mechanus .btn-crumb,
-.world-canvas.theme-mechanus .crumb-sep { color: rgba(120,160,210,0.6); }
-.world-canvas.theme-mechanus .crumb-current { color: rgba(140,180,230,0.85); text-shadow: none; }
-.world-canvas.theme-mechanus .node-img.gi { filter: invert(1) sepia(0.4) saturate(1.5) hue-rotate(180deg) brightness(0.8) drop-shadow(0 2px 4px rgba(20,60,140,.5)); }
+.world-canvas.theme-mechanus .crumb-sep { color: rgba(122,162,212,0.62); }
+.world-canvas.theme-mechanus .crumb-current { color: rgba(142,182,232,0.88); text-shadow: none; }
+.world-canvas.theme-mechanus .node-img.gi { filter: invert(1) sepia(0.4) saturate(1.5) hue-rotate(180deg) brightness(0.78) drop-shadow(0 2px 5px rgba(18,62,145,.55)); }
 
 /* For all dark themes: grid lines need to be lighter */
 .world-canvas.theme-hells .grid-overlay,
@@ -1785,6 +1929,19 @@ function fmtTime(iso?: string) {
 .palette-btn.active .palette-img { filter: none; }
 .palette-btn:hover .palette-img { filter: none; }
 .toolbar-hint { font-size: .6rem; color: rgba(201,168,76,.6); text-align: center; line-height: 1.3; padding: .1rem 0; }
+
+/* Preset map buttons */
+.preset-grid { display: flex; flex-direction: column; gap: .22rem; margin-bottom: .3rem; }
+.preset-btn {
+  display: flex; align-items: center; gap: .4rem;
+  width: 100%; padding: .28rem .45rem;
+  background: var(--sw, rgba(255,255,255,.04));
+  border: 1px solid rgba(255,255,255,.12); border-radius: var(--radius-sm);
+  color: rgba(220,200,160,.85); font-family: inherit; font-size: .62rem; font-weight: 600;
+  cursor: pointer; transition: all var(--transition); text-align: left;
+}
+.preset-btn:hover { border-color: rgba(201,168,76,.5); color: rgba(245,225,180,.95); filter: brightness(1.15); }
+.preset-btn.active { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(201,168,76,.3); }
 
 .toolbar-bg-input {
   width: 100%; box-sizing: border-box;
@@ -2164,5 +2321,42 @@ function fmtTime(iso?: string) {
   font-size: .55rem; font-weight: 700; text-transform: uppercase;
   border: 1px solid; border-radius: 20px; padding: .05rem .3rem;
   letter-spacing: .05em;
+}
+
+/* ── Extraction log ── */
+.extraction-log {
+  background: rgba(40,28,4,.55);
+  border: 1px solid rgba(220,165,30,.35);
+  border-left: 3px solid rgba(220,165,30,.75);
+  border-radius: var(--radius-md);
+  margin-bottom: .5rem;
+  overflow: hidden;
+}
+.elog-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: .35rem .7rem; border-bottom: 1px solid rgba(220,165,30,.15);
+}
+.elog-title { font-size: .72rem; font-weight: 700; color: rgba(220,175,40,.92); }
+.elog-close {
+  background: transparent; border: none; color: var(--text-muted);
+  cursor: pointer; font-size: .72rem; padding: .1rem .2rem;
+  transition: color var(--transition);
+}
+.elog-close:hover { color: var(--text-primary); }
+.elog-body { padding: .25rem .4rem; display: flex; flex-direction: column; gap: .08rem; max-height: 180px; overflow-y: auto; overscroll-behavior: contain; }
+.elog-row {
+  display: flex; align-items: center; gap: .35rem;
+  padding: .12rem .3rem; border-radius: var(--radius-sm);
+  font-size: .67rem;
+}
+.elog-row.elog-warn { background: rgba(220,140,20,.10); }
+.elog-kind { font-size: .75rem; flex-shrink: 0; line-height: 1; }
+.elog-name { font-weight: 600; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.elog-parent { color: var(--text-muted); font-size: .62rem; flex-shrink: 0; }
+.elog-plane { color: rgba(160,130,220,.75); font-size: .6rem; flex-shrink: 0; }
+.elog-warning-txt { color: rgba(220,160,30,.9); flex-shrink: 0; font-size: .7rem; cursor: help; margin-left: auto; }
+.elog-footer {
+  font-size: .62rem; color: var(--text-muted); padding: .25rem .7rem;
+  border-top: 1px solid rgba(220,165,30,.12); font-style: italic;
 }
 </style>
