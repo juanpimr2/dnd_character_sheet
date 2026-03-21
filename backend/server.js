@@ -911,8 +911,12 @@ LANGUAGE RULE — ABSOLUTE PRIORITY:
 - QUEST NAMES: write action phrases in the dominant language of the notes, but keep embedded proper nouns unchanged. Example: notes are Spanish → "Obtener la Dragon Lance" (not "Obtain the Dragon Lance", not "Obtener la Lanza del Dragón" — the artifact name stays as written).
 
 Confidence levels — ONLY TWO:
-- "high": the entity's home/affiliation/parent is EXPLICITLY stated in the notes. The notes directly say where they live, work, or operate.
-- "low": the notes do NOT explicitly state where the entity is from or belongs. Being mentioned alongside others does NOT count. Being present in a city temporarily does NOT count. When in doubt → "low".
+- "high": the entity's home/affiliation/parent is EXPLICITLY stated or strongly implied by their role. Examples:
+  • Notes say "X vive en Y" / "X is based in Y" → high
+  • An NPC whose profession/role is clearly tied to a city's institutions (a city official, a noble family member, a guild officer) → high, parent = that city
+  • An NPC who officiates ceremonies, holds a formal title, or serves the local nobility of a city → high, parent = that city
+  • A location described as "near X" or "below X" or "outside X" → high, parent = X if X is known
+- "low": the notes do NOT give enough context to determine home/base. Passing through a location does NOT count. Being present at one event does NOT count (unless their role is clearly tied to that location). When in doubt → "low".
 CRITICAL: "low" confidence → always set parent: null. NEVER guess a parent for "low" entities.
 
 CRITICAL — never create an entity for the world itself:
@@ -947,6 +951,13 @@ Plane routing rules (planeHint field):
 - CRITICAL: If an entity IS a demiplane / pocket dimension / separate realm (e.g. "Wandering Vault", "Nine Hells", "The Feywild"), set ALL its contents to planeHint: "that realm's name". The realm itself does NOT need to be an entity — its contents get routed to their own plane tab automatically.
 - A portal or gateway in the Material Plane can be a location entity (kind: "location") but the entities INSIDE the destination plane get planeHint pointing to that plane name
 - When unsure, always leave planeHint: null (default plane)
+
+Historical / cosmic entities — CRITICAL FILTER:
+- SKIP anything whose description would use "era", "epoch", "age", "ancient period", "time when...". Even if it has a proper name like "Time of Ending", "Age of Dragons" — skip it entirely.
+- TEST: ask yourself "does this exist RIGHT NOW as something the party can interact with?" If no (past, abstract concept) → skip.
+- Ancient EXTINCT civilizations: create ONLY if they left physical relics/presence in a specific plane RIGHT NOW. Use planeHint: [that plane]. Otherwise → skip.
+- Deities: create ONLY if they have a physical artifact or manifestation in a specific location the party visited. Otherwise → skip.
+- Generic terrain (Black Ice, mist, dust) are NOT location entities. Skip generic materials.
 
 Other rules:
 - CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)
@@ -1031,11 +1042,14 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
       ? (hint ? 'clear-with-plane' : 'clear')
       : (allKnownEntities.length === 0 ? 'none'
          : allPlanes.flatMap(p => p.entities ?? []).some(e => e.kind === 'city') ? 'inferred-single-city' : 'none')
-    const warning = (confidence === 'low' && (ent.kind === 'npc' || ent.kind === 'faction'))
-      ? 'Origen incierto — añade contexto en las notas o asígnalo manualmente'
-      : (confidence === 'low' && ent.kind === 'location')
-        ? 'Ubicación incierta — no se pudo determinar dónde está'
-        : null
+    // No warning if entity has a planeHint — it's a root entity of its own plane (correct)
+    const isPlaneRoot = !!hint && !ent.parent
+    const warning = isPlaneRoot ? null
+      : (confidence === 'low' && (ent.kind === 'npc' || ent.kind === 'faction'))
+        ? 'Origen incierto — añade contexto en las notas o asígnalo manualmente'
+        : (confidence === 'low' && ent.kind === 'location')
+          ? 'Ubicación incierta — no se pudo determinar dónde está'
+          : null
     extractionLog.push({
       name:         ent.name,
       kind:         ent.kind,

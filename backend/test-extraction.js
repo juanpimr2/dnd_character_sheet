@@ -79,8 +79,12 @@ LANGUAGE RULE — ABSOLUTE PRIORITY:
 - QUEST NAMES: write action phrases in the dominant language of the notes, but keep embedded proper nouns unchanged. Example: notes are Spanish → "Obtener la Dragon Lance" (not "Obtain the Dragon Lance", not "Obtener la Lanza del Dragón" — the artifact name stays as written).
 
 Confidence levels — ONLY TWO:
-- "high": the entity's home/affiliation/parent is EXPLICITLY stated in the notes. The notes directly say where they live, work, or operate. Example: "Nexarion vive en Vintervind", "la Casa Crane tiene su sede en Vintervind".
-- "low": the notes do NOT explicitly state where the entity is from or belongs. Being mentioned alongside others does NOT count. Being present in a city temporarily does NOT count. When in doubt → "low".
+- "high": the entity's home/affiliation/parent is EXPLICITLY stated or strongly implied by their role. Examples:
+  • Notes say "X vive en Y" / "X is based in Y" → high
+  • An NPC whose profession/role is clearly tied to a city's institutions (a city official, a noble family member, a guild officer) → high, parent = that city
+  • An NPC who officiates ceremonies, holds a formal title, or serves the local nobility of a city → high, parent = that city
+  • A location described as "near X" or "below X" or "outside X" → high, parent = X if X is known
+- "low": the notes do NOT give enough context to determine home/base. Passing through a location does NOT count. Being present at one event does NOT count (unless their role is clearly tied to that location). When in doubt → "low".
 CRITICAL: "low" confidence → always set parent: null. NEVER guess a parent for "low" entities.
 
 CRITICAL — never create an entity for the world itself:
@@ -113,6 +117,13 @@ Plane routing rules (planeHint field):
 - Set "planeHint" to the plane name when an entity clearly belongs to a different plane or realm
 - CRITICAL: If an entity IS a demiplane / pocket dimension / separate realm (e.g. "Wandering Vault"), ALL its contents get planeHint: "that realm's name". The realm itself does NOT become a location entity.
 - When unsure → planeHint: null
+
+Historical / cosmic entities — CRITICAL FILTER:
+- SKIP anything whose description would use "era", "epoch", "age", "ancient period", "time when...". These are narrative context, NOT map entities. Even if the era has a proper name like "Time of Ending", "Age of Dragons", "the Sundering" — skip it entirely.
+- TEST: ask yourself "does this exist RIGHT NOW as something the party can interact with?" If the answer is no (it's in the past, it's an abstract concept) → skip.
+- Ancient EXTINCT civilizations (e.g. Atraxis): create ONLY if they left physical relics/presence in a specific plane right now. Use planeHint: [that plane]. If purely historical with no current physical presence → skip.
+- Deities: create ONLY if they have a physical artifact, voice, or manifestation in a specific location the party visited. Use planeHint for that location. If purely abstract/worshipped-from-afar → skip.
+- Generic terrain features (Black Ice, mist, dust, fog) are NOT location entities. Skip generic materials or atmospheric descriptions.
 
 Other rules:
 - CRITICAL: Extract ALL named entities regardless of how unusual, non-fantasy, or test-sounding the names are
@@ -254,9 +265,10 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
   for (const ent of sorted) {
     const conf   = ent.confidence ?? (ent.parent ? 'high' : 'low')
     const col    = confColor(conf)
-    const warn   = (!ent.parent && (ent.kind === 'npc' || ent.kind === 'faction'))
-      ? `${c.red}⚠ no parent${c.reset}`
-      : conf === 'medium' ? `${c.yellow}◌ verify${c.reset}` : ''
+    const isPlaneRoot = !!ent.planeHint && !ent.parent
+    const warn   = (isPlaneRoot) ? `${c.grey}✦ plane root${c.reset}`
+      : (!ent.parent && (ent.kind === 'npc' || ent.kind === 'faction'))
+        ? `${c.red}⚠ no parent${c.reset}` : ''
 
     if (conf !== lastConf) { console.log(''); lastConf = conf }
 
@@ -273,12 +285,13 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
   console.log('\n  ' + '─'.repeat(92))
 
   // 8. Summary
-  const hi  = sorted.filter(e => (e.confidence ?? 'high') === 'high').length
-  const mid = sorted.filter(e => e.confidence === 'medium').length
-  const lo  = sorted.filter(e => e.confidence === 'low').length
-  const warns = sorted.filter(e => !e.parent && (e.kind === 'npc' || e.kind === 'faction')).length
+  const hi    = sorted.filter(e => (e.confidence ?? 'high') === 'high').length
+  const lo    = sorted.filter(e => e.confidence === 'low').length
+  // Plane roots (planeHint + no parent) are correct — don't count as warnings
+  const warns = sorted.filter(e => !e.parent && !e.planeHint && (e.kind === 'npc' || e.kind === 'faction')).length
+  const planeRoots = sorted.filter(e => e.planeHint && !e.parent).length
 
-  console.log(`\n  ${c.bold}Summary:${c.reset}  ${c.green}${hi} high${c.reset}  ${c.yellow}${mid} medium${c.reset}  ${c.red}${lo} low${c.reset}   ${warns > 0 ? `${c.red}⚠ ${warns} unparented NPC/faction${c.reset}` : `${c.green}✓ all NPC/factions have parents${c.reset}`}`)
+  console.log(`\n  ${c.bold}Summary:${c.reset}  ${c.green}${hi} ubicados${c.reset}  ${c.red}${lo} inciertos${c.reset}  ${c.grey}${planeRoots} plane roots${c.reset}   ${warns > 0 ? `${c.red}⚠ ${warns} sin parent${c.reset}` : `${c.green}✓ todos ubicados o en plano${c.reset}`}`)
 
   // 9. Raw JSON dump (optional)
   if (process.argv.includes('--json')) {

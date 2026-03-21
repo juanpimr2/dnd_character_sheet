@@ -262,17 +262,26 @@ const KIND_SIZE: Record<EntityKind, number> = { city: 56, location: 42, npc: 38,
 const navStack = ref<WorldEntity[]>([])
 const currentParent = computed<WorldEntity | null>(() => navStack.value[navStack.value.length - 1] ?? null)
 
-// NPCs never appear on the map canvas — only in the sidebar entity tree + detail panel.
-// The map is for places, organizations, and quests-as-hints. People live in the sidebar.
-const MAP_HIDDEN_KINDS = new Set<EntityKind>(['npc', 'quest'])
+// MapGenie-style depth-dependent visibility:
+//   World level (depth 0): only geographic landmarks — cities, major locations
+//   City level  (depth 1): sub-locations + factions (organizations of that city)
+//   Deep level  (depth 2+): everything — NPCs appear here as characters of that place
+// Quests are never map pins (they live in the Quest Log sidebar tab).
+const kindOkAtDepth = (e: WorldEntity, depth: number): boolean => {
+  if (hiddenKinds.value.has(e.kind)) return false
+  if (e.kind === 'quest') return false          // never on canvas
+  if (depth === 0) return e.kind === 'city' || e.kind === 'location'   // world: geo only
+  if (depth === 1) return e.kind !== 'npc'      // city: locations + factions, no NPCs
+  return true                                   // deep: show everything including NPCs
+}
 
 const visibleNodes = computed<WorldEntity[]>(() => {
-  const kindOk = (e: WorldEntity) => !MAP_HIDDEN_KINDS.has(e.kind) && !hiddenKinds.value.has(e.kind)
+  const depth = navStack.value.length
   if (!currentParent.value) {
-    return entities.value.filter(e => !e.parent && kindOk(e))
+    return entities.value.filter(e => !e.parent && kindOkAtDepth(e, 0))
   }
   const pn = norm(currentParent.value.name)
-  return entities.value.filter(e => e.parent && norm(e.parent) === pn && kindOk(e))
+  return entities.value.filter(e => e.parent && norm(e.parent) === pn && kindOkAtDepth(e, depth))
 })
 
 // ── Quest helpers ─────────────────────────────────────────────────
@@ -1042,16 +1051,20 @@ function fmtTime(iso?: string) {
         <!-- Map legend + controls -->
         <div class="map-legend">
           <div class="legend-section legend-entities">
-            <span class="legend-title">Show/Hide</span>
-            <!-- NPCs never appear on the canvas — legend only shows map-visible kinds -->
+            <!-- Depth hint: tells the user what's visible at this zoom level -->
+            <span class="legend-depth-hint">
+              {{ navStack.length === 0 ? '🌍 Mapa mundial' : navStack.length === 1 ? '🏙 Vista ciudad' : '📍 Vista detalle' }}
+            </span>
+            <!-- Only show toggle for kinds relevant at this depth -->
             <button
-              v-for="k in (['city','location','faction'] as EntityKind[])" :key="k"
+              v-for="k in (navStack.length === 0 ? ['city','location'] : navStack.length === 1 ? ['location','faction'] : ['location','faction','npc']) as EntityKind[]"
+              :key="k"
               class="legend-btn" :class="{ hidden: hiddenKinds.has(k) }"
               @click="toggleKind(k)"
-              :title="(hiddenKinds.has(k) ? 'Show ' : 'Hide ') + { city:'Cities', location:'Locations', faction:'Factions' }[k]"
+              :title="(hiddenKinds.has(k) ? 'Mostrar ' : 'Ocultar ') + { city:'Ciudades', location:'Lugares', faction:'Facciones', npc:'NPCs' }[k]"
             >
-              <span class="legend-icon">{{ { city:'🏙', location:'📍', faction:'⚔' }[k] }}</span>
-              <span class="legend-label">{{ { city:'Cities', location:'Places', faction:'Factions' }[k] }}</span>
+              <span class="legend-icon">{{ { city:'🏙', location:'📍', faction:'⚔', npc:'👤' }[k] }}</span>
+              <span class="legend-label">{{ { city:'Ciudades', location:'Lugares', faction:'Facciones', npc:'NPCs' }[k] }}</span>
             </button>
           </div>
           <div class="legend-sep"></div>
@@ -1805,6 +1818,12 @@ function fmtTime(iso?: string) {
   white-space: nowrap; padding-right: .2rem;
   border-right: 1px solid rgba(201,168,76,.2);
   margin-right: .1rem;
+}
+.legend-depth-hint {
+  font-size: .58rem; font-weight: 700; color: rgba(201,168,76,.6);
+  white-space: nowrap; padding-right: .3rem;
+  border-right: 1px solid rgba(201,168,76,.2); margin-right: .1rem;
+  letter-spacing: .02em;
 }
 .legend-sep { width: 1px; height: 28px; background: rgba(201,168,76,.15); }
 .legend-btn {
