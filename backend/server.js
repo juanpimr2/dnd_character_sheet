@@ -901,13 +901,19 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
 
 Return ONLY a valid JSON array (no markdown, no explanation) with this structure:
 [
-  { "name": "Entity Name", "kind": "city|location|npc|faction|quest", "description": "brief 1-2 sentence description", "parent": null, "planeHint": null, "confidence": "high|medium|low" }
+  { "name": "Entity Name", "kind": "city|location|npc|faction|quest", "description": "brief 1-2 sentence description", "parent": null, "planeHint": null, "confidence": "high|low" }
 ]
 
-Confidence levels:
-- "high": the entity's parent/location is explicitly stated in the notes ("X lives in Y", "arrived at Y", "went to Y")
-- "medium": parent inferred from co-occurrence — entity appears alongside other entities whose location IS known
-- "low": genuinely unclear — entity mentioned without any location context, even implicit
+LANGUAGE RULE — ABSOLUTE PRIORITY:
+- Detect the language of the session notes (Spanish, English, French, etc.)
+- Write EVERY field in that SAME language: name (as written), description, AND quest names
+- NEVER translate or switch language. If notes are in Spanish, every description and quest name must be in Spanish.
+- Quest names must be action phrases IN THE NOTES' LANGUAGE: e.g. "Encontrar la Lanza del Dragón", not "Find the Dragon Lance"
+
+Confidence levels — ONLY TWO:
+- "high": the entity's home/affiliation/parent is EXPLICITLY stated in the notes. The notes directly say where they live, work, or operate.
+- "low": the notes do NOT explicitly state where the entity is from or belongs. Being mentioned alongside others does NOT count. Being present in a city temporarily does NOT count. When in doubt → "low".
+CRITICAL: "low" confidence → always set parent: null. NEVER guess a parent for "low" entities.
 
 CRITICAL — never create an entity for the world itself:
 - The world map is the canvas. The world/plane/reality that CONTAINS everything is never a pin on the map.
@@ -916,52 +922,42 @@ CRITICAL — never create an entity for the world itself:
 
 Kind rules:
 - "city": cities, towns, villages, castles, kingdoms, settlements INSIDE the world
-- "location": dungeons, taverns, ruins, forests, mountains, rivers, specific buildings or places
+- "location": dungeons, taverns, ruins, forests, mountains, rivers, glaciers, specific buildings or places
 - "npc": named characters that are NOT the player character
 - "faction": guilds, armies, religions, noble houses, organizations
-- "quest": active objectives, missions, tasks or things the party must do (e.g. "Find the Dragon Lance", "Cure Dular's darkness", "Recover the toxin from Vhan Crane")
+- "quest": active objectives, missions, tasks or goals the party is pursuing
 
-Parent rules (IMPORTANT — hierarchy can be multiple levels deep):
+Parent rules (IMPORTANT — only assign parent when EXPLICIT in notes):
 - Cities: parent = null (always top-level)
-- Locations: if clearly inside a city, parent = that city's exact name; if in the wilderness, parent = null
-- NPCs: FIRST check if they belong to a specific location/building/house → parent = that location's exact name. Only use the city as parent if no specific location is mentioned. EXAMPLE: "Dimitri Rakarov de la Casa Rakarov en Sigil" → parent: "Casa Rakarov" (NOT "Sigil")
-- Factions/organizations: parent = the city they operate in (NOT a location, factions are city-level)
-- The result can be multi-level: city → location → npc (e.g. Sigil → Casa Rakarov → Dimitri Rakarov)
+- Locations: parent = a city only if notes explicitly place it IN that city. Wilderness locations → parent = null.
+- NPCs: parent = the place/faction/house they BELONG TO according to the notes. Being "met at" or "visited in" a city does NOT make that city their parent. Only assign if the notes say they live/work/are based there. EXAMPLE: "Dimitri de la Casa Rakarov en Sigil" → parent: "Casa Rakarov" (NOT "Sigil")
+- Factions: parent = the city where they are explicitly based, according to the notes.
+- The result can be multi-level: city → location → npc (e.g. Sigil → Casa Rakarov → Dimitri)
+- If unsure → parent: null, confidence: "low"
 
 Quest rules:
-- Extract quests from objectives, missions, tasks or goals the party is pursuing
-- Quest name should be a short action phrase: "Find the Wandering Vault", "Obtain the Dragon Lance"
-- Quest description: what needs to be done and why (1-2 sentences)
-- Quest parent: the location or NPC related to the quest, if any
-- Only include quests that are clearly active/unresolved in the session
+- Quest name: short action phrase IN THE SAME LANGUAGE AS THE NOTES
+- Quest description: what needs to be done and why, IN THE SAME LANGUAGE AS THE NOTES
+- Quest parent: the location or NPC directly related to the quest, if explicitly mentioned
+- Only include quests that are clearly active/unresolved
 
 Plane routing rules (planeHint field):
 - Leave "planeHint": null for entities that belong to the default/current plane
 - Set "planeHint" to the plane name when an entity clearly belongs to a different plane or realm
 - CRITICAL: If an entity IS a demiplane / pocket dimension / separate realm (e.g. "Wandering Vault", "Nine Hells", "The Feywild"), set ALL its contents to planeHint: "that realm's name". The realm itself does NOT need to be an entity — its contents get routed to their own plane tab automatically.
-- Example: notes mention "The Wandering Vault" as a demiplane with "El Curador" inside → El Curador gets planeHint: "Wandering Vault". Do NOT create "Wandering Vault" as a location entity in the Material Plane.
 - A portal or gateway in the Material Plane can be a location entity (kind: "location") but the entities INSIDE the destination plane get planeHint pointing to that plane name
 - When unsure, always leave planeHint: null (default plane)
-
-Co-occurrence inference (CRITICAL — for mid-campaign notes):
-- Session notes written mid-campaign often lack explicit location context. You MUST use implicit patterns.
-- If an NPC appears in the same scenes, conversations, or events as other NPCs/factions that already have a known parent, assign the same parent. Example: "Dular argued with Vhan Crane" — if Vhan Crane is already known to be in Vintervind, set Dular's parent to Vintervind (confidence: "medium").
-- Party members who travel together should be co-located: if ANY party member has a known home city, assign ALL party members to that same city unless the notes explicitly place them elsewhere.
-- If a location (tavern, lab, dungeon) is described as being "near X" or "outside X" or "in the mountains near X", use X as parent.
-- Use the Known entities list above to apply this reasoning: any entity "in: Y" in that list is a confirmed anchor — entities appearing alongside them inherit Y as their parent (medium confidence).
-- When in doubt between two cities, pick the one where MORE known entities are concentrated.
 
 Other rules:
 - CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)
 - CRITICAL: Extract ALL named entities regardless of how unusual, non-fantasy, or test-sounding the names are. If the user wrote it in their notes, include it
-- CRITICAL: If only ONE city is mentioned across all notes, ALL non-city entities must default to having that city (or one of its locations) as parent
+- CRITICAL: If only ONE city is mentioned across all notes AND entities clearly operate/are based there (not just passing through), those entities may use it as parent with confidence "high"
 - Factions and noble houses (Casa X, House X) are kind="faction", not kind="location"
 - A noble house IS a faction (organization), even if they also have a physical building
 - If the same entity appears under slightly different names, use the first/most common form
 - Only include entities clearly mentioned in the notes
 - Descriptions should be factual (what was learned in the session)
 - Always include the "parent" field (null if no parent)
-- CRITICAL: Write ALL descriptions in the SAME LANGUAGE as the session notes. If notes are in Spanish, write in Spanish. Never change the language of descriptions or names.
 ${worldContextBlock}${planesBlock}${knownEntitiesBlock}
 Session notes:
 ${notesText}`
@@ -1029,13 +1025,13 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
     // Build extraction log entry for this entity
     const confidence = ent.confidence ?? (ent.parent ? 'high' : 'low')
     const parentClarity = ent.parent
-      ? (hint ? 'clear-with-plane' : (confidence === 'medium' ? 'inferred-cooccurrence' : 'clear'))
+      ? (hint ? 'clear-with-plane' : 'clear')
       : (allKnownEntities.length === 0 ? 'none'
          : allPlanes.flatMap(p => p.entities ?? []).some(e => e.kind === 'city') ? 'inferred-single-city' : 'none')
-    const warning = (!ent.parent && (ent.kind === 'npc' || ent.kind === 'faction'))
-      ? 'No parent assigned — location unclear in notes'
-      : (confidence === 'low' && ent.parent)
-        ? 'Parent assigned but confidence is low — verify in notes'
+    const warning = (confidence === 'low' && (ent.kind === 'npc' || ent.kind === 'faction'))
+      ? 'Origen incierto — añade contexto en las notas o asígnalo manualmente'
+      : (confidence === 'low' && ent.kind === 'location')
+        ? 'Ubicación incierta — no se pudo determinar dónde está'
         : null
     extractionLog.push({
       name:         ent.name,
