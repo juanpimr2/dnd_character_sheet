@@ -447,6 +447,7 @@ const analyzeError    = ref('')
 const cooldownSecs    = ref(0)
 const extractionLog   = ref<Array<{
   name: string; kind: string; parent: string | null
+  confidence: 'high' | 'medium' | 'low'
   parentClarity: string; planeHint: string | null
   assignedPlane: string; warning: string | null
 }>>([])
@@ -499,7 +500,8 @@ async function analyzeNotes() {
 
     if (json.extractionLog) {
       extractionLog.value = json.extractionLog
-      showExtractionLog.value = json.extractionLog.some((e: any) => e.warning)
+      // Always show the log after analysis (not only on warnings)
+      showExtractionLog.value = json.extractionLog.length > 0
     }
     charStore.scheduleAutoSave()
   } catch { analyzeError.value = 'Network error' }
@@ -783,6 +785,13 @@ function fmtTime(iso?: string) {
             <template v-else-if="analyzing">Analyzing…</template>
             <template v-else>Analyze notes</template>
           </button>
+          <button
+            v-if="extractionLog.length > 0"
+            class="btn-elog-toggle"
+            :class="{ 'btn-elog-toggle--warn': extractionLog.some(e => e.warning) }"
+            :title="showExtractionLog ? 'Hide extraction log' : 'Show extraction log'"
+            @click="showExtractionLog = !showExtractionLog"
+          >{{ extractionLog.filter(e => e.confidence === 'low' || e.warning).length > 0 ? '⚠' : '✓' }} log</button>
         </template>
         <template v-else>
           <UpgradeGate
@@ -802,19 +811,35 @@ function fmtTime(iso?: string) {
     <Transition name="seed-form">
       <div v-if="showExtractionLog && extractionLog.length" class="extraction-log">
         <div class="elog-header">
-          <span class="elog-title">⚠ Extraction report — {{ extractionLog.filter(e => e.warning).length }} item{{ extractionLog.filter(e => e.warning).length > 1 ? 's' : '' }} need review</span>
+          <span class="elog-title">
+            <template v-if="extractionLog.filter(e => e.warning).length > 0">
+              ⚠ {{ extractionLog.filter(e => e.warning).length }} need review —
+            </template>
+            {{ extractionLog.length }} entities extracted
+            <span class="elog-conf-summary">
+              <span class="elog-conf elog-conf--high">{{ extractionLog.filter(e => e.confidence === 'high').length }} high</span>
+              <span class="elog-conf elog-conf--medium">{{ extractionLog.filter(e => e.confidence === 'medium').length }} mid</span>
+              <span class="elog-conf elog-conf--low">{{ extractionLog.filter(e => e.confidence === 'low').length }} low</span>
+            </span>
+          </span>
           <button class="elog-close" @click="showExtractionLog = false">✕</button>
         </div>
         <div class="elog-body">
-          <div v-for="(entry, i) in extractionLog" :key="i" class="elog-row" :class="{ 'elog-warn': entry.warning }">
+          <div v-for="(entry, i) in extractionLog" :key="i" class="elog-row"
+               :class="{ 'elog-warn': entry.warning, [`elog-conf-row--${entry.confidence ?? 'high'}`]: true }">
             <span class="elog-kind">{{ { city:'🏙', location:'📍', npc:'👤', faction:'⚔', quest:'📜' }[entry.kind] ?? '?' }}</span>
             <span class="elog-name">{{ entry.name }}</span>
             <span class="elog-parent">{{ entry.parent ? `→ ${entry.parent}` : '— no parent' }}</span>
             <span v-if="entry.planeHint" class="elog-plane">✦ {{ entry.planeHint }}</span>
+            <span class="elog-conf-badge" :class="`elog-conf-badge--${entry.confidence ?? 'high'}`"
+                  :title="`Confidence: ${entry.confidence}`">{{ entry.confidence === 'high' ? '●' : entry.confidence === 'medium' ? '◐' : '○' }}</span>
             <span v-if="entry.warning" class="elog-warning-txt" :title="entry.warning">⚠</span>
           </div>
         </div>
-        <div class="elog-footer">Assign missing parents in the detail panel → "Belongs to"</div>
+        <div class="elog-footer">
+          <span>● high = explicit · ◐ mid = inferred · ○ low = uncertain</span>
+          <span v-if="extractionLog.some(e => !e.parent)">· Fix parents in detail panel → "Belongs to"</span>
+        </div>
       </div>
     </Transition>
 
@@ -1373,6 +1398,14 @@ function fmtTime(iso?: string) {
   padding: .28rem .55rem; cursor: pointer; transition: all var(--transition);
 }
 .btn-reset:hover { border-color: rgba(220,50,50,.4); color: var(--red-light); }
+
+.btn-elog-toggle {
+  background: transparent; border: 1px solid rgba(220,165,30,.3); border-radius: var(--radius-md);
+  color: rgba(220,165,30,.7); font-family: inherit; font-size: .67rem; font-weight: 600;
+  padding: .28rem .5rem; cursor: pointer; transition: all var(--transition);
+}
+.btn-elog-toggle:hover { border-color: rgba(220,165,30,.6); color: rgba(220,175,50,.95); }
+.btn-elog-toggle--warn { border-color: rgba(210,130,20,.5); color: rgba(220,150,30,.9); }
 
 .btn-analyze {
   display: flex; align-items: center; gap: .3rem;
@@ -2336,27 +2369,39 @@ function fmtTime(iso?: string) {
   display: flex; align-items: center; justify-content: space-between;
   padding: .35rem .7rem; border-bottom: 1px solid rgba(220,165,30,.15);
 }
-.elog-title { font-size: .72rem; font-weight: 700; color: rgba(220,175,40,.92); }
+.elog-title { font-size: .72rem; font-weight: 700; color: rgba(220,175,40,.92); display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.elog-conf-summary { display: flex; gap: .25rem; margin-left: .1rem; }
+.elog-conf { font-size: .62rem; font-weight: 600; padding: .05rem .28rem; border-radius: 99px; }
+.elog-conf--high   { background: rgba(60,180,80,.18);  color: rgba(100,210,110,.9); }
+.elog-conf--medium { background: rgba(200,160,30,.18); color: rgba(220,180,50,.9); }
+.elog-conf--low    { background: rgba(210,80,60,.18);  color: rgba(220,110,90,.9); }
 .elog-close {
   background: transparent; border: none; color: var(--text-muted);
   cursor: pointer; font-size: .72rem; padding: .1rem .2rem;
   transition: color var(--transition);
 }
 .elog-close:hover { color: var(--text-primary); }
-.elog-body { padding: .25rem .4rem; display: flex; flex-direction: column; gap: .08rem; max-height: 180px; overflow-y: auto; overscroll-behavior: contain; }
+.elog-body { padding: .25rem .4rem; display: flex; flex-direction: column; gap: .08rem; max-height: 200px; overflow-y: auto; overscroll-behavior: contain; }
 .elog-row {
   display: flex; align-items: center; gap: .35rem;
   padding: .12rem .3rem; border-radius: var(--radius-sm);
   font-size: .67rem;
 }
 .elog-row.elog-warn { background: rgba(220,140,20,.10); }
+.elog-conf-row--medium { border-left: 2px solid rgba(200,160,30,.35); }
+.elog-conf-row--low    { border-left: 2px solid rgba(210,80,60,.45); }
 .elog-kind { font-size: .75rem; flex-shrink: 0; line-height: 1; }
 .elog-name { font-weight: 600; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .elog-parent { color: var(--text-muted); font-size: .62rem; flex-shrink: 0; }
 .elog-plane { color: rgba(160,130,220,.75); font-size: .6rem; flex-shrink: 0; }
-.elog-warning-txt { color: rgba(220,160,30,.9); flex-shrink: 0; font-size: .7rem; cursor: help; margin-left: auto; }
+.elog-conf-badge { font-size: .65rem; flex-shrink: 0; cursor: help; }
+.elog-conf-badge--high   { color: rgba(80,200,90,.8); }
+.elog-conf-badge--medium { color: rgba(220,175,40,.8); }
+.elog-conf-badge--low    { color: rgba(210,90,70,.85); }
+.elog-warning-txt { color: rgba(220,160,30,.9); flex-shrink: 0; font-size: .7rem; cursor: help; }
 .elog-footer {
-  font-size: .62rem; color: var(--text-muted); padding: .25rem .7rem;
+  font-size: .6rem; color: var(--text-muted); padding: .25rem .7rem;
   border-top: 1px solid rgba(220,165,30,.12); font-style: italic;
+  display: flex; gap: .5rem; flex-wrap: wrap;
 }
 </style>

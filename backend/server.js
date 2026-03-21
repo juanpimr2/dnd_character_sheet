@@ -872,7 +872,11 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
   const allKnownEntities = allPlanes.flatMap(p => p.entities ?? [])
   let knownEntitiesBlock = ''
   if (allKnownEntities.length > 0) {
-    const entLines = allKnownEntities.map(e => `- ${e.name} (${e.kind})`).join('\n')
+    // Include parent info so the AI can use co-occurrence inference
+    const entLines = allKnownEntities.map(e => {
+      const loc = e.parent ? `, in: ${e.parent}` : ''
+      return `- ${e.name} (${e.kind}${loc})`
+    }).join('\n')
     knownEntitiesBlock = `\nKnown entities (preserve exact names — only parent/description updates allowed):\n${entLines}\n`
   }
 
@@ -897,8 +901,13 @@ app.post('/api/characters/:id/extract-lore', requireAuth, async (req, res) => {
 
 Return ONLY a valid JSON array (no markdown, no explanation) with this structure:
 [
-  { "name": "Entity Name", "kind": "city|location|npc|faction|quest", "description": "brief 1-2 sentence description", "parent": null, "planeHint": null }
+  { "name": "Entity Name", "kind": "city|location|npc|faction|quest", "description": "brief 1-2 sentence description", "parent": null, "planeHint": null, "confidence": "high|medium|low" }
 ]
+
+Confidence levels:
+- "high": the entity's parent/location is explicitly stated in the notes ("X lives in Y", "arrived at Y", "went to Y")
+- "medium": parent inferred from co-occurrence — entity appears alongside other entities whose location IS known
+- "low": genuinely unclear — entity mentioned without any location context, even implicit
 
 CRITICAL — never create an entity for the world itself:
 - The world map is the canvas. The world/plane/reality that CONTAINS everything is never a pin on the map.
@@ -933,6 +942,14 @@ Plane routing rules (planeHint field):
 - Example: notes mention "The Wandering Vault" as a demiplane with "El Curador" inside → El Curador gets planeHint: "Wandering Vault". Do NOT create "Wandering Vault" as a location entity in the Material Plane.
 - A portal or gateway in the Material Plane can be a location entity (kind: "location") but the entities INSIDE the destination plane get planeHint pointing to that plane name
 - When unsure, always leave planeHint: null (default plane)
+
+Co-occurrence inference (CRITICAL — for mid-campaign notes):
+- Session notes written mid-campaign often lack explicit location context. You MUST use implicit patterns.
+- If an NPC appears in the same scenes, conversations, or events as other NPCs/factions that already have a known parent, assign the same parent. Example: "Dular argued with Vhan Crane" — if Vhan Crane is already known to be in Vintervind, set Dular's parent to Vintervind (confidence: "medium").
+- Party members who travel together should be co-located: if ANY party member has a known home city, assign ALL party members to that same city unless the notes explicitly place them elsewhere.
+- If a location (tavern, lab, dungeon) is described as being "near X" or "outside X" or "in the mountains near X", use X as parent.
+- Use the Known entities list above to apply this reasoning: any entity "in: Y" in that list is a confirmed anchor — entities appearing alongside them inherit Y as their parent (medium confidence).
+- When in doubt between two cities, pick the one where MORE known entities are concentrated.
 
 Other rules:
 - CRITICAL: NEVER translate names. Use the EXACT names as written in the session notes (original language)
@@ -1010,20 +1027,25 @@ When notes are ambiguous you make the most narratively coherent choice. You neve
     entitiesByPlane.get(destId).ents.push(ent)
 
     // Build extraction log entry for this entity
+    const confidence = ent.confidence ?? (ent.parent ? 'high' : 'low')
     const parentClarity = ent.parent
-      ? (hint ? 'clear-with-plane' : 'clear')       // AI gave an explicit parent
+      ? (hint ? 'clear-with-plane' : (confidence === 'medium' ? 'inferred-cooccurrence' : 'clear'))
       : (allKnownEntities.length === 0 ? 'none'
          : allPlanes.flatMap(p => p.entities ?? []).some(e => e.kind === 'city') ? 'inferred-single-city' : 'none')
+    const warning = (!ent.parent && (ent.kind === 'npc' || ent.kind === 'faction'))
+      ? 'No parent assigned — location unclear in notes'
+      : (confidence === 'low' && ent.parent)
+        ? 'Parent assigned but confidence is low — verify in notes'
+        : null
     extractionLog.push({
       name:         ent.name,
       kind:         ent.kind,
       parent:       ent.parent ?? null,
+      confidence,
       parentClarity,
       planeHint:    hint || null,
       assignedPlane: destPlane?.name ?? 'unknown',
-      warning:      (!ent.parent && (ent.kind === 'npc' || ent.kind === 'faction'))
-                      ? 'No parent assigned — location unclear in notes'
-                      : null,
+      warning,
     })
   }
 
